@@ -1,0 +1,98 @@
+##### This is YAML file contains settings for the HBV model used in the
+##### ensemble. 
+##### Defaults are set in accordance with those used to achieve the MHPI
+##### Benchmarking results for the 671 CAMELs basins over 15-year train/test periods
+##### Make sure file paths are correct as they are individual to your machine.
+
+
+##---- Shared params ----##
+
+
+##---- (dPL)HBV ----##
+randomseed: 111111
+
+## Set GPU ID for cuda support.
+testgpuid: 0
+
+## Training/Testing options:
+PUOpt: 0
+# PUOpt defines basin holdouts:
+# 0: train and test on ALL basins;
+# 1 for PUB spatial test, randomly hold out basins;
+# 2 for PUR spatial test, hold out a continuous region.
+buffOpt: 0
+# buffOpt defines the warm-up of reservoirs for 1st year of training forcing data:
+# 0: do nothing, the first year forcing would only be used to warm up the next year;
+# 1: repeat first year forcing to warm up the first year;
+# 2: load one more year forcing to warm up the first year.
+buffOptTest: 0
+# buffOptTest controls load of training data:
+# 0: do nothing; 
+# 1: repeat first year; 
+# 2: load one more year.
+TDOpt: False
+# TDOpt: True -> dynamic parameters, False -> static parameters.
+forType: 'daymet'
+# Which forcing in CAMELS to use: 'daymet', 'nldas', or 'maurer'.
+
+# Timescales:
+Ttrain: [19801001, 19951001]    # Training period, all basins
+Tinv: [19801001, 19951001]    # Inversion period for historical forcings
+Ttest: [19951001, 20101001]   # testing period, all basins
+TtestLoad: [19951001, 20101001]   # could use this to load more forcings before testing period as warm-up.
+# Ttrain: [19891001, 19991001] # PUB/PUR period
+# Tinv: [19891001, 19991001] # PUB/PUR period
+# Ttest: [19891001, 19991001]  # PUB/PUR period
+# TtestLoad: [19801001, 19991001]  # PUB/PUR period
+testbatch: 30   # Batch of basins to test at a time to save GPU memory. 
+testepoch: 50
+
+
+## Set DL hyperparameters
+EPOCH: 50   # Total epoches to train the mode
+BATCH_SIZE: 100
+RHO: 365
+HIDDENSIZE: 256
+saveEPOCH: 2    # Save frequency. e.g., 2 -> save after completing every even epoch.
+Nfea: 12 
+# Nfea indicates number of HBV parameters:
+# 12: original HBV when ETMod=False; 
+# 13: includes the added dynamic ET para when setting ETMod=True.
+ETMod: False
+BUFFTIME: 365   # For each training sample, use BUFFTIME days to warm up the states.
+routing: True   # Specify the use of routing module for simulated runoff.
+Nmul: 16
+# Nmul specifies How many parallel HBV components to use for a multi-comp model:
+# 1: means use the original HBV.
+comprou: False    # Perform routing for each component.
+compwts: False    # Use weighted average for components; False is unweighted.
+pcorr: None   # A list to give the range of precipitation correction
+
+
+tdRep: [1, 13]    # Indexes of dynamic parameters
+dydrop: 0.0 
+# dydrop is the chance that a dynamic param become static:
+# 0.0: all dynamic;
+# 1: all static.
+staind: -1    # The timestep to use from learned para time series for static params.
+
+
+## Directories
+camels_path: 'D:\\data\\Camels'
+# The location of the CAMELS dataset folder 'Camels'. Directory structure:
+# 'your/path/to/Camels/basin_timeseries_v1p2_metForcing_obsFlow', and
+# 'your/path/to/Camels/camels_attributes_v2.0'
+output_path: 'D:\\data\\model_runs\\rnnStreamflow'    # Model data output will go here.
+testfoldInd: 1
+# testfoldInd sets different data loadings for ALL, PUB, PUR; which fold to hold
+# out for PUB (10 folds, from 1 to 10) and PUR (7 folds, from 1 to 7).
+# When training on ALL basins (setting PUOpt=0) this param has no effect, and 
+# could always be set to 1 in such case.
+
+
+## Checkpoint (load last save of model during training):
+# If you have a checkpoint file for a previous run, set the path to directory here.
+# saved_epoch corresponds to .pt model save file, and is the last epoch
+# to have been fully run and saved (i.e., you now want to run saved_epoch+1). 
+# saved_epoch: 10
+# checkpoint_path: 'D:\\data\\model_runs\\PGML_STemp_results\\models\\PRMS_SNTEMP\\671_sites\\LSTM_marrmot_PRMS_E50_R365_B100_H256_tr1980_1995_n2_0'
