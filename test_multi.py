@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 
 ##-----## Multi-model Parameters ##-----##
 # Setting dictionaries to separately manage each diff model's attributes.
-models = {'hbv': None, 'SACSMA':None, 'marrmot_PRMS':None}  # 'hbv':None
+models = {'hbvhy': None, 'SACSMA':None, 'marrmot_PRMS':None}  # 'hbv':None
 args_list = {'SACSMA': sacsmaArgs, 'marrmot_PRMS':prmsArgs,'hbv': hbvhyArgs} # hbvArgs
 
 ENSEMBLE_TYPE = 'median'  # 'avg', 'max', 'softmax'
@@ -348,7 +348,7 @@ def calculate_metrics_multi(args_list, model_outputs, y_obs_list, ensemble_type=
                 elif ensemble_type == 'median':
                     temp = np.median(temp, axis=1)
                 else:
-                    raise ValueError("Invalid model ensemble type specified.")
+                    raise ValueError("Invalid ensemble type specified.")
                 
             median = np.nanmedian(temp)  # abs(i)
             std = np.nanstd(temp)  # abs(i)
