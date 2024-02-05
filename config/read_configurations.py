@@ -12,6 +12,7 @@ except ModuleNotFoundError:
 config_path_hbv = "config/config_HBV.yaml"
 config_path_prms = "config/config_PRMS.yaml"
 config_path_sacsma= "config/config_SACSMA.yaml"
+config_path_sacsma_snow= "config/config_SACSMA_with_snow.yaml"
 config_path_hbv_hy= "config/config_hbv_hydrodl.yaml"
 
 
@@ -19,16 +20,19 @@ yaml = YAML(typ="safe")
 path_hbv = os.path.realpath(config_path_hbv)
 path_prms = os.path.realpath(config_path_prms)
 path_sacsma = os.path.realpath(config_path_sacsma)
+path_sacsma_snow = os.path.realpath(config_path_sacsma_snow)
 path_hbv_hy = os.path.realpath(config_path_hbv_hy)
 
 
 stream_hbv = open(path_hbv, "r")
 stream_prms = open(path_prms, "r")
 stream_sacsma = open(path_sacsma, "r")
+stream_sacsma_snow = open(path_sacsma_snow, "r")
 stream_hbv_hy = open(path_hbv_hy, "r")
 
 
 config_hbv = yaml.load(stream_hbv)
 config_prms = yaml.load(stream_prms)
 config_sacsma = yaml.load(stream_sacsma)
+config_sacsma_snow = yaml.load(stream_sacsma_snow)
 config_hbv_hydrodl = yaml.load(stream_hbv_hy)

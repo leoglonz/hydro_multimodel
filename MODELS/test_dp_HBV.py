@@ -324,3 +324,4 @@ if __name__ == "__main__":
     ## post processing
     # calculate evaluation metrics (Q0: the streamflow)
     evaDict = [stat.statError(predtestALL[:,:,0], obstestALL.squeeze())]
+    print(evaDict)

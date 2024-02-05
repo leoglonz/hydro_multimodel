@@ -10,6 +10,8 @@ Purpose: This file runs training on an ensemble of PyTorch hydro models for the
 15-year train window of 1980/10/01 to 1995/09/30 (or [19801001,19951001]) with 
 all 671 CAMELS basins as default.
 
+As name suggests, this code does not utilize a model wrapper for ensembling with an LSTM.
+
 The desired ensemble method is specified by `ensemble_type`, but, if necessary, 
 individual model runs can also be performed by specifying only one model in `models`
 and `arg_list`.

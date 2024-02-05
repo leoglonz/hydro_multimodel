@@ -6,7 +6,7 @@ for demonstration purposes.
 Credit Rahmani & Song et al.
 -------------------------------------
 
-Definitions for MHPI's differentiable model type.
+Wrapper for MHPI's differentiable model type, and for the multimodel ensemble.
 """
 import torch.nn
 
@@ -156,7 +156,7 @@ class diff_hydro_temp_model(torch.nn.Module):
                 conv_params_hydro=params_dict["conv_params_hydro"]
             )
 
-            # Todo: send this to  a function
+            # Todo: send this to a function
             # source flow calculation and converting mm/day to m3/ day
             srflow, ssflow, gwflow = self.hydro_model.source_flow_calculation(self.args, flow_out,
                                                                               dataset_dictionary_sample["c_NN_sample"])
@@ -179,3 +179,41 @@ class diff_hydro_temp_model(torch.nn.Module):
                 return {**flow_out, **temp_out}   # combining both dictionaries
             else:
                 return flow_out
+            
+
+class hydroEnsemble(torch.nn.Module):
+    # Wrapper for multiple hydrologic models.
+    # In future, consider just passing the models you want to ensemble explicitly.
+    def __init__(self, num_models, hidden_size, num_layers):
+        super(hydroEnsemble, self).__init__()
+
+        self.lstm = torch.nn.LSTM(num_models, hidden_size, num_layers, batch_first=True)
+        self.fc = torch.nn.Linear(hidden_size, num_models)  # Two models (modelA and modelB)
+
+        # self.modelA = modelA
+        # self.modelB = modelB
+        # self.classifier = torch.nn.Linear(4, 2)
+
+    def forward(self, x):
+        # x is the input sequence with shape (num_basins, num_models) of concatenated model outputs.
+
+        # LSTM layer
+        lstm_out, _ = self.lstm(x)
+
+        # Fully connected layer
+        fc_out = self.fc(lstm_out[:, -1, :])
+
+        # Apply softmax activation to obtain weights
+        weights = torch.nn.functional.softmax(fc_out, dim=1)
+
+        # Weighted combination of predictions
+        weighted_predictions = torch.sum(x * weights.view(-1, 1, x.size(2)), dim=1)
+
+        # x1 = self.modelA(x1)
+        # x2 = self.modelB(x2)
+        # x = torch.cat((x1, x2), dim=1)
+        # x = self.classifier(torch.nn.functional.softmax(x))
+        # return x
+
+        return weighted_predictions, weights
+    
