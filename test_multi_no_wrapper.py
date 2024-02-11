@@ -31,7 +31,7 @@ from tqdm import tqdm
 import scipy.stats
 
 from post import plot
-from test_dp_HBV import test_dp_hbv
+from MODELS.test_dp_HBV import test_dp_hbv
 
 from core.utils.randomseed_config import randomseed_config
 from core.utils.master import create_output_dirs
