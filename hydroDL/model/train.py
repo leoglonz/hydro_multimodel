@@ -159,11 +159,38 @@ def saveModel(outFolder, model, epoch, modelName='model'):
 
 def loadModel(outFolder, epoch, modelName='model'):
     modelFile = os.path.join(outFolder, modelName + '_Ep' + str(epoch) + '.pt')
-    model = torch.load(modelFile)
-    return model
+    if torch.cuda.is_available():
+        return torch.load(modelFile)
+    elif torch.backends.mps.is_available():
+        return torch.load(modelFile, map_location=torch.device('cpu'))
+        # return torch.load(modelFile, map_location=torch.device('mps'))
+    else:
+        return torch.load(modelFile, map_location=torch.device('cpu'))
+
+
+def setDevice(object):
+    ''' 
+    Move Torch object to the relevant device so that code works on
+    Windows, and m1 or cpu bound MacOS.
+    '''
+    if torch.cuda.is_available():
+        # nvidia
+        return object.cuda()
+    elif torch.backends.mps.is_available():
+        # mac m1
+        return object.to(torch.device('cpu'))
+        # return object.to(torch.device('mps'))
+    else:
+        # Non-m-series MacOS
+        return object.to(torch.device('cpu'))
+    
+
+class Conf: dev = torch.device('cpu')  # Set torch device explicitly for mac m1.
 
 
 def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outModel=None, savePath=None):
+    print("Using device ", Conf.dev)
+
     # outModel, savePath: only for R2P-hymod model, for other models always set None
     if type(x) is tuple or type(x) is list:
         x, z = x
@@ -182,8 +209,9 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
         ny = model.ny
     if batchSize is None:
         batchSize = ngrid
-    if torch.cuda.is_available():
-        model = model.cuda()
+    
+    # Move model to compute device.
+    model = setDevice(model)
 
     model.train(mode=False)
     if hasattr(model, 'ctRm'):
@@ -206,6 +234,8 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
     # forward for each batch
     for i in tqdm(range(0, len(iS)), unit='Batch'):
         # print('batch {}'.format(i))
+        
+        # Creating xTest tensor.
         xTemp = x[iS[i]:iE[i], :, :]
         if c is not None:
             cTemp = np.repeat(
@@ -215,8 +245,11 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
         else:
             xTest = torch.from_numpy(
                 np.swapaxes(xTemp, 1, 0)).float()
-        if torch.cuda.is_available():
-            xTest = xTest.cuda()
+            
+        xTest = setDevice(xTest)
+        xTest.to(torch.device('cpu'))
+            
+        # Creating zTest tensor.
         if z is not None:
             if type(model) in [rnn.CNN1dLCmodel, rnn.CNN1dLCInmodel]:
                 if len(z.shape) == 2:
@@ -233,8 +266,10 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
                 #         np.reshape(c[iS[i]:iE[i], :], [iE[i] - iS[i], 1, nc]), zTemp.shape[1], axis=1)
                 #     zTemp = np.concatenate([zTemp, cInv], 2)
                 zTest = torch.from_numpy(np.swapaxes(zTemp, 1, 0)).float()
-            if torch.cuda.is_available():
-                zTest = zTest.cuda()
+            
+            zTest = setDevice(zTest)
+            zTest.to(torch.device('cpu'))
+            
         if type(model) in [rnn.CudnnLstmModel, rnn.AnnModel, rnn.CpuLstmModel]:
             # if z is not None:
             #     xTest = torch.cat((xTest, zTest), dim=2)
@@ -248,8 +283,9 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
                     ySS = ySS+np.square(yMC-yPnp)
                 ySS = np.sqrt(ySS)/doMC
         if type(model) in [rnn.LstmCloseModel, rnn.AnnCloseModel, rnn.CNN1dLSTMmodel, rnn.CNN1dLSTMInmodel,
-                           rnn.CNN1dLCmodel, rnn.CNN1dLCInmodel, rnn.CudnnInvLstmModel,
-                           rnn.MultiInv_HBVModel, rnn.MultiInv_HBVTDModel]:
+                        rnn.CNN1dLCmodel, rnn.CNN1dLCInmodel, rnn.CudnnInvLstmModel,
+                        rnn.MultiInv_HBVModel, rnn.MultiInv_HBVTDModel]:
+            print(model), print(type(model))
             yP = model(xTest, zTest)
         if type(model) in [hydroDL.model.rnn.LstmCnnForcast]:
             yP = model(xTest, zTest)
@@ -291,6 +327,7 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
                 return q, evap, Parameters_R2P
         else:
             return yOut
+
 
 def testModelCnnCond(model, x, y, *, batchSize=None):
     ngrid, nt, nx = x.shape

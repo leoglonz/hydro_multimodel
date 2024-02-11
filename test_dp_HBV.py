@@ -2,6 +2,7 @@
 This script runs all of the necessary data cleaning, along with the training regement, for Dapeng's static dPLHBV model.
 """
 import sys
+import platform
 sys.path.append('../../')
 from hydroDL import master, utils
 from hydroDL.data import camels
@@ -49,9 +50,37 @@ TtestLoad = [19951001, 20101001]
 
 
 def test_dp_hbv():
-    ## GPU setting
-    testgpuid = 0
-    torch.cuda.set_device(testgpuid)
+    ## GPU setting (check m ac vs windows), and
+    ## Define root directory of database and saved output dir.
+    if platform.system() == 'Darwin':
+        # Use mac M1 GPUs
+        if torch.backends.mps.is_available():
+            # device = torch.device('mps')
+            device = torch.device('cpu')
+        else:
+            device = torch.device('cpu')
+
+        print("Using device", device)
+
+        # Setting dirs
+        rootDatabase = os.path.join(os.path.sep, '/Users/leoglonz/Desktop/water/data', 'Camels')  # CAMELS dataset root directory
+        camels.initcamels(rootDatabase)  # initialize three camels module-scope variables in camels.py: dirDB, gageDict, statDict
+
+        rootOut = os.path.join(os.path.sep, '/Users/leoglonz/Desktop/water/data/model_runs', 'rnnStreamflow')  # Model output root directory
+
+    elif platform.system() == 'Windows':
+        # Use nvidia GPU
+        testgpuid = 0
+        torch.cuda.set_device(testgpuid)
+
+        # Setting dirs
+        rootDatabase = os.path.join(os.path.sep, 'D:\data', 'Camels')  # CAMELS dataset root directory
+        camels.initcamels(rootDatabase)  # initialize three camels module-scope variables in camels.py: dirDB, gageDict, statDict
+
+        rootOut = os.path.join(os.path.sep, 'D:\data\model_runs', 'rnnStreamflow')  # Model output root directory
+            
+    else:
+        raise ValueError('Unsupported operating system.')
 
     ## setting options, keep the same as your training
     PUOpt = 0  # 0 for All; 1 for PUB; 2 for PUR;
@@ -83,14 +112,6 @@ def test_dp_hbv():
     testepoch = 50
 
     testseed = 111111
-
-    # Define root directory of database and saved output dir
-    # Modify this based on your own location of CAMELS dataset and saved models
-    rootDatabase = os.path.join(os.path.sep, 'D:\data', 'Camels')  # CAMELS dataset root directory
-    camels.initcamels(rootDatabase)  # initialize three camels module-scope variables in camels.py: dirDB, gageDict, statDict
-
-    rootOut = os.path.join(os.path.sep, 'D:\data\model_runs', 'rnnStreamflow')  # Model output root directory
-
 
     # CAMLES basin info
     gageinfo = camels.gageDict
@@ -293,11 +314,11 @@ def test_dp_hbv():
     cTemp = np.repeat(
         np.reshape(attrtest, [attrtest.shape[0], 1, attrtest.shape[-1]]), zTest.shape[1], axis=1)
     zTest = np.concatenate([zTest, cTemp], 2) # Add attributes to historical forcings as the inversion part
-    testTuple = (xTest, zTest) # xTest: input forcings to HBV; zTest: inputs to gA LSTM to learn parameters
+    testTuple = (xTest, zTest) # nparrays xTest: input forcings to HBV; zTest: inputs to gA LSTM to learn parameters
 
     # forward the model and save results
     train.testModel(
-        testmodel, testTuple, c=None, batchSize=testbatch, filePathLst=filePathLst)
+        testmodel.to(device), testTuple, c=None, batchSize=testbatch, filePathLst=filePathLst)
 
     # read out the saved forward predictions
     dataPred = np.ndarray([obs.shape[0], obs.shape  [1], len(filePathLst)])
