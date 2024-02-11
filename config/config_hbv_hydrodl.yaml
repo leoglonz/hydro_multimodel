@@ -78,11 +78,13 @@ staind: -1    # The timestep to use from learned para time series for static par
 
 
 ## Directories
-camels_path: 'D:\\data\\Camels'
+# camels_path: 'D:\\data\\Camels'
+camels_path: '/content/Camels'
 # The location of the CAMELS dataset folder 'Camels'. Directory structure:
 # 'your/path/to/Camels/basin_timeseries_v1p2_metForcing_obsFlow', and
 # 'your/path/to/Camels/camels_attributes_v2.0'
-output_path: 'D:\\data\\model_runs\\rnnStreamflow'    # Model data output will go here.
+# output_path: 'D:\\data\\model_runs\\rnnStreamflow'    # Model data output will go here.
+output_path: '/content/drive/MyDrive/Colab/data/model_runs/rnnStreamflow'
 testfoldInd: 1
 # testfoldInd sets different data loadings for ALL, PUB, PUR; which fold to hold
 # out for PUB (10 folds, from 1 to 10) and PUR (7 folds, from 1 to 7).

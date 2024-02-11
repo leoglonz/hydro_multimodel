@@ -78,7 +78,18 @@ def test_dp_hbv():
         camels.initcamels(rootDatabase)  # initialize three camels module-scope variables in camels.py: dirDB, gageDict, statDict
 
         rootOut = os.path.join(os.path.sep, 'D:\data\model_runs', 'rnnStreamflow')  # Model output root directory
-            
+    
+    elif platform.system() == 'Linux':
+        # Use nvidia GPU in Colab
+        testgpuid = 0
+        torch.cuda.set_device(testgpuid)
+
+        # Setting dirs
+        rootDatabase = '/content/Camels' # CAMELS dataset root directory
+        camels.initcamels(rootDatabase)  # initialize three camels module-scope variables in camels.py: dirDB, gageDict, statDict
+
+        rootOut = os.path.join(os.path.sep, '/content/drive/MyDrive/Colab/data/model_runs', 'rnnStreamflow')  # Model output root directory
+        
     else:
         raise ValueError('Unsupported operating system.')
 
