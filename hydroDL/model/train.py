@@ -285,7 +285,7 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
         if type(model) in [rnn.LstmCloseModel, rnn.AnnCloseModel, rnn.CNN1dLSTMmodel, rnn.CNN1dLSTMInmodel,
                         rnn.CNN1dLCmodel, rnn.CNN1dLCInmodel, rnn.CudnnInvLstmModel,
                         rnn.MultiInv_HBVModel, rnn.MultiInv_HBVTDModel]:
-            print(model), print(type(model))
+            # print(model), print(type(model))
             yP = model(xTest, zTest)
         if type(model) in [hydroDL.model.rnn.LstmCnnForcast]:
             yP = model(xTest, zTest)

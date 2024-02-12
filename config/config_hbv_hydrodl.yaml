@@ -30,7 +30,7 @@ buffOptTest: 0
 # 0: do nothing; 
 # 1: repeat first year; 
 # 2: load one more year.
-TDOpt: False
+TDOpt: True
 # TDOpt: True -> dynamic parameters, False -> static parameters.
 forType: 'daymet'
 # Which forcing in CAMELS to use: 'daymet', 'nldas', or 'maurer'.
