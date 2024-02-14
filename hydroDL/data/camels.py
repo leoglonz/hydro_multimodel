@@ -37,7 +37,7 @@ def readGageInfo(dirDB):
     fieldLst = ['huc', 'id', 'name', 'lat', 'lon', 'area']
     out = dict()
     for s in fieldLst:
-        if s is 'name':
+        if s == 'name':
             out[s] = data[fieldLst.index(s)].values.tolist()
         else:
             out[s] = data[fieldLst.index(s)].values
@@ -53,7 +53,7 @@ def readUsgsGage(usgsId, *, readQc=False):
     dataTemp = pd.read_csv(usgsFile, sep=r'\s+', header=None)
     obs = dataTemp[4].values
     obs[obs < 0] = np.nan
-    if readQc is True:
+    if readQc == True:
         qcDict = {'A': 1, 'A:e': 2, 'M': 3}
         qc = np.array([qcDict[x] for x in dataTemp[5]])
     if len(obs) != ntobs:
@@ -63,15 +63,15 @@ def readUsgsGage(usgsId, *, readQc=False):
         date = pd.to_datetime(dfDate).values.astype('datetime64[D]')
         [C, ind1, ind2] = np.intersect1d(date, tLstobs, return_indices=True)
         out[ind2] = obs
-        if readQc is True:
+        if readQc == True:
             outQc = np.full([ntobs], np.nan)
             outQc[ind2] = qc
     else:
         out = obs
-        if readQc is True:
+        if readQc == True:
             outQc = qc
 
-    if readQc is True:
+    if readQc == True:
         return out, outQc
     else:
         return out
@@ -155,7 +155,7 @@ def readAttrAll(*, saveDict=False):
             k = k + 1
         outLst.append(outTemp)
     out = np.concatenate(outLst, 1)
-    if saveDict is True:
+    if saveDict == True:
         fileName = os.path.join(dataFolder, 'dictFactorize.json')
         with open(fileName, 'w') as fp:
             json.dump(fDict, fp, indent=4)
@@ -364,7 +364,7 @@ def calStatAll():
 def getStatDic(attrLst = None, attrdata=None, seriesLst = None, seriesdata=None):
     statDict = dict()
     # series data
-    if seriesLst is not None:
+    if seriesLst != None:
         for k in range(len(seriesLst)):
             var = seriesLst[k]
             if var in ['prcp', 'Precip', 'runoff', 'Runoff', 'Runofferror']:
@@ -372,7 +372,7 @@ def getStatDic(attrLst = None, attrdata=None, seriesLst = None, seriesdata=None)
             else:
                 statDict[var] = calStat(seriesdata[:, :, k])
     # const attribute
-    if attrLst is not None:
+    if attrLst != None:
         for k in range(len(attrLst)):
             var = attrLst[k]
             statDict[var] = calStat(attrdata[:, k])
@@ -380,13 +380,13 @@ def getStatDic(attrLst = None, attrdata=None, seriesLst = None, seriesdata=None)
 
 
 def transNorm(x, varLst, *, toNorm):
-    if type(varLst) is str:
+    if type(varLst) == str:
         varLst = [varLst]
     out = np.zeros(x.shape)
     for k in range(len(varLst)):
         var = varLst[k]
         stat = statDict[var]
-        if toNorm is True:
+        if toNorm == True:
             if len(x.shape) == 3:
                 if var == 'prcp' or var == 'usgsFlow':
                     x[:, :, k] = np.log10(np.sqrt(x[:, :, k])+0.1)
@@ -411,13 +411,13 @@ def transNorm(x, varLst, *, toNorm):
     return out
 
 def transNormbyDic(x, varLst, staDic, *, toNorm):
-    if type(varLst) is str:
+    if type(varLst) == str:
         varLst = [varLst]
     out = np.zeros(x.shape)
     for k in range(len(varLst)):
         var = varLst[k]
         stat = staDic[var]
-        if toNorm is True:
+        if toNorm == True:
             if len(x.shape) == 3:
                 if var in ['prcp', 'usgsFlow', 'Precip', 'runoff', 'Runoff', 'Runofferror']:
                     temp = np.log10(np.sqrt(x[:, :, k])+0.1)
@@ -451,7 +451,7 @@ def transNormbyDic(x, varLst, staDic, *, toNorm):
 
 def basinNorm(x, gageid, toNorm):
     # for regional training, gageid should be numpyarray
-    if type(gageid) is str:
+    if type(gageid) == str:
         if gageid == 'All':
             gageid = gageDict['id']
     nd = len(x.shape)
@@ -462,7 +462,7 @@ def basinNorm(x, gageid, toNorm):
         x = x[:,:,0] # unsqueeze the original 3 dimension matrix
     temparea = np.tile(basinarea, (1, x.shape[1]))
     tempprep = np.tile(meanprep, (1, x.shape[1]))
-    if toNorm is True:
+    if toNorm == True:
         flow = (x * 0.0283168 * 3600 * 24) / ((temparea * (10 ** 6)) * (tempprep * 10 ** (-3))) # (m^3/day)/(m^3/day)
     else:
 
@@ -472,7 +472,7 @@ def basinNorm(x, gageid, toNorm):
     return flow
 
 def createSubsetAll(opt, **kw):
-    if opt is 'all':
+    if opt == 'all':
         idLst = gageDict['id']
         subsetFile = os.path.join(dirDB, 'Subset', 'all.csv')
         np.savetxt(subsetFile, idLst, delimiter=',', fmt='%d')
@@ -512,7 +512,7 @@ class DataframeCamels(Dataframe):
             crd[:, 0] = gageDict['lat']
             crd[:, 1] = gageDict['lon']
             self.crd = crd
-        elif type(subset) is list:
+        elif type(subset) == list:
             self.usgsId = np.array(subset)
             crd = np.zeros([len(self.usgsId), 2])
             ind = np.full(len(self.usgsId), np.nan).astype(int)
@@ -538,20 +538,20 @@ class DataframeCamels(Dataframe):
         Get observed streamflow values.
         """
         data = readUsgs(self.usgsId)
-        if basinnorm is True:
+        if basinnorm == True:
             data = basinNorm(data, gageid=self.usgsId, toNorm=True)
         data = np.expand_dims(data, axis=2)
         C, ind1, ind2 = np.intersect1d(self.time, tLstobs, return_indices=True)
         data = data[:, ind2, :]
-        if doNorm is True:
+        if doNorm == True:
             data = transNorm(data, 'usgsFlow', toNorm=True)
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
             # data[np.where(np.isnan(data))] = -99
         return data
 
     def getDataTs(self, *, varLst=forcingLst, doNorm=True, rmNan=True):
-        if type(varLst) is str:
+        if type(varLst) == str:
             varLst = [varLst]
         if self.forType in ['maurer', 'maurer_extended']:
             tRange = [19800101, 20090101]
@@ -572,48 +572,48 @@ class DataframeCamels(Dataframe):
             data = readForcing(self.usgsId, varLst, fordata=self.forType, nt=nt) # data:[gage*day*variable]
         C, ind1, ind2 = np.intersect1d(self.time, tLst, return_indices=True)
         data = data[:, ind2, :]
-        if doNorm is True:
+        if doNorm == True:
             data = transNorm(data, varLst, toNorm=True)
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         return data
 
     def getDataConst(self, *, varLst=attrLstSel, doNorm=True, rmNan=True, SAOpt=None):
-        if type(varLst) is str:
+        if type(varLst) == str:
             varLst = [varLst]
         data = readAttr(self.usgsId, varLst)
-        if SAOpt is not None:
+        if SAOpt != None:
             SAname, SAfac = SAOpt
             # find the index of target constant
             indVar = varLst.index(SAname)
             data[:, indVar] = data[:, indVar] * (1 + SAfac)
-        if doNorm is True:
+        if doNorm == True:
             data = transNorm(data, varLst, toNorm=True)
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         return data
 
     def getSAC(self, *, basinnorm=True, doNorm=True, rmNan=True):
         # data = readSAC(self.time) # data:[gage*day*variable]
         data = readLstm(self.time)
-        if basinnorm is True:
+        if basinnorm == True:
             data = basinNorm(data, gageid=self.usgsId, toNorm=True)
-        if doNorm is True:
+        if doNorm == True:
             stats = calStatgamma(data)
             data = np.log10(np.sqrt(data) + 0.1)
             data = (data - stats[2]) / stats[3]
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         return data
 
     def getHour(self, *, doNorm=True, rmNan=True):
         data, thourLst = readhour(varLst=['APCP'], usgsIdLst=self.usgsId) # gage, time, var: 1 precip
         data[data==-9999] = np.nan
-        if doNorm is True:
+        if doNorm == True:
             stats = calStatgamma(data)
             data = np.log10(np.sqrt(data) + 0.1)
             data = (data - stats[2]) / stats[3]
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         data = np.reshape(data, [len(self.usgsId), -1, 24]) # presently only for precipitation
         C, ind1, ind2 = np.intersect1d(self.time, thourLst, return_indices=True)
@@ -626,11 +626,11 @@ class DataframeCamels(Dataframe):
         SMAPinvt = utils.time.tRange2Array(SMAPinvrange)
         C, ind1, ind2 = np.intersect1d(SMAPinvt, tSMAPLst, return_indices=True)
         data = data[:, ind2, :]
-        if doNorm is True:
+        if doNorm == True:
             for ivar in range(len(varsmapLst)):
                 tempvar = varsmapLst[ivar]
                 data[:, :, ivar] = (data[:, :, ivar] - smapDict[tempvar][2]) / smapDict[tempvar][3]
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         return data
 
@@ -641,10 +641,10 @@ class DataframeCamels(Dataframe):
         readtLst = utils.time.tRange2Array(readRange)
         C, ind1, ind2 = np.intersect1d(readtLst, tcsvdataLst, return_indices=True)
         data = data[:, ind2, :]
-        if doNorm is True:
+        if doNorm == True:
             for ivar in range(len(csvvarLst)):
                 tempvar = csvvarLst[ivar]
                 data[:, :, ivar] = (data[:, :, ivar] - csvstatDict[tempvar][2]) / csvstatDict[tempvar][3]
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         return data

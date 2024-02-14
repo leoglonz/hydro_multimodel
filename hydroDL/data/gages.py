@@ -85,11 +85,11 @@ def readUsgsGage(gageID, readQc=False):
         out = flow
         outQc = flow_qc
 
-    if readQc is True:
+    if readQc == True:
         qcDict = {'A': 1, 'P': 2, 'A, e': 3, 'P, e': 4, 'P, Ice': 5}
         qc = np.array([qcDict[x] for x in flow_qc])
 
-    if readQc is True:
+    if readQc == True:
         return out, outQc
     else:
         return out
@@ -194,7 +194,7 @@ def readForcing(usgsIdLst, varLst):
 def readLanduse(usgsIdLst, varlst=None):
     print("Reading Land use data")
     t0= time.time()
-    if varlst is None:
+    if varlst == None:
         LanduseAttr = ['NWALTXX_DEV_SUM', 'NWALTXX_AG4346_SUM', 'NWALTXX_11', 'NWALTXX_25', 'NWALTXX_43',
                    'NWALTXX_50']
     else:
@@ -413,13 +413,13 @@ def calStatAll():
 
 
 def transNorm(x, varLst, *, toNorm):
-    if type(varLst) is str:
+    if type(varLst) == str:
         varLst = [varLst]
     out = np.zeros(x.shape)
     for k in range(len(varLst)):
         var = varLst[k]
         stat = statDict[var]
-        if toNorm is True:
+        if toNorm == True:
             if len(x.shape) == 3:
                 if var == 'prcp' or var == 'usgsFlow':
                     x[:, :, k] = np.log10(np.sqrt(x[:, :, k]) + 0.1)
@@ -442,7 +442,7 @@ def transNorm(x, varLst, *, toNorm):
 
 def basinNorm(x, gageid, toNorm):
     # for regional training, gageid should be numpyarray
-    if type(gageid) is str:
+    if type(gageid) == str:
         if gageid == 'All':
             gageid = gageDict['id']
     nd = len(x.shape)
@@ -453,7 +453,7 @@ def basinNorm(x, gageid, toNorm):
         x = x[:, :, 0]  # unsqueeze the original 3 dimension matrix
     temparea = np.tile(basinarea, (1, x.shape[1]))
     tempprep = np.tile(meanprep, (1, x.shape[1]))
-    if toNorm is True:
+    if toNorm == True:
         flow = (x * 0.0283168 * 3600 * 24) / ((temparea * (10 ** 6)) * (tempprep * 10 ** (-2)))  # (m^3/day)/(m^3/day)
     else:
 
@@ -464,7 +464,7 @@ def basinNorm(x, gageid, toNorm):
 
 
 def createSubsetAll(opt, **kw):
-    if opt is 'all':
+    if opt == 'all':
         idLst = gageDict['id']
         subsetFile = os.path.join(dirDB, 'Subset', 'all.csv')
         np.savetxt(subsetFile, idLst, delimiter=',', fmt='%d')
@@ -506,7 +506,7 @@ class DataframeGages(Dataframe):
             crd[:, 0] = gageDict['lat']
             crd[:, 1] = gageDict['lon']
             self.crd = crd
-        elif type(subset) is list:
+        elif type(subset) == list:
             self.usgsId = np.array(subset)
             crd = np.zeros([len(self.usgsId), 2])
             C, ind1, ind2 = np.intersect1d(self.usgsId, gageDict['id'], return_indices=True)
@@ -525,20 +525,20 @@ class DataframeGages(Dataframe):
 
     def getDataObs(self, *, doNorm=True, rmNan=True, basinnorm=True):
         data = readUsgs(self.usgsId)
-        if basinnorm is True:
+        if basinnorm == True:
             data = basinNorm(data, gageid=self.usgsId, toNorm=True)
         data = np.expand_dims(data, axis=2)
         C, ind1, ind2 = np.intersect1d(self.time, tLstobs, return_indices=True)
         data = data[:, ind2, :]
-        if doNorm is True:
+        if doNorm == True:
             data = transNorm(data, 'usgsFlow', toNorm=True)
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
             # data[np.where(np.isnan(data))] = -99
         return data
 
     def getDataTs(self, *, varLst=forcingLst, doNorm=True, rmNan=True,includeLanduse,includeWateruse):
-        if type(varLst) is str:
+        if type(varLst) == str:
             varLst = [varLst]
         # read ts forcing
         dataForcing = readForcing(self.usgsId, varLst)  # data:[gage*day*variable]
@@ -547,14 +547,14 @@ class DataframeGages(Dataframe):
         data = dataForcing
 
         # read Landuse
-        if includeLanduse is True:
+        if includeLanduse == True:
             dataLanduse = readLanduse(self.usgsId, LanduseAttr)
             C, ind1, ind2 = np.intersect1d(self.time, tLst, return_indices=True)
             dataLanduse = dataLanduse[:, ind2, :]
             data = np.concatenate((data, dataLanduse), axis=2)
 
         # read Wateruse
-        if includeWateruse is True:
+        if includeWateruse == True:
             dataWateruse = readWateruse(self.usgsId)
             C, ind1, ind2 = np.intersect1d(self.time, tLst, return_indices=True)
             dataWateruse = dataWateruse[:, ind2]
@@ -562,18 +562,18 @@ class DataframeGages(Dataframe):
             data = np.concatenate((data, dataWateruse), axis=2)
 
 
-        if doNorm is True:
+        if doNorm == True:
             data = transNorm(data, varLst, toNorm=True)
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         return data
 
     def getDataConst(self, *, varLst=attrLstSel, doNorm=True, rmNan=True):
-        if type(varLst) is str:
+        if type(varLst) == str:
             varLst = [varLst]
         data = readAttr(self.usgsId, varLst)
-        if doNorm is True:
+        if doNorm == True:
             data = transNorm(data, varLst, toNorm=True)
-        if rmNan is True:
+        if rmNan == True:
             data[np.where(np.isnan(data))] = 0
         return data

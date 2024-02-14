@@ -17,9 +17,9 @@ def interpNan1d(x, mode='linear'):
     i0 = np.where(np.isnan(x))[0]
     i1 = np.where(~np.isnan(x))[0]
     if len(i1) > 0:
-        if mode is 'linear':
+        if mode =='linear':
             x[i0] = np.interp(i0, i1, x[i1])
-        if mode is 'pre':
+        if mode =='pre':
             x0 = x[i1[0]]
             for k in range(len(x)):
                 if k in i0:

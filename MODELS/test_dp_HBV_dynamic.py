@@ -195,7 +195,7 @@ def test_dp_hbv():
 
         # prepare input data
         # load camels dataset
-        if forType is 'daymet':
+        if forType == 'daymet':
             varF = ['prcp', 'tmean']
             varFInv = ['prcp', 'tmean']
         else:
