@@ -37,7 +37,7 @@ def test_dp_hbv():
         # Use mac M1 GPUs
         if torch.backends.mps.is_available():
             # device = torch.device('mps')
-            device = torch.device('cpu')
+            device = torch.device('mps')
         else:
             device = torch.device('cpu')
 
@@ -77,7 +77,7 @@ def test_dp_hbv():
     ## setting options, keep the same as your training
     PUOpt = 0  # 0 for All; 1 for PUB; 2 for PUR;
     buffOptOri = 0  # original buffOpt, Same as what you set for training
-    buffOpt = 0  # control load training data 0: do nothing; 1: repeat first year; 2: load one more year
+    buffOpt = 1  # control load training data 0: do nothing; 1: repeat first year; 2: load one more year
     forType = 'daymet'
 
     ## Hyperparameters, keep the same as your training setup
@@ -347,7 +347,7 @@ def test_dp_hbv():
         for k in range(len(filePathLst)):
             filePath = filePathLst[k]
             dataPred[:, :, k] = pd.read_csv(
-                filePath, dtype=np.float, header=None).values
+                filePath, dtype=np.float64, header=None).values
         # save the predictions to the big matrix
         predtestALL[nstart:nstart+nbasin, :, :] = dataPred[:, TestBuff-runBUFF:, :]
         obstestALL[nstart:nstart+nbasin, :, :] = obs
