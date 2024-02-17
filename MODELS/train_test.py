@@ -218,13 +218,3 @@ def save_outputs(args, list_out_diff_model, y_obs, calculate_metrics=True):
             )  # , dpi=500
             # fig.show()
             plt.close()
-
-
-
-
-
-
-
-
-
-
