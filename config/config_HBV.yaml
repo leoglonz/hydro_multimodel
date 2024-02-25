@@ -8,7 +8,7 @@
 randomseed: [0]   # None means random
 Action: [1]   # 0:Train,   1: Test
 device: "cuda"
-nmul: 2  # For parallelization.
+nmul: 16  # For parallelization.
 
 ### Directories of forcings, attributes, and output.
 ## For debugging, only 50 sites.
@@ -51,7 +51,7 @@ t_test: [19951001, 20101001]    #[19990101, 20080101]    # the first year is for
 warm_up: 365
 rho: 365
 batch_size: 100   #208 
-EPOCHS: 50    #5
+EPOCHS: 100    #5
 hidden_size: 256
 dropout: 0.5
 saveEpoch: 2
