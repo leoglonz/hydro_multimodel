@@ -60,7 +60,8 @@ hidden_size: 256
 dropout: 0.5
 saveEpoch: 2
 no_basins: 25   # Number of basins sampled in each testing batch.
-varT_NN: ['prcp(mm/day)', 'tmean(C)', 'dayl(s)', "PET_hargreaves(mm/day)"]   # 'dayl(s)', , 'tmin(C)', 'vp(Pa)','srad(W/m2)', pet_nldas
+varT_NN: ['prcp(mm/day)', 'tmean(C)', 'dayl(s)', "PET_hargreaves(mm/day)
+"]   # 'dayl(s)', , 'tmin(C)', 'vp(Pa)','srad(W/m2)', pet_nldas
 
 ## GAGESII dataset attributes. Use these for full 671 CAMELS Basins.
 varC_NN: [

@@ -323,8 +323,8 @@ def testModel(model, x, c, *, batchSize=None, filePathLst=None, doMC=False, outM
             Parameters_R2P = torch.from_numpy(Parameters_R2P)
             if outModel is None:
                 return yOut, Parameters_R2P
-            else:
-                return q, evap, Parameters_R2P
+            # else:
+            #     return q, evap, Parameters_R2P
         else:
             return yOut
 
