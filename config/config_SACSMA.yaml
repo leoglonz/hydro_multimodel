@@ -23,10 +23,13 @@ nmul: 16  # For parallelization.
 
 ## For full-scale test w/o tmp, 671 basins. Use "dp" attributes to
 ## emulate Dapeng paper resuls.
-forcing_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\camels_671_dp_20231113.feather'
-attr_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\attr_camels_all_sep14_2023.feather'
-output_model: 'D:\\data\\model_runs\\PGML_STemp_results\\models\\PRMS_SNTEMP\\671_sites_dp'
+# forcing_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\camels_671_dp_20231113.feather'
+# attr_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\attr_camels_all_sep14_2023.feather'
+# output_model: 'D:\\data\\model_runs\\PGML_STemp_results\\models\\PRMS_SNTEMP\\671_sites_dp'
 
+forcing_path: '/content/Camels/camels_671_2023113_prep/camels_671_dp_20231113.feather'
+attr_path: '/content/Camels/camels_671_2023113_prep/attr_camels_all_sep14_2023.feather'
+output_model: '/content/drive/MyDrive/Colab/data/model_runs/PGML_STemp_results/models/PRMS_SNTEMP/671_sites_dp'
 
 ## If you have a checkpoint file for a previous run, set the path to directory here. 
 # saved_epoch corresponds to the .pt model save file, and is the last epoch 
