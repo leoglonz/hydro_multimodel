@@ -76,6 +76,8 @@ dydrop: 0.0
 # 1: all static.
 staind: -1    # The timestep to use from learned para time series for static params.
 
+hydro_model_name: "dHBV_dynamic"
+
 
 ## Directories
 # camels_path: 'D:\\data\\Camels'
