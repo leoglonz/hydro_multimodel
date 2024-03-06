@@ -23,9 +23,14 @@ nmul: 2  # For parallelization.
 
 ## For full-scale test w/o tmp, 671 basins. Use "dp" attributes to
 ## emulate Dapeng paper resuls.
-forcing_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\camels_671_dp_20231113.feather'
-attr_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\attr_camels_all_sep14_2023.feather'
-output_model: 'D:\\data\\model_runs\\PGML_STemp_results\\models\\PRMS_SNTEMP\\671_sites_dp'
+# forcing_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\camels_671_dp_20231113.feather'
+# attr_path: 'D:\\data\\Camels\\camels_671_2023113_prep\\attr_camels_all_sep14_2023.feather'
+# output_model: 'D:\\data\\model_runs\\PGML_STemp_results\\models\\PRMS_SNTEMP\\671_sites_dp'
+
+# For Colab
+forcing_path: '/content/Camels/camels_671_2023113_prep/camels_671_dp_20231113.feather'
+attr_path: '/content/Camels/camels_671_2023113_prep/attr_camels_all_sep14_2023.feather'
+output_model: '/content/drive/MyDrive/Colab/data/model_runs/PGML_STemp_results/671_sites_dp'
 
 
 ## If you have a checkpoint file for a previous run, set the path to directory here. 
@@ -50,8 +55,8 @@ t_val: [20101001, 20111001]   #### Currently not used.
 t_test: [19951001, 20101001]    #[19990101, 20080101]    # the first year is for warm_up
 warm_up: 365
 rho: 365
-batch_size: 100   #208 
-EPOCHS: 50    #5
+batch_size: 100
+EPOCHS: 50
 hidden_size: 256
 dropout: 0.5
 saveEpoch: 2
