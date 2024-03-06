@@ -10,7 +10,7 @@ Wrapper for MHPI's differentiable model type, and for the multimodel ensemble.
 """
 import torch.nn
 
-from MODELS.hydro_models.marrmot.prms_marrmot import prms_marrmot
+from MODELS.hydro_models.marrmot.marrmot_prms import prms_marrmot
 from MODELS.hydro_models.HBV.HBVmul import HBVMul
 from MODELS.hydro_models.SACSMA.SACSMAmul import SACSMAMul
 
