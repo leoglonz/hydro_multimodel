@@ -1,257 +1,424 @@
-import logging
-from typing import Any, Optional, Tuple
+# This file contains an interface for multimodel synthesis, along with 
+# ensembling objects to manipulate the interface into different ensembling methods.
+#
+# Acknowledgements:
+#  - Syntax and smaller codes reproduced from C. Shen.
+#  - Multimodel ensemble code repurposed from K. Sawadekar precip fusion.
+#  - HBV, SAC-SMA, Marrmot PRMS models and setup modified from F. Rahmani.
+#  - dHBV model and setup from MHPI Team C. Shen, et al.
+################################################################################
 
+from config.read_configurations import config_hbv as hbvArgs
+from config.read_configurations import config_hbv_hydrodl as dplhbvArgs
+from config.read_configurations import config_prms as prmsArgs
+from config.read_configurations import config_sacsma as sacsmaArgs
+from config.read_configurations import config_sacsma_snow as sacsmaSnowArgs
+
+
+import torch
+import torch.nn as nn
 import numpy as np
-import numpy.typing as npt
-from pydantic import BaseModel, ConfigDict
-import scipy.stats as stats
+import multim_functional as F
+from hydroDL.model import rnn
 
-log = logging.getLogger()
+from hydroDL.model.rnn import CudnnLstm, CudnnLstmModel
 
-
-class Metrics(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    pred: npt.NDArray[np.float64]
-    target: npt.NDArray[np.float64]
-    corr: npt.NDArray[np.float64] = np.ndarray([])
-    corr_spearman: npt.NDArray[np.float64] = np.ndarray([])
-    r2: npt.NDArray[np.float64] = np.ndarray([])
-    nse: npt.NDArray[np.float64] = np.ndarray([])
-    pbias_low: npt.NDArray[np.float64] = np.ndarray([])
-    pbias_high: npt.NDArray[np.float64] = np.ndarray([])
-    pbias: npt.NDArray[np.float64] = np.ndarray([])
-    pbias_mid: npt.NDArray[np.float64] = np.ndarray([])
-    kge: npt.NDArray[np.float64] = np.ndarray([])
-    kge_12: npt.NDArray[np.float64] = np.ndarray([])
-    rmse_low: npt.NDArray[np.float64] = np.ndarray([])
-    rmse_high: npt.NDArray[np.float64] = np.ndarray([])
-    rmse_mid: npt.NDArray[np.float64] = np.ndarray([])
-    fdc_rmse: npt.NDArray[np.float64] = np.ndarray([])
-
-    def __init__(self, pred: npt.NDArray[np.float64], target: npt.NDArray[np.float64]):
-        super(Metrics, self).__init__(pred=pred, target=target)
-
-    def model_post_init(self, __context: Any):
-        self.fdc_rmse = self._rmse(self.pred_fdc, self.target_fdc)
-        self.corr = np.full(self.ngrid, np.nan)
-        self.corr_spearman = np.full(self.ngrid, np.nan)
-        self.r2 = np.full(self.ngrid, np.nan)
-        self.nse = np.full(self.ngrid, np.nan)
-        self.pbias_low = np.full(self.ngrid, np.nan)
-        self.pbias_high = np.full(self.ngrid, np.nan)
-        self.pbias = np.full(self.ngrid, np.nan)
-        self.pbias_mid = np.full(self.ngrid, np.nan)
-        self.kge = np.full(self.ngrid, np.nan)
-        self.kge_12 = np.full(self.ngrid, np.nan)
-        self.rmse_low = np.full(self.ngrid, np.nan)
-        self.rmse_high = np.full(self.ngrid, np.nan)
-        self.rmse_mid = np.full(self.ngrid, np.nan)
-        for i in range(0, self.ngrid):
-            _pred = self.pred[i]
-            _target = self.target[i]
-            non_nan_idx = np.where(
-                np.logical_and(~np.isnan(_pred), ~np.isnan(_target))
-            )[0]
-            if non_nan_idx.shape[0] > 0:
-                pred = _pred[non_nan_idx]
-                target = _target[non_nan_idx]
-
-                pred_sort = np.sort(pred)
-                target_sort = np.sort(target)
-                index_low = round(0.3 * pred_sort.shape[0])
-                index_high = round(0.98 * pred_sort.shape[0])
-                low_pred = pred_sort[:index_low]
-                high_pred = pred_sort[index_high:]
-                mid_pred = pred_sort[index_low:index_high]
-                low_target = target_sort[:index_low]
-                high_target = target_sort[index_high:]
-                mid_target = target_sort[index_low:index_high]
-
-                self.pbias[i] = self._p_bias(pred, target)
-                self.pbias_low[i] = self._p_bias(low_pred, low_target)
-                self.pbias_high[i] = self._p_bias(high_pred, high_target)
-                self.pbias_mid[i] = self._p_bias(mid_pred, mid_target)
-                self.rmse_low[i] = self._rmse(low_pred, low_target, axis=0)
-                self.rmse_high[i] = self._rmse(high_pred, high_target, axis=0)
-                self.rmse_mid[i] = self._rmse(mid_pred, mid_target, axis=0)    
-
-                if non_nan_idx.shape[0] > 1:
-                    self.corr[i] = self._corr(pred, target)
-                    self.corr_spearman[i] = self._corr_spearman(pred, target)
-                    _pred_mean = pred.mean()
-                    _target_mean = target.mean()
-                    _pred_std = np.std(pred)
-                    _target_std = np.std(target)
-                    self.kge[i] = self._kge(
-                        _pred_mean, _target_mean, _pred_std, _target_std, self.corr[i]
-                    )
-                    self.kge_12[i] = self._kge_12(_pred_mean, _target_mean, _pred_std, _target_std, self.corr[i])
-                    self.nse[i], self.r2[i] = self._nse_r2(pred, target, _target_mean)
-                                       
+# Global variables:
+device = torch.cuda.current_device() if torch.cuda.is_available() else torch.device("cpu")
+dtype = torch.float32
 
 
-    def _calc_fdc(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+
+def createTensor(dims, requires_grad=False):
+    """
+    A small function to centrally manage device, data types, etc., of new arrays
+    """
+    return torch.zeros(dims,requires_grad=requires_grad,dtype=dtype).to(device)
+
+
+def createDictFromKeys(keyList, mtd=0, dims=None, dat=None):
+    """
+    A modular dictionary initializer from C. Shen.
+
+    mtd = 
+        0: Init keys to None,
+        1: Init keys to zero tensors,
+        11: Init keys to tensors with the same vals as `dat`,
+        2: Init keys to slices of `dat`,
+        21: Init keys with cloned slices of `dat`.
+    """
+    d = {}
+    for kk, k in enumerate(keyList):
+        if mtd == 0 or mtd is None or mtd == "None":
+            d[k] = None
+        elif mtd == 1 or mtd == 'zeros':
+            d[k] = createTensor(dims)
+        elif mtd == 11 or mtd == 'value':
+            d[k] = createTensor(dims) + dat
+        elif mtd == 2 or mtd == 'ref':
+            d[k] = dat[..., kk]
+        elif mtd == 21 or mtd == 'refClone':
+            d[k] = dat[..., kk].clone()
+    return d
+
+
+
+
+class HydroMultimodel(nn.Module):
+    """
+    A wrapper for managing a collection of (trained) hydromodels, 
+    and applyinf different ensembling methods.
+    """
+    def __init__(self, modelList, argList):
+        super(HydroMultimodel, self).__init__()
         """
-        Calculate flow duration curve for each grid
+        Instantiate hydro models to be ensembled.
         """
-        fdc_100 = np.full([self.ngrid, 100], np.nan)
-        for i in range(self.ngrid):
-            data_slice = data[i]
-            non_nan_data_slice = data_slice[~np.isnan(data_slice)]
-            if len(non_nan_data_slice) == 0:
-                non_nan_data_slice = np.full(self.nt, 0)
-            sorted_data = np.sort(non_nan_data_slice)[::-1]
-            Nlen = len(non_nan_data_slice)
-            ind = (np.arange(100) / 100 * Nlen).astype(int)
-            fdc_flow = sorted_data[ind]
-            if len(fdc_flow) != 100:
-                raise Exception("unknown assimilation variable")
+
+        self.ensemble_mtd = None  # Ensemble method 
+        # self.defaultKeys = {}
+        # self.defaultKeys['models'] = ['HBV', 'dPLHBV', 'dPLHBV_dp', 'SACSMA', 'SACSMA_snow', 'marrmot_PRMS']
+        # self.defaultKeys['ensemble_mtds'] = {}  
+          
+        self.modelDict = createDictFromKeys(modelList)
+        self.argDict = createDictFromKeys(modelList, mtd='ref', dat=argList)
+        self.initModel()
+
+
+    def initModel(self, mode='all', *args, **kwargs):
+        """
+        Instantiate hydro models to be ensembled.
+        """
+        if mode == 'all':
+            for mod in self.modelsDict:
+                if mod in ['HBV', 'SACSMA', 'SACSMA_snow', 'marrmot_PRMS']:
+                    self.modelDict[mod] = PGMLHydroModel(self.argDict[mod])
+                elif mod in ['dPLHBV']:
+                    self.modelDict[mod] = rnn.MultiInv_HBVModel(*args, **kwargs)
+                elif mod in ['dPLHBV_dp']:
+                    self.modelDict[mod] = rnn.MultiInv_HBVTDModel(*args, **kwargs)
+                else:
+                    raise ValueError("Invalid hydrology model specified.")     
+                 
+        elif mode in self.modelDict:
+            if mod in ['HBV', 'SACSMA', 'SACSMA_snow', 'marrmot_PRMS']:
+                self.modelDict[mod] = PGMLHydroModel(self.argDict[mod])
+            elif mod in ['dPLHBV_dp']:
+                self.modelDict[mod] = rnn.MultiInv_HBVModel(*args, **kwargs)
             else:
-                fdc_100[i] = fdc_flow
-        return fdc_100
+                self.modelDict[mod] = rnn.MultiInv_HBVTDModel(*args, **kwargs) 
+        else:
+            raise ValueError("Invalid hydrology model specified.")
+        
 
-    @property
-    def ngrid(self) -> int:
-        """
-        Calculate number of grids
-        """
-        return self.pred.shape[0]
+    def multimodel_ensemble():
+        mm_ensemble = MultiModelEnsemble()
 
-    @property
-    def nt(self) -> int:
-        """
-        Calculate number of time steps
-        """
-        return self.pred.shape[1]
 
-    @property
-    def bias(self) -> npt.NDArray[np.float64]:
-        """
-        Calculate bias
-        """
-        return np.nanmean(self.pred - self.target, axis=1)
+    def fuse_on_avg():
+        # fuse with average of streamflows here.
+        x = 1
 
-    @property
-    def pred_mean(self) -> npt.NDArray[np.float64]:
-        """
-        Calculate mean of prediction
-        """
-        return np.tile(np.nanmean(self.pred, axis=1), (self.nt, 1)).transpose()
 
-    @property
-    def target_mean(self) -> npt.NDArray[np.float64]:
-        """
-        Calculate mean of target
-        """
-        return np.tile(np.nanmean(self.target, axis=1), (self.nt, 1)).transpose()
+    def fuse_on_md():
+        # Fuse with median of streamflows here.
+        x = 1
 
-    @property
-    def pred_anom(self) -> npt.NDArray[np.float64]:
-        """
-        Predict anomaly
-        """
-        return self.pred - self.pred_mean
 
-    @property
-    def target_anom(self) -> npt.NDArray[np.float64]:
-        """
-        Calculate anomaly of target
-        """
-        return self.target - self.target_mean
+    def forward(self, *args, **kwargs):
+        for key in self.modelsDict:
+            self.modelDict[key](*args, **kwargs)
+      
 
-    @property
-    def ub_rmse(self) -> npt.NDArray[np.float64]:
-        """
-        Calculate un-biased root mean square error
-        """
-        return self._rmse(self.pred_anom, self.target_anom)
+class ModelEnsemble(torch.nn.Module):
+    def __init__(self, *, ninv, hiddeninv, drinv=0.5, hydro_models=1):
+        super(ModelEnsemble, self).__init__()
+        self.ninv = ninv
+        self.prcp_datatypes = prcp_datatypes
+        self.ntp = prcp_datatypes*3
+        self.hiddeninv = hiddeninv
 
-    @property
-    def pred_fdc(self) -> npt.NDArray[np.float64]:
-        """
-        Calculate flow duration curve for prediction
-        """
-        return self._calc_fdc(self.pred)
+        self.defaultKeys = {}
+        self.defaultKeys['hyperparams'] = ('lowerb_loss', 'upperb_loss', 'prcp_loss_factor')
+        self.defaultKeys['states'] = ('prcp_weight_sum', 'prcp_weights', 'weights_scaled', 'prcp_wavg')
+        self.rangeBoundLoss = 0
 
-    @property
-    def target_fdc(self) -> npt.NDArray[np.float64]:
-        """
-        Calculate flow duration curve for target
-        """
-        return self._calc_fdc(self.target)
+        self.lstminv = CudnnLstmModel(
+            nx=ninv, ny=self.ntp, hiddenSize=hiddeninv, dr=drinv).to(device)
 
-    def _rmse(self, pred: npt.NDArray[np.float64], target: npt.NDArray[np.float64], axis: Optional[int]=1) -> npt.NDArray[np.float64]:
+    def preRun(self):
         """
-        Calculate root mean square error
+        Initialize data structures and some parameters.
         """
-        return np.sqrt(np.nanmean((pred - target) ** 2, axis=axis))
+        self.dims = {}
 
-    def _p_bias(
-        self, pred: npt.NDArray[np.float64], target: npt.NDArray[np.float64]
-    ) -> np.float64:
-        """
-        Calculate p bias
-        """
-        p_bias = np.sum(pred - target) / np.sum(target) * 100
-        return p_bias
+        dKeys = self.defaultKeys
+        self.hparams = createDictFromKeys(dKeys['hyperparams'], dims=1, mtd='zeros')
+        self.states = createDictFromKeys(dKeys['states'], dims=1, mtd='zeros')
 
-    def _corr(
-        self, pred: npt.NDArray[np.float64], target: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
-        """
-        Calculate correlation
-        """
-        corr = stats.pearsonr(pred, target)[0]
-        return corr
+        self.initParams()
 
-    def _corr_spearman(
-        self, pred: npt.NDArray[np.float64], target: npt.NDArray[np.float64]
-    ) -> np.float64:
-        """
-        Calculate spearman r
-        """
-        corr_spearman = stats.spearmanr(pred, target)[0]
-        return corr_spearman
 
-    def _kge(
-        self,
-        pred_mean: np.float64,
-        target_mean: np.float64,
-        pred_std: np.float64,
-        target_std: np.float64,
-        corr: np.float64,
-    ) -> npt.NDArray[np.float64]:
+    def initParams(self):
+        # Adjust the range for acceptable sum of weights for loss.
+        self.hparams['lowerb_loss'] = [0.95]
+        self.hparams['upperb_loss'] = [1.05]
+
+        self.range_bound_loss = 0
+
+
+    def range_bound_loss(self):
         """
-        Calculate KGE
+        Calculate a loss to limit parameters from exceeding a specified range.
         """
-        kge = 1 - np.sqrt(
-            (corr - 1) ** 2
-            + (pred_std / target_std - 1) ** 2
-            + (pred_mean / target_mean - 1) ** 2
-        )
-        return kge
+        self.range_bound_loss = F.range_bound_loss(self.states['prcp_weight_sum'], scale_factor=self.hparams['prcp_loss_factor'])
+        
+
+    def forward(self, x, prcp_loss_factor=23):
+        x.requires_grad = True
+
+        self.hparams['prcp_loss_factor'] = prcp_loss_factor
+
+
+        self.states['prcp_weights'] = self.lstminv(x)
+        self.states['weights_scaled'] = torch.sigmoid(self.states['prcp_weights'])
+
+        # initialize empty
+        self.dims['nstep'] = self.states['prcp_weights'].shape[0]
+        self.dims['ngage'] = self.states['prcp_weights'].shape[1]
+
+        self.states['prcp_wavg'] = createTensor((self.dims['nstep'], self.dims['ngage']), requires_grad=True)
+
+        # get weighted avg
+        for para in range(self.states['prcp_weights'].shape[2]):
+            prcp_wavg = prcp_wavg + self.states['weights_scaled'][:, :, para] * x[:, :, para]
+
+        # calculate loss
+        self.states['prcp_weight_sum'] = torch.sum(self.states['weights_scaled'][:,:,:self.ntp], dim=2)
+
+        self.range_bound_loss()      
+
+        # For gradient analysis, not implemented.
+        # grad_daymet = autograd.grad(outputs=wghts_scaled[:, :, 0], inputs=z, grad_outputs=torch.ones_like(wghts_scaled[:, :, 0]), retain_graph=True)[0]
+        # grad_maurer = autograd.grad(outputs=wghts_scaled[:, :, 1], inputs=z, grad_outputs=torch.ones_like(wghts_scaled[:, :, 1]), retain_graph=True)[0]
+        # grad_nldas = autograd.grad(outputs=wghts_scaled[:, :, 2], inputs=z, grad_outputs=torch.ones_like(wghts_scaled[:, :, 2]), retain_graph=True)[0]
     
-    def _kge_12(
-        self,
-        pred_mean: np.float64,
-        target_mean: np.float64,
-        pred_std: np.float64,
-        target_std: np.float64,
-        corr: np.float64,
-    ) -> npt.NDArray[np.float64]:
-        kge_12 = 1 - np.sqrt((corr - 1) ** 2 + ((pred_std*target_mean)/ (target_std*pred_mean) - 1) ** 2 + (pred_mean / target_mean - 1) ** 2)
-        return kge_12
-    
-    def _nse_r2(
-        self, pred: npt.NDArray[np.float64], target: npt.NDArray[np.float64], target_mean: np.float64
-    ) -> Tuple[np.float64, np.float64]:
-        """
-        Calculate NSE
-        """
-        sst = np.sum((target-target_mean)**2)
-        ssres = np.sum((target-pred)**2)
-        r2 = 1-ssres/sst
-        nse = 1-ssres/sst
-        return nse, r2
+
+
+class PGMLHydroModel(torch.nn.Module):
+    """
+    Differentiable hydro model code from F. Rahmani PGML_STemp_with_Snow.
+    Use for PRMS, SAC-SMA, and unmodified HBV.
+    """
+    def __init__(self, args):
+        super(diff_hydro_temp_model, self).__init__()
+        self.args = args
+        self.get_model()
+
+    def get_NN_model_dim(self) -> None:
+        self.nx = len(self.args["varT_NN"] + self.args["varC_NN"])
+
+        # output size of NN
+        if self.args["hydro_model_name"] != "None":
+            if self.args["routing_hydro_model"] == True:  # needs a and b for routing with conv method
+                self.ny_hydro = self.args["nmul"] * (len(self.hydro_model.parameters_bound)) + len(
+                    self.hydro_model.conv_routing_hydro_model_bound)
+            else:
+                self.ny_hydro = self.args["nmul"] * len(self.hydro_model.parameters_bound)
+        else:
+            self.ny_hydro = 0
+
+        # SNTEMP  # needs a and b for calculating different source flow temperatures with conv method
+        if self.args["temp_model_name"] != "None":
+            if self.args["routing_temp_model"] == True:
+                self.ny_temp = self.args["nmul"] * (len(self.temp_model.parameters_bound)) + len(
+                    self.temp_model.conv_temp_model_bound)
+            else:
+                self.ny_temp = self.args["nmul"] * len(self.temp_model.parameters_bound)
+            if self.args["lat_temp_adj"] == True:
+                self.ny_temp = self.ny_temp + self.args["nmul"]
+        else:
+            self.ny_temp = 0
+        # if self.args["hydro_model_name"] == "HBV":   # no need to have a PET to AET coef
+        #     self.ny_PET = 0
+        # elif self.args["hydro_model_name"] == "marrmot_PRMS":   # need a PET to AET coef
+        #     self.ny_PET = self.args["nmul"]
+        # if self.args["potet_module"] in ["potet_hargreaves", "potet_hamon", "dataset"]:
+        #     self.ny_PET = self.args["nmul"]
+        self.ny = self.ny_hydro + self.ny_temp # + self.ny_PET
+
+    def get_model(self) -> None:
+        # hydro_model_initialization
+        if self.args["hydro_model_name"] != "None":
+            if self.args["hydro_model_name"] == "marrmot_PRMS":
+                self.hydro_model = prms_marrmot()
+            elif self.args["hydro_model_name"] == "marrmot_PRMS_gw0":
+                self.hydro_model = prms_marrmot_gw0()
+            elif self.args["hydro_model_name"] == "HBV":
+                self.hydro_model = HBVMul()
+            elif self.args["hydro_model_name"] == "SACSMA":
+                self.hydro_model = SACSMAMul()
+            elif self.args["hydro_model_name"] == "SACSMA_with_snow":
+                self.hydro_model = SACSMA_snow_Mul()
+            elif self.args["hydro_model_name"] != "None":
+                print("hydrology (streamflow) model type has not been defined")
+                exit()
+            # temp_model_initialization
+        if self.args["temp_model_name"] != "None":
+            if self.args["temp_model_name"] == "SNTEMP":
+                self.temp_model = SNTEMP_flowSim()  # this model needs a hydrology model as backbone
+            elif self.args["temp_model_name"] == "SNTEMP_gw0":
+                self.temp_model = SNTEMP_flowSim_gw0()  # this model needs a hydrology model as backbone, and 4 outflow
+            elif self.args["temp_model_name"] != "None":
+                print("temp model type has not been defined")
+                exit()
+        # get the dimensions of NN model based on hydro modela and temp model
+        self.get_NN_model_dim()
+        # NN_model_initialization
+        if self.args["NN_model_name"] == "LSTM":
+            self.NN_model = CudnnLstmModel(nx=self.nx,
+                                           ny=self.ny,
+                                           hiddenSize=self.args["hidden_size"],
+                                           dr=self.args["dropout"])
+        elif self.args["NN_model_name"] == "MLP":
+            self.NN_model = MLPmul(self.args, nx=self.nx, ny=self.ny)
+        else:
+            print("NN model type has not been defined")
+            exit()
+
+    def breakdown_params(self, params_all):
+        params_dict = dict()
+        params_hydro_model = params_all[-1, :, :self.ny_hydro]
+        params_temp_model = params_all[-1, :, self.ny_hydro: (self.ny_hydro + self.ny_temp)]
+        # if self.ny_PET > 0:
+        #     params_dict["params_PET_model"] = torch.sigmoid(params_all[-1, :, (self.ny_hydro + self.ny_temp):])
+        # else:
+        #     params_dict["params_PET_model"] = None
+
+
+        # Todo: I should separate PET model output from hydro_model and temp_model.
+        #  For now, evap is calculated in both models individually (with same method)
+
+        if self.args['hydro_model_name'] != "None":
+            # hydro params
+            params_dict["hydro_params_raw"] = torch.sigmoid(
+                params_hydro_model[:, :len(self.hydro_model.parameters_bound) * self.args["nmul"]]).view(
+                params_hydro_model.shape[0], len(self.hydro_model.parameters_bound),
+                self.args["nmul"])
+            # routing params
+            if self.args["routing_hydro_model"] == True:
+                params_dict["conv_params_hydro"] = torch.sigmoid(
+                    params_hydro_model[:, len(self.hydro_model.parameters_bound) * self.args["nmul"]:])
+            else:
+                params_dict["conv_params_hydro"] = None
+
+        if self.args['temp_model_name'] != "None":
+            # hydro params
+            params_dict["temp_params_raw"] = torch.sigmoid(
+                params_temp_model[:, :len(self.temp_model.parameters_bound) * self.args["nmul"]]).view(
+                params_temp_model.shape[0], len(self.temp_model.parameters_bound),
+                self.args["nmul"])
+            # convolution parameters for ss and gw temp calculation
+            if self.args["routing_temp_model"] == True:
+                params_dict["conv_params_temp"] = torch.sigmoid(params_temp_model[:, -len(self.temp_model.conv_temp_model_bound):])
+            else:
+                print("it has not been defined yet what approach should be taken in place of conv")
+                exit()
+        return params_dict
+
+
+    def forward(self, dataset_dictionary_sample):
+        params_all = self.NN_model(dataset_dictionary_sample["inputs_NN_scaled_sample"][self.args["warm_up"]:, :, :])
+        # breaking down the parameters to different pieces for different models (PET, hydro, temp)
+        params_dict = self.breakdown_params(params_all)
+        if self.args['hydro_model_name'] != "None":
+            # hydro model
+            flow_out = self.hydro_model(
+                dataset_dictionary_sample["x_hydro_model_sample"],
+                dataset_dictionary_sample["c_hydro_model_sample"],
+                params_dict['hydro_params_raw'],
+                self.args,
+                # PET_param=params_dict["params_PET_model"],  # PET is in both temp and flow model
+                warm_up=self.args["warm_up"],
+                routing=self.args["routing_hydro_model"],
+                conv_params_hydro=params_dict["conv_params_hydro"]
+            )
+            # baseflow index percentage
+            flow_out["BFI_sim"] = 100 * (torch.sum(flow_out["gwflow"], dim=0) / (
+                    torch.sum(flow_out["flow_sim"], dim=0) + 0.00001))[:, 0]
+
+            if self.args['temp_model_name'] != "None":
+                # source flow calculation and converting mm/day to m3/ day
+                source_flows_dict = source_flow_calculation(self.args, flow_out,
+                                                              dataset_dictionary_sample[
+                                                                  "c_NN_sample"],
+                                                              after_routing=True)
+                # temperature model
+                temp_out = self.temp_model.forward(dataset_dictionary_sample["x_temp_model_sample"],
+                                                   dataset_dictionary_sample["c_temp_model_sample"],
+                                                   params_dict["temp_params_raw"],
+                                                   conv_params_temp=params_dict["conv_params_temp"],
+                                                   args=self.args,
+                                                   PET=flow_out["PET_hydro"] * (1 / (1000 * 86400)),   # converting mm/day to m/sec,
+                                                   source_flows=source_flows_dict)
+
+                return {**flow_out, **temp_out}   # combining both dictionaries
+            else:
+                return flow_out
+
+
+
+
+
+if __name__ == "__main__":
+
+    # List hydro models to combine in multimodel.
+    models = ['dPLHBV_dp', 'SACSMA_snow', 'marrmot_PRMS']
+    args_list = [dplhbvArgs, sacsmaSnowArgs, prmsArgs]
+    # HBV: unmodified HBV,
+    # dPLHBV_dp: delta HBV with dynamic parameters,
+    # SACSMA: traditional SAC-SMA,
+    # SACSMA_snow: SAC-SMA with snow/melting module,
+    # marrmot_PRMS: ..
+
+    # Instantiating multimodel carrier object.
+    HydroMultimodel(models)
+
+
+    forType = 'daymet'
+    Ttrain = [19801001, 19951001] #training period
+    Ttest = [19951001, 20101001]  # Testing period'
+
+    # Define inputs
+    if forType == 'daymet':
+        varF = ['dayl', 'prcp', 'srad', 'tmax', 'tmin', 'tmean', 'vp']
+    else:
+        varF = ['dayl', 'prcp', 'srad', 'tmax', 'vp']
+
+    # Set list of attributes (varC_NN) for GAGESII dataset. Use for full 671 CAMELS Basins.
+    attrLst = [
+        'ELEV_MEAN_M_BASIN',  'ELEV_STD_M_BASIN',
+        'SLOPE_PCT', 'DRAIN_SQKM', 'NDAMS_2009', 'MAJ_NDAMS_2009',
+        'FRAGUN_BASIN', 'FORESTNLCD06',  'AWCAVE', 'PERMAVE', 'BDAVE',
+        'ROCKDEPAVE', 'CLAYAVE', 'SILTAVE', 'SANDAVE', 'HGA', 'HGB',
+        'HGC', 'HGVAR', 'HGD', 'PPTAVG_BASIN', 'SNOW_PCT_PRECIP',
+        'PRECIP_SEAS_IND', 'T_AVG_BASIN',  'T_MAX_BASIN',
+        'T_MAXSTD_BASIN', 'RH_BASIN',
+        'GEOL_REEDBUSH_DOM_PCT', 'GEOL_REEDBUSH_DOM',
+        'HIRES_LENTIC_PCT', 'PERDUN', 'PERHOR', 'RIP100_FOREST'
+    ]
+    # CAMELS dataset attributes.
+    # attrLst = [
+    #     'p_mean', 'pet_mean', 'p_seasonality', 'frac_snow', 'aridity',
+    #     'high_prec_freq', 'high_prec_dur', 'low_prec_freq', 'low_prec_dur',
+    #     'elev_mean', 'slope_mean', 'area_gages2', 'frac_forest', 'lai_max',
+    #     'lai_diff', 'gvf_max', 'gvf_diff', 'dom_land_cover_frac',
+    #     'dom_land_cover', 'root_depth_50', 'soil_depth_pelletier',
+    #     'soil_depth_statsgo', 'soil_porosity', 'soil_conductivity',
+    #     'max_water_content', 'sand_frac', 'silt_frac', 'clay_frac',
+    #     'geol_1st_class', 'glim_1st_class_frac', 'geol_2nd_class',
+    #     'glim_2nd_class_frac', 'carbonate_rocks_frac', 'geol_porostiy',
+    #     'geol_permeability'
+    # ]
     
 

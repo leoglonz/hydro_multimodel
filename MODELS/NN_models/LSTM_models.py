@@ -7,6 +7,13 @@ import math
 from MODELS.NN_models.dropout import createMask, DropMask
 
 
+
+
+
+
+
+
+
 class CudnnLstm(torch.nn.Module):
     def __init__(self, *, inputSize, hiddenSize, dr=0.5, drMethod="drW", gpu=0):
         super(CudnnLstm, self).__init__()

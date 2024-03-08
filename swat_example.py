@@ -58,6 +58,8 @@ class multiphysModel(nn.Module):
     for key in self.modelsDict:
       self.modelDict[key](*args, **kwargs)
 
+
+
 class SWAT(nn.Module):
   def __init__(self, settings={"nz":5, 'applyParams':None}):
     # here we initialize storages permanent across minibatches, such as embedded (process) NN weights

@@ -20,12 +20,12 @@ PUOpt: 0
 # 0: train and test on ALL basins;
 # 1 for PUB spatial test, randomly hold out basins;
 # 2 for PUR spatial test, hold out a continuous region.
-buffOpt: 0
+buffOpt: 1
 # buffOpt defines the warm-up of reservoirs for 1st year of training forcing data:
 # 0: do nothing, the first year forcing would only be used to warm up the next year;
 # 1: repeat first year forcing to warm up the first year;
 # 2: load one more year forcing to warm up the first year.
-buffOptTest: 0
+buffOptTest: 1
 # buffOptTest controls load of training data:
 # 0: do nothing; 
 # 1: repeat first year; 
@@ -54,11 +54,11 @@ BATCH_SIZE: 100
 RHO: 365
 HIDDENSIZE: 256
 saveEPOCH: 2    # Save frequency. e.g., 2 -> save after completing every even epoch.
-Nfea: 12 
+Nfea: 13 
 # Nfea indicates number of HBV parameters:
 # 12: original HBV when ETMod=False; 
 # 13: includes the added dynamic ET para when setting ETMod=True.
-ETMod: False
+ETMod: True
 BUFFTIME: 365   # For each training sample, use BUFFTIME days to warm up the states.
 routing: True   # Specify the use of routing module for simulated runoff.
 Nmul: 16
