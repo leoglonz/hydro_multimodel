@@ -174,7 +174,7 @@ def extractCAMELS(Ttrain,attrLst,varF,camels,forType='daymet',flow_regime=1,subs
 
 import os
 import hydroDLpack
-from hydroDL.master import default
+from hydroDL_depr.master import default
 from hydroDLpack.data import camels
 import numpy as np
 

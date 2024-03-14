@@ -3,7 +3,7 @@
 #
 # Acknowledgements:
 #  - Syntax and smaller codes reproduced from C. Shen.
-#  - Multimodel ensemble code repurposed from K. Sawadekar precip fusion.
+#  - WeightedEnsemble code repurposed from K. Sawadekar precip fusion.
 #  - HBV, SAC-SMA, Marrmot PRMS models and setup modified from F. Rahmani.
 #  - dHBV model and setup from MHPI Team C. Shen, et al.
 ################################################################################
@@ -19,9 +19,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 import multim_functional as F
-from hydroDL.model import rnn
+from hydroDL_depr.model import rnn
 
-from hydroDL.model.rnn import CudnnLstm, CudnnLstmModel
+from hydroDL_depr.model.rnn import CudnnLstm, CudnnLstmModel
 
 # Global variables:
 device = torch.cuda.current_device() if torch.cuda.is_available() else torch.device("cpu")
@@ -60,7 +60,6 @@ def createDictFromKeys(keyList, mtd=0, dims=None, dat=None):
         elif mtd == 21 or mtd == 'refClone':
             d[k] = dat[..., kk].clone()
     return d
-
 
 
 
@@ -130,79 +129,179 @@ class HydroMultimodel(nn.Module):
             self.modelDict[key](*args, **kwargs)
       
 
-class ModelEnsemble(torch.nn.Module):
-    def __init__(self, *, ninv, hiddeninv, drinv=0.5, hydro_models=1):
-        super(ModelEnsemble, self).__init__()
-        self.ninv = ninv
-        self.prcp_datatypes = prcp_datatypes
-        self.ntp = prcp_datatypes*3
-        self.hiddeninv = hiddeninv
+import multim_functional as F
+
+
+class WeightedEnsemble(torch.nn.Module):
+    """
+    LSTM model to get weights for linear combinations of multiple hydro models.
+    (Modified From K. Sawadekar)
+    """
+    def __init__(self, dims={'ninv':2, 'hiddeninv':128, 'drinv':0.5, 'nmodels':2}):
+        # `Dims`` is a stand-in until I eventually calculate directly from input data x 
+        # and c (apart from hiddeninv).
+        super(WeightedEnsemble, self).__init__()
+        self.name = 'WeightedEnsemble'
+        self.dims = dims
+
 
         self.defaultKeys = {}
-        self.defaultKeys['hyperparams'] = ('lowerb_loss', 'upperb_loss', 'prcp_loss_factor')
-        self.defaultKeys['states'] = ('prcp_weight_sum', 'prcp_weights', 'weights_scaled', 'prcp_wavg')
-        self.rangeBoundLoss = 0
+        self.defaultKeys['parameters'] = ('lowerb_loss', 'upperb_loss', 'loss_factor', 'hiddeninv', 'drinv')
+        self.defaultKeys['model_states'] = ('weights', 'weights_scaled', 'weights_sum','prcp_wavg', 'range_bound_loss')
+        # self.defaultKeys['attributes'] = (
+        #     'ELEV_MEAN_M_BASIN',  'ELEV_STD_M_BASIN',
+        #     'SLOPE_PCT', 'DRAIN_SQKM', 'NDAMS_2009', 'MAJ_NDAMS_2009',
+        #     'FRAGUN_BASIN', 'FORESTNLCD06',  'AWCAVE', 'PERMAVE', 'BDAVE',
+        #     'ROCKDEPAVE', 'CLAYAVE', 'SILTAVE', 'SANDAVE', 'HGA', 'HGB',
+        #     'HGC', 'HGVAR', 'HGD', 'PPTAVG_BASIN', 'SNOW_PCT_PRECIP',
+        #     'PRECIP_SEAS_IND', 'T_AVG_BASIN',  'T_MAX_BASIN',
+        #     'T_MAXSTD_BASIN', 'RH_BASIN',
+        #     'GEOL_REEDBUSH_DOM_PCT', 'GEOL_REEDBUSH_DOM',
+        #     'HIRES_LENTIC_PCT', 'PERDUN', 'PERHOR', 'RIP100_FOREST'
+        # )
+        # Initialize weighting model
+        self.initModel()
+    
 
-        self.lstminv = CudnnLstmModel(
-            nx=ninv, ny=self.ntp, hiddenSize=hiddeninv, dr=drinv).to(device)
+    def initModel(self):
+        """
+        Initialize LSTM and any other required models.
+        """
+        self.lstminv = CudnnLstmModel(nx=self.dims['ninv'], ny=self.dims['nmodels'], hiddenSize=self.dims['hiddeninv'], dr=self.dims['drinv'])
 
-    def preRun(self):
+
+    def preRun(self, x, c, loss_factor):
         """
-        Initialize data structures and some parameters.
+        Initialize data structures, some variables, and parameters.
         """
-        self.dims = {}
+        #### attributes `c` not currently used yet. Need to pipe this into LSTM.
+        x.requires_grad = True
+        self.prcp = x
 
         dKeys = self.defaultKeys
-        self.hparams = createDictFromKeys(dKeys['hyperparams'], dims=1, mtd='zeros')
-        self.states = createDictFromKeys(dKeys['states'], dims=1, mtd='zeros')
+        # self.prcp = createDictFromKeys(dKeys['models'], mtd='ref', dat=x)
+        # self.attributes = createDictFromKeys(dKeys['attributes'], mtd='ref', dat=x)
+        self.params = createDictFromKeys(dKeys['parameters'], dims=1, mtd='zeros')
+        self.mstates = createDictFromKeys(dKeys['model_states'], dims=1, mtd='zeros')
+        self.attributes = createDictFromKeys(dKeys['attributes'], dims=1, mtd=x.attributes)
 
+        self.initDims()
         self.initParams()
+
+        self.params['loss_factor'] = loss_factor
+
+
+    def initDims(self):
+        self.dims['ntstep'], self.dims['ngage'] = self.states['prcp_weights'].shape
 
 
     def initParams(self):
         # Adjust the range for acceptable sum of weights for loss.
-        self.hparams['lowerb_loss'] = [0.95]
-        self.hparams['upperb_loss'] = [1.05]
-
-        self.range_bound_loss = 0
+        self.params['lowerb_loss'] = [0.95]
+        self.params['upperb_loss'] = [1.05]
+        # self.params['loss_factor'] = 15
 
 
     def range_bound_loss(self):
         """
         Calculate a loss to limit parameters from exceeding a specified range.
         """
-        self.range_bound_loss = F.range_bound_loss(self.states['prcp_weight_sum'], scale_factor=self.hparams['prcp_loss_factor'])
-        
+        self.weightSum()
 
-    def forward(self, x, prcp_loss_factor=23):
+        self.range_bound_loss = F.range_bound_loss(self.mstates['weights_sum'], scale_factor=self.params['loss_factor'])
+
+
+    def getWeights(self):
+        self.mstates['weights'] = self.lstminv(self.prcp)
+        self.mstates['weights_scaled'] = torch.sigmoid(self.states['weights'])
+
+        self.weightAvg()
+
+
+    def weightedAvg(self):
+        self.mstates['prcp_wavg'] = F.weighted_avg(self.prcp, self.mstates['weights'], self.mstates['weights_scaled'], (self.dims['ntstep'],self.dims['ngage']))
+    
+
+    def weightSum(self):
+        """
+        For loss calculation.
+        """
+        self.mstates['weights_sum'] = F.t_sum(self.mstates['weights_scaled'], self.dims['nmodels'], self.dims['ninv'])
+
+
+    def forward(self, x, c, loss_factor=15):
+        self.preRun(x, c, loss_factor)   ### Need work here to get basin attributes that can be used in LSTM ()    
+
+        self.getWeights()  
+        self.range_bound_loss()  # Compute loss
+
+
+
+
+
+'''
+class EnsembleWeights(torch.nn.Module):
+    def __init__(self, *, ninv, hiddeninv, drinv=0.5, prcp_datatypes=1):
+        super(EnsembleWeights, self).__init__()
+        self.ninv = ninv
+        self.prcp_datatypes = prcp_datatypes
+
+        self.ntp = prcp_datatypes*3
+        self.hiddeninv = hiddeninv
+
+        self.lstminv = CudnnLstmModel(
+            nx=ninv, ny=self.ntp, hiddenSize=hiddeninv, dr=drinv).cuda()
+
+        # Adjust the range for acceptable sum of weights for loss.
+        # Potentially worth testing different combinations.
+        lb_prcp = [0.95]
+        ub_prcp = [1.05]
+        self.RangeBoundLoss = RangeBoundLoss(lb=lb_prcp, ub=ub_prcp)
+
+    def forward(self, x, prcp_loss_factor):
         x.requires_grad = True
 
-        self.hparams['prcp_loss_factor'] = prcp_loss_factor
-
-
-        self.states['prcp_weights'] = self.lstminv(x)
-        self.states['weights_scaled'] = torch.sigmoid(self.states['prcp_weights'])
+        weights = self.lstminv(x)
+        weights_scaled = torch.sigmoid(weights)
 
         # initialize empty
-        self.dims['nstep'] = self.states['prcp_weights'].shape[0]
-        self.dims['ngage'] = self.states['prcp_weights'].shape[1]
-
-        self.states['prcp_wavg'] = createTensor((self.dims['nstep'], self.dims['ngage']), requires_grad=True)
+        ntstep = weights.shape[0]
+        ngage = weights.shape[1]
+        prcp_wavg = torch.zeros((ntstep, ngage), requires_grad=True, dtype=torch.float32).cuda()
 
         # get weighted avg
-        for para in range(self.states['prcp_weights'].shape[2]):
-            prcp_wavg = prcp_wavg + self.states['weights_scaled'][:, :, para] * x[:, :, para]
+        for para in range(weights.shape[2]):
+            prcp_wavg = prcp_wavg + weights_scaled[:, :, para] * x[:, :, para]
 
         # calculate loss
-        self.states['prcp_weight_sum'] = torch.sum(self.states['weights_scaled'][:,:,:self.ntp], dim=2)
+        prcp_weight_sum = torch.sum(weights_scaled[:,:,:self.ntp], dim=2)
+        range_bound_loss_prcp = self.RangeBoundLoss([prcp_weight_sum], factor=prcp_loss_factor)
 
-        self.range_bound_loss()      
-
-        # For gradient analysis, not implemented.
+        # Use if the Dr. Shen requests gradient analysis.
         # grad_daymet = autograd.grad(outputs=wghts_scaled[:, :, 0], inputs=z, grad_outputs=torch.ones_like(wghts_scaled[:, :, 0]), retain_graph=True)[0]
         # grad_maurer = autograd.grad(outputs=wghts_scaled[:, :, 1], inputs=z, grad_outputs=torch.ones_like(wghts_scaled[:, :, 1]), retain_graph=True)[0]
         # grad_nldas = autograd.grad(outputs=wghts_scaled[:, :, 2], inputs=z, grad_outputs=torch.ones_like(wghts_scaled[:, :, 2]), retain_graph=True)[0]
-    
+
+        # return x_new, range_bound_loss_prcp, wghts_scaled, grad_daymet, grad_maurer, grad_nldas
+        return prcp_wavg, weights_scaled, range_bound_loss_prcp
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class PGMLHydroModel(torch.nn.Module):
@@ -368,10 +467,7 @@ class PGMLHydroModel(torch.nn.Module):
 
 
 
-
-
 if __name__ == "__main__":
-
     # List hydro models to combine in multimodel.
     models = ['dPLHBV_dp', 'SACSMA_snow', 'marrmot_PRMS']
     args_list = [dplhbvArgs, sacsmaSnowArgs, prmsArgs]

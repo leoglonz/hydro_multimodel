@@ -38,6 +38,9 @@ def createDictFromKeys(keyList, mtd=0, dims=None, dat=None):
   return d
 
 def scaleDict(pDict, pKeys, rangeDict):
+  """
+  Scale the values in a dict based on a given range.
+  """
   for k in pKeys:
     pDict[k] = pDict[k] * (rangeDict[k][1] - rangeDict[k][0]) + rangeDict[k][0]
   return pDict

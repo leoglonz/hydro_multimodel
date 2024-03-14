@@ -119,3 +119,24 @@ def range_bound_loss(params, lb, ub, scale_factor=15, device='cpu'):
         loss += (upper_bound_loss + lower_bound_loss) * scale_factor
 
     return loss
+
+
+def weighted_avg(x, weights, weights_scaled, dims, dtype=torch.float32):
+        """
+        Get weighted average.
+        """
+        device = weights.device
+        dtype = weights.dtype
+        wavg = torch.zeros(dims,requires_grad=True,dtype=dtype).to(device)
+        
+        for para in range(weights.shape[2]):
+            prcp_wavg = prcp_wavg + weights_scaled[:, :, para] * x[:, :, para]
+
+        return prcp_wavg
+
+
+def t_sum(tensor, ntp, dim):
+    """
+    Compute sum.
+    """
+    return torch.sum(tensor[:,:,:ntp], dim=dim)

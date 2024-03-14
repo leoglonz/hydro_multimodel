@@ -10,7 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 import torch.nn.functional as F
-from hydroDL.post import plot, stat
+from hydroDL_depr.post import plot, stat
 
 Ttest = [19951001, 20051001]
 ## Choose multi-model type: 'ensemble', 'mean', 'mosaic'. 

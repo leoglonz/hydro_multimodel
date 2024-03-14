@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 from datetime import date, timedelta
-from hydroDL import utils, pathGAGES
+from hydroDL_depr import utils, pathGAGES
 from pandas.api.types import is_numeric_dtype, is_string_dtype
 import time
 import json
