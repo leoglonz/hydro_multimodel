@@ -4,11 +4,11 @@ This script runs all of the necessary data cleaning, along with the training reg
 import sys
 import platform
 sys.path.append('../../')
-from hydroDL_depr import master, utils
-from hydroDL_depr.data import camels
-from hydroDL_depr.master import loadModel
-from hydroDL_depr.model import train
-from hydroDL_depr.post import plot, stat
+from hydroDL import master, utils
+from hydroDL.data import camels
+from hydroDL.master.master import loadModel
+from hydroDL.model import train
+from hydroDL.post import plot, stat
 
 import os
 import numpy as np
