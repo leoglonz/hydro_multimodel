@@ -102,10 +102,13 @@ def test_dp_hbv():
     staind = -1
 
     ## Testing parameters
-    Ttest = [19951001, 20101001]  # testing period
+    # Ttest = [19951001, 20101001]  # testing period
+    Ttest = Ttrain
     # Ttest = [19891001, 19991001]  # PUB/PUR period
-    TtestLst = utils.time.tRange2Array(Ttest)
-    TtestLoad = [19951001, 20101001]  # could potentially use this to load more forcings before testing period as warm-up
+    # TtestLst = utils.time.tRange2Array(Ttest)
+    TtestLst = utils.time.tRange2Array(Ttrain)
+    # TtestLoad = [19951001, 20101001]  # could potentially use this to load more forcings before testing period as warm-up
+    TtestLoad = [19801001, 19951001]
     # TtestLoad = [19801001, 19991001]  # PUB/PUR period
     testbatch = 30  # forward number of "testbatch" basins each time to save GPU memory. You can set this even smaller to save more.
     testepoch = 50
@@ -368,3 +371,19 @@ if __name__ == "__main__":
     # calculate evaluation metrics (Q0: the streamflow)
     evaDict = [stat.statError(predtestALL[:,:,0], obstestALL.squeeze())]
     print(evaDict)
+
+
+
+
+
+"""
+Update the above with:
+
+
+the version in test_ensemble on colab.
+
+
+
+
+
+"""

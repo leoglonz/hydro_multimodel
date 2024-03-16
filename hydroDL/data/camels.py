@@ -459,6 +459,8 @@ def getStatDic(flow_regime, attrLst=None, attrdata=None, seriesLst=None, seriesd
         for k in range(len(attrLst)):
             var = attrLst[k]
             statDict[var] = calStat(attrdata[:, k])
+
+    # return each stat in attrLst with form [p10, p90, mean, std].
     return statDict
 
 
