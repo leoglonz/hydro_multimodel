@@ -7,7 +7,7 @@ sys.path.append('../../')
 from hydroDL import master, utils
 from hydroDL.data import camels
 from hydroDL.master.master import loadModel
-from hydroDL.model import train
+from hydroDL.model_new import train
 from hydroDL.post import plot, stat
 
 import os

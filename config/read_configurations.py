@@ -1,4 +1,7 @@
-"""code to read the config file"""
+"""
+Code to read the config files for each hydro model variation.
+We keep them separated so that each model can easily be setup as desired.  
+"""
 
 import os
 try: 
@@ -35,4 +38,12 @@ config_hbv = yaml.load(stream_hbv)
 config_prms = yaml.load(stream_prms)
 config_sacsma = yaml.load(stream_sacsma)
 config_sacsma_snow = yaml.load(stream_sacsma_snow)
-config_hbv_hydrodl = yaml.load(stream_hbv_hy)
+config_dplhbv_dyn = yaml.load(stream_hbv_hy)
+config_dplhbv_stat = None  # Not implemented yet.
+
+master_config = {'HBV':config_hbv,
+                 'dPLHBV_stat': config_dplhbv_stat,
+                 'dPLHBV_dyn': config_dplhbv_dyn, 
+                 'SACSMA': config_sacsma,
+                 'SACSMA_snow': config_sacsma_snow,
+                 'marrmot_PRMS':config_prms}

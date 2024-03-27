@@ -3,7 +3,7 @@ import socket
 import collections
 
 print("loading package hydroDL")
-import hydroDL.model
+import hydroDL.model_new
 import hydroDL.data
 import hydroDL.post
 
@@ -50,6 +50,6 @@ pathSMAP, pathCamels, pathGAGES = initPath()
 from . import utils
 
 # from . import datasets
-from . import model
+from . import model_new
 from . import post
 from . import data

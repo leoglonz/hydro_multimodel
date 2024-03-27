@@ -4,9 +4,9 @@ from collections import OrderedDict
 import numpy as np
 import json
 from hydroDL import utils
-from hydroDL.model import crit, rnn
-from hydroDL.model.train import trainModel
-from hydroDL.model.test import testModel
+from hydroDL.model_new import crit, rnn
+from hydroDL.model_new.train import trainModel
+from hydroDL.model_new.test import testModel
 import datetime as dt
 import pandas as pd
 import random
@@ -46,9 +46,11 @@ def loadModel(outFolder, epoch, modelName="model"):
     return model
 
 
-def namePred(out, tRange, subset, epoch=None, doMC=False, suffix=None):
+def namePred(out, tRange, subset, epoch=None, doMC=False, suffix=None, targLst=None):
     mDict = readMasterFile(out)
-    if (
+    if targLst != None:
+        target = targLst
+    elif (
         "name" in mDict["data"].keys()
         and mDict["data"]["name"] == "hydroDL.data.camels.DataframeCamels"
     ):
@@ -438,25 +440,25 @@ def train(mDict):
     ny = y.shape[-1]
 
     # loss
-    if eval(optLoss["name"]) is hydroDL.model.crit.SigmaLoss:
+    if eval(optLoss["name"]) is hydroDL.model_new.crit.SigmaLoss:
         lossFun = crit.SigmaLoss(prior=optLoss["prior"])
         optModel["ny"] = ny * 2
-    elif eval(optLoss["name"]) is hydroDL.model.crit.RmseLoss:
+    elif eval(optLoss["name"]) is hydroDL.model_new.crit.RmseLoss:
         lossFun = crit.RmseLoss()
         optModel["ny"] = ny
-    elif eval(optLoss["name"]) is hydroDL.model.crit.NSELoss:
+    elif eval(optLoss["name"]) is hydroDL.model_new.crit.NSELoss:
         lossFun = crit.NSELoss()
         optModel["ny"] = ny
-    elif eval(optLoss["name"]) is hydroDL.model.crit.NSELosstest:
+    elif eval(optLoss["name"]) is hydroDL.model_new.crit.NSELosstest:
         lossFun = crit.NSELosstest()
         optModel["ny"] = ny
-    elif eval(optLoss["name"]) is hydroDL.model.crit.MSELoss:
+    elif eval(optLoss["name"]) is hydroDL.model_new.crit.MSELoss:
         lossFun = crit.MSELoss()
         optModel["ny"] = ny
-    elif eval(optLoss["name"]) is hydroDL.model.crit.RmseLossCNN:
+    elif eval(optLoss["name"]) is hydroDL.model_new.crit.RmseLossCNN:
         lossFun = crit.RmseLossCNN()
         optModel["ny"] = ny
-    elif eval(optLoss["name"]) is hydroDL.model.crit.ModifyTrend1:
+    elif eval(optLoss["name"]) is hydroDL.model_new.crit.ModifyTrend1:
         lossFun = crit.ModifyTrend1()
         optModel["ny"] = ny
 
@@ -464,7 +466,7 @@ def train(mDict):
     if optModel["nx"] != nx:
         print("updated nx by input data")
         optModel["nx"] = nx
-    if eval(optModel["name"]) is hydroDL.model.rnn.CudnnLstmModel:
+    if eval(optModel["name"]) is hydroDL.model_new.rnn.CudnnLstmModel:
         if type(x) is tuple:
             x = np.concatenate([x[0], x[1]], axis=2)
             if c is None:
@@ -476,31 +478,31 @@ def train(mDict):
         model = rnn.CudnnLstmModel(
             nx=optModel["nx"], ny=optModel["ny"], hiddenSize=optModel["hiddenSize"]
         )
-    elif eval(optModel["name"]) is hydroDL.model.rnn.CpuLstmModel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.CpuLstmModel:
         model = rnn.CpuLstmModel(
             nx=optModel["nx"], ny=optModel["ny"], hiddenSize=optModel["hiddenSize"]
         )
-    elif eval(optModel["name"]) is hydroDL.model.rnn.LstmCloseModel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.LstmCloseModel:
         model = rnn.LstmCloseModel(
             nx=optModel["nx"],
             ny=optModel["ny"],
             hiddenSize=optModel["hiddenSize"],
             fillObs=True,
         )
-    elif eval(optModel["name"]) is hydroDL.model.rnn.AnnModel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.AnnModel:
         model = rnn.AnnCloseModel(
             nx=optModel["nx"], ny=optModel["ny"], hiddenSize=optModel["hiddenSize"]
         )
-    elif eval(optModel["name"]) is hydroDL.model.rnn.AnnCloseModel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.AnnCloseModel:
         model = rnn.AnnCloseModel(
             nx=optModel["nx"],
             ny=optModel["ny"],
             hiddenSize=optModel["hiddenSize"],
             fillObs=True,
         )
-    elif eval(optModel["name"]) is hydroDL.model.cnn.LstmCnn1d:
+    elif eval(optModel["name"]) is hydroDL.model_new.cnn.LstmCnn1d:
         convpara = optModel["convNKSP"]
-        model = hydroDL.model.cnn.LstmCnn1d(
+        model = hydroDL.model_new.cnn.LstmCnn1d(
             nx=optModel["nx"],
             ny=optModel["ny"],
             rho=optModel["rho"],
@@ -509,7 +511,7 @@ def train(mDict):
             stride=convpara[2],
             padding=convpara[3],
         )
-    elif eval(optModel["name"]) is hydroDL.model.rnn.CNN1dLSTMmodel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.CNN1dLSTMmodel:
         daobsOption = optData["daObs"]
         if type(daobsOption) is list:
             if len(daobsOption) - 3 >= 7:
@@ -542,7 +544,7 @@ def train(mDict):
                 print("Too few obserservations, not using cnn kernel")
         else:
             raise Exception("CNN kernel used but daobs option is not obs list")
-    elif eval(optModel["name"]) is hydroDL.model.rnn.CNN1dLSTMInmodel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.CNN1dLSTMInmodel:
         # daobsOption = optData['daObs']
         daobsOption = list(range(24))
         if type(daobsOption) is list:
@@ -577,7 +579,7 @@ def train(mDict):
                 print("Too few obserservations, not using cnn kernel")
         else:
             raise Exception("CNN kernel used but daobs option is not obs list")
-    elif eval(optModel["name"]) is hydroDL.model.rnn.CNN1dLCmodel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.CNN1dLCmodel:
         # LCrange = optData['lckernel']
         # tLCLst = utils.time.tRange2Array(LCrange)
         if len(x[1].shape) == 2:
@@ -598,7 +600,7 @@ def train(mDict):
             poolOpt=optModel["poolOpt"],
         )
         print("CNN1d Local calibartion Kernel is used!")
-    elif eval(optModel["name"]) is hydroDL.model.rnn.CNN1dLCInmodel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.CNN1dLCInmodel:
         LCrange = optData["lckernel"]
         tLCLst = utils.time.tRange2Array(LCrange)
         optModel["nobs"] = x[1].shape[-1]
@@ -614,7 +616,7 @@ def train(mDict):
             poolOpt=optModel["poolOpt"],
         )
         print("CNN1d Local calibartion Kernel is used!")
-    elif eval(optModel["name"]) is hydroDL.model.rnn.CudnnInvLstmModel:
+    elif eval(optModel["name"]) is hydroDL.model_new.rnn.CudnnInvLstmModel:
         # optModel['ninv'] = x[1].shape[-1]
         optModel["ninv"] = x[1].shape[-1] + c.shape[-1]  # Test the inv using attributes
         model = rnn.CudnnInvLstmModel(

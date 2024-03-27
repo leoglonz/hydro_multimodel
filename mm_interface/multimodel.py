@@ -22,7 +22,7 @@ except ModuleNotFoundError:
 import torch
 import torch.nn as nn
 
-from hydroDL.model.rnn import CudnnLstmModel
+from hydroDL.model_new.rnn import CudnnLstmModel
 import mm_interface.mm_functional as F
 from mm_interface import master as m
 
@@ -30,13 +30,6 @@ from mm_interface import master as m
 # Set global torch device and dtype.
 device, dtype = m.set_globals()
 
-
-
-def createTensor(dims, requires_grad=False):
-    """
-    A small function to centrally manage device, data types, etc., of new arrays
-    """
-    return torch.zeros(dims,requires_grad=requires_grad,dtype=dtype).to(device)
 
 
 class WeightedEnsemble(torch.nn.Module):

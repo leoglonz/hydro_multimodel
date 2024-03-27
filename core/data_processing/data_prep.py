@@ -29,55 +29,57 @@ def scaling(args, x, y, c):
     return x_total_scaled, y_scaled, c_scaled
 
 
-# def make_tensor(*values, has_grad=False, dtype=torch.float32, device="cuda"):
-#     if len(values) > 1:
-#         tensor_list = []
-#         for value in values:
-#             t = torch.tensor(value, requires_grad=has_grad, dtype=dtype,
-#                              device=device)
-#             tensor_list.append(t)
-#     else:
-#         for value in values:
-#             if type(value) != torch.Tensor:
-#                 tensor_list = torch.tensor(
-#                     value, requires_grad=has_grad, dtype=dtype, device=device
-#                 )
-#             else:
-#                 tensor_list = value.clone().detach()
 
-#     return tensor_list
+def make_tensor(*values, has_grad=False, dtype=torch.float32, device="cuda"):
+    if len(values) > 1:
+        tensor_list = []
+        for value in values:
+            t = torch.tensor(value, requires_grad=has_grad, dtype=dtype,
+                             device=device)
+            tensor_list.append(t)
+    else:
+        for value in values:
+            if type(value) != torch.Tensor:
+                tensor_list = torch.tensor(
+                    value, requires_grad=has_grad, dtype=dtype, device=device
+                )
+            else:
+                tensor_list = value.clone().detach()
+
+    return tensor_list
 
 
-# def create_tensor(rho, mini_batch, x, y):
-#     """
-#     Creates a data tensor of the input variables and incorporates a sliding window of rho
-#     :param mini_batch: min batch length
-#     :param rho: the seq len
-#     :param x: the x data
-#     :param y: the y data
-#     :return:
-#     """
-#     j = 0
-#     k = rho
-#     _sample_data_x = []
-#     _sample_data_y = []
-#     for i in range(x.shape[0]):
-#         _list_x = []
-#         _list_y = []
-#         while k < x[0].shape[0]:
-#             """In the format: [total basins, basin, days, attributes]"""
-#             _list_x.append(x[1, j:k, :])
-#             _list_y.append(y[1, j:k, 0])
-#             j += mini_batch
-#             k += mini_batch
-#         _sample_data_x.append(_list_x)
-#         _sample_data_y.append(_list_y)
-#         j = 0
-#         k = rho
-#     sample_data_x = torch.tensor(_sample_data_x).float()
-#     sample_data_y = torch.tensor(_sample_data_y).float()
 
-#     return sample_data_x, sample_data_y
+def create_tensor(rho, mini_batch, x, y):
+    """
+    Creates a data tensor of the input variables and incorporates a sliding window of rho
+    :param mini_batch: min batch length
+    :param rho: the seq len
+    :param x: the x data
+    :param y: the y data
+    :return:
+    """
+    j = 0
+    k = rho
+    _sample_data_x = []
+    _sample_data_y = []
+    for i in range(x.shape[0]):
+        _list_x = []
+        _list_y = []
+        while k < x[0].shape[0]:
+            """In the format: [total basins, basin, days, attributes]"""
+            _list_x.append(x[1, j:k, :])
+            _list_y.append(y[1, j:k, 0])
+            j += mini_batch
+            k += mini_batch
+        _sample_data_x.append(_list_x)
+        _sample_data_y.append(_list_y)
+        j = 0
+        k = rho
+    sample_data_x = torch.tensor(_sample_data_x).float()
+    sample_data_y = torch.tensor(_sample_data_y).float()
+
+    return sample_data_x, sample_data_y
 
 
 def create_tensor_list(x, y):

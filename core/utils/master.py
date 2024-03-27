@@ -38,7 +38,7 @@ def create_output_dirs(args):
     if not os.path.exists(args["output_model"]):
         os.makedirs(args["output_model"])
     if args["hydro_model_name"]!= "None":
-        hydro_name = "_" + args["hydro_model_name"]
+        hydro_name = args["hydro_model_name"]
     else:
         hydro_name = ""
     if args["temp_model_name"]!= "None":
@@ -47,7 +47,7 @@ def create_output_dirs(args):
         temp_name = ""
 
     out_folder = args["NN_model_name"] + \
-            hydro_name + \
+            "_" + hydro_name + \
             temp_name + \
             '_E' + str(args['EPOCHS']) + \
              '_R' + str(args['rho']) + \
@@ -57,16 +57,16 @@ def create_output_dirs(args):
             "_n" + str(args["nmul"]) + \
             "_" + str(seed)
 
-    if not os.path.exists(os.path.join(args["output_model"], out_folder)):
-        os.makedirs(os.path.join(args["output_model"], out_folder))
+    if not os.path.exists(os.path.join(args["output_model"], hydro_name, out_folder)):
+        os.makedirs(os.path.join(args["output_model"], hydro_name, out_folder))
 
     testing_dir = "ts" + str(args["t_test"][0])[:4] + "_" + str(args["t_test"][1])[:4]
-    if not os.path.exists(os.path.join(args["output_model"], out_folder, testing_dir)):
-        os.makedirs(os.path.join(args["output_model"], out_folder, testing_dir))
+    if not os.path.exists(os.path.join(args["output_model"], hydro_name, out_folder, testing_dir)):
+        os.makedirs(os.path.join(args["output_model"], hydro_name, out_folder, testing_dir))
     # else:
     #     shutil.rmtree(os.path.join(args['output']['model'], out_folder))
     #     os.makedirs(os.path.join(args['output']['model'], out_folder))
-    args["out_dir"] = os.path.join(args["output_model"], out_folder)
+    args["out_dir"] = os.path.join(args["output_model"], hydro_name, out_folder)
     args["testing_dir"] = testing_dir
 
     # saving the args file in output directory

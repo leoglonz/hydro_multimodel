@@ -4,11 +4,11 @@ import os
 import numpy as np
 import torch
 import time
-import tqdm
+from tqdm import tqdm
 
 
 from mm_interface.master import set_globals
-from hydroDL.model import crit
+from hydroDL.model_new import crit
 from core.data_processing.data_prep import selectSubset, randomIndex
 from core.data_processing.data_loading import loadData
 from core.data_processing.normalization import transNorm
@@ -23,7 +23,7 @@ device, dtype = set_globals()
 
 
 
-def trainEnsemble(model,
+def train_ensemble(model,
                x,
                y,
                c,
@@ -156,61 +156,6 @@ def trainEnsemble(model,
 
     return model
 
-
-
-def test_differentiable_model(args, diff_model):
-    """
-    This function collects and outputs the model predictions and the corresponding
-    observations needed to run statistical analyses.
-
-    If rerunning testing in a Jupyter environment, you will need to re-import args
-    as `batch_size` is overwritten in this function and will throw an error if the
-    overwrite is attempted a second time.
-    """
-    warm_up = args["warm_up"]
-    nmul = args["nmul"]
-    diff_model.eval()
-    # read data for test time range
-    dataset_dictionary = loadData(args, trange=args["t_test"])
-    np.save(os.path.join(args["out_dir"], "x.npy"), dataset_dictionary["x_NN"])  # saves with the overlap in the beginning
-    # normalizing
-    x_NN_scaled = transNorm(args, dataset_dictionary["x_NN"], varLst=args["varT_NN"], toNorm=True)
-    c_NN_scaled = transNorm(args, dataset_dictionary["c_NN"], varLst=args["varC_NN"], toNorm=True)
-    c_NN_scaled = np.repeat(np.expand_dims(c_NN_scaled, 0), x_NN_scaled.shape[0], axis=0)
-    dataset_dictionary["inputs_NN_scaled"] = np.concatenate((x_NN_scaled, c_NN_scaled), axis=2)
-    del x_NN_scaled, dataset_dictionary["x_NN"]
-    # converting the numpy arrays to torch tensors:
-    for key in dataset_dictionary.keys():
-        dataset_dictionary[key] = torch.from_numpy(dataset_dictionary[key]).float()
-
-    # args_mod = args.copy()
-    args["batch_size"] = args["no_basins"]
-    nt, ngrid, nx = dataset_dictionary["inputs_NN_scaled"].shape
-
-    # Making lists of the start and end indices of the basins for each batch.
-    batch_size = args["batch_size"]
-    iS = np.arange(0, ngrid, batch_size)    # Start index list.
-    iE = np.append(iS[1:], ngrid)   # End.
-
-    list_out_diff_model = []
-    for i in tqdm(range(0, len(iS)), unit='Batch'):
-        dataset_dictionary_sample = take_sample_test(args, dataset_dictionary, iS[i], iE[i])
-
-        out_diff_model = diff_model(dataset_dictionary_sample)
-        # Convert all tensors in the dictionary to CPU
-        out_diff_model_cpu = {key: tensor.cpu().detach() for key, tensor in out_diff_model.items()}
-        # out_diff_model_cpu = tuple(outs.cpu().detach() for outs in out_diff_model)
-        list_out_diff_model.append(out_diff_model_cpu)
-
-    # getting rid of warm-up period in observation dataset and making the dimension similar to
-    # converting numpy to tensor
-    # y_obs = torch.tensor(np.swapaxes(y_obs[:, warm_up:, :], 0, 1), dtype=torch.float32)
-    # c_hydro_model = torch.tensor(c_hydro_model, dtype=torch.float32)
-    y_obs = converting_flow_from_ft3_per_sec_to_mm_per_day(args,
-                                                           dataset_dictionary["c_NN"],
-                                                           dataset_dictionary["obs"][warm_up:, :, :])
-
-    return list_out_diff_model, y_obs
 
 
 def range_bound_loss(params, lb, ub, scale_factor=15):
