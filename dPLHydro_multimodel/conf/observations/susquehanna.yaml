@@ -1,3 +1,0 @@
-name: susquehanna
-gage_info: ${data_dir}/../observations/susquehanna_example.csv
-observations_path: ${data_dir}/../observations/susquehanna_streamflow

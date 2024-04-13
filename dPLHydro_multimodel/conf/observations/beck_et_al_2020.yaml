@@ -1,3 +1,0 @@
-name: beck_et_al_2020
-gage_info: ???
-observations_path: ${data_dir}/../observations/Beck_et_al_2020.zarr

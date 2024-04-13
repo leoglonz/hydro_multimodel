@@ -1,3 +1,0 @@
-name: grdc
-gage_info: ${data_dir}/gage_information/formatted_gage_csvs/large_basin_74.csv
-observations_path: ${data_dir}/../observations/grdc_streamflow

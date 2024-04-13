@@ -1,10 +1,10 @@
 help:
-  app_name: dMC-dev
+  app_name: hydro-multimodel
   header: == ${hydra.help.app_name} ==
   template: |-
     ${hydra.help.header}
 
-    A differentiable Muskingum Cunge routing module developed by Tadd Bindas
+    Multimodel framework developed by Leo Lonzarich.
 
     ${hydra.help.footer}
   footer: |-

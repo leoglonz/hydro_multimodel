@@ -1,11 +1,8 @@
 defaults:
   - _self_
-  - observations: camels_671
   - hydra: settings
 ## Config ----------------------------------------------------------------------------#
 mode: train
-model_output: F:\code_repos\water\data\model_runs\PGML_STemp_results\671_sites\dynamic
-
 target: ['00060_Mean']
 nn_model: LSTM
 hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
@@ -20,6 +17,7 @@ dyn_hydro_params:
 
 nmul: 16
 routing_hydro_model: True
+forcings: camels_671
 potet_module: dataset
 potet_dataset_name: PET_hargreaves(mm/day)
 
@@ -44,3 +42,7 @@ dropout: 0.5
 
 n_basins: 25
 save_epoch: 2
+
+name: hmm0.3.0-${forcings}
+data_dir: F:\code_repos\water\data
+model_output: ${data_dir}\model_runs\PGML_STemp_results\671_sites\dynamic

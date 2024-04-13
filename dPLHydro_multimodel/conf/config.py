@@ -68,20 +68,20 @@ class AttributeMinimums:
     velocity: float = 0.3
 
 
-@dataclass
-class DataSources:
-    edges: str
-    gage_coo_indices: str
-    HUC_TM: Optional[str]
-    MERIT_TM: str
-    streamflow: str
+# @dataclass
+# class DataSources:
+#     edges: str
+#     gage_coo_indices: str
+#     HUC_TM: Optional[str]
+#     MERIT_TM: str
+#     streamflow: str
 
-    @field_validator(
-        "edges", "gage_coo_indices", "HUC_TM", "MERIT_TM", "streamflow", "statistics"
-    )
-    @classmethod
-    def validate_data_dir(cls, v: str) -> Path:
-        return check_path(v)
+#     @field_validator(
+#         "edges", "gage_coo_indices", "HUC_TM", "MERIT_TM", "streamflow", "statistics"
+#     )
+#     @classmethod
+#     def validate_data_dir(cls, v: str) -> Path:
+#         return check_path(v)
 
 
 @dataclass
@@ -216,11 +216,9 @@ class ObservationConfig:
 
 class Config(BaseModel):
     data_dir: str
-    data_sources: DataSources
+    # data_sources: DataSources
     forcings: str
     name: str
-    local_rank: int
-    world_size: int
     device: Union[List[int], str] = Field(default_factory=lambda: [0])
     mode: ModeEnum = Field(default=ModeEnum.train_test)
     np_seed: int = 1
