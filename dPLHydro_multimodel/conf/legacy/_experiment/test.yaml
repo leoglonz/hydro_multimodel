@@ -1,0 +1,5 @@
+# Experiment-- ---------------------------------------------------------------------
+warmup: 72
+save_path: ${hydra:run.dir}
+tensorboard_dir: ${hydra:run.dir}
+#checkpoint: /data/tkb5476/projects/dMC-dev/runs/susquehanna_benchmark/2024-01-28_23-19-51_50_epoch_period_1a/susquehanna_benchmark_model_state_50.pt

@@ -1,0 +1,3 @@
+name: gages_3000
+gage_info: ${data_dir}/gage_information/formatted_gage_csvs/gages_3000_merit_info.csv
+observations_path: ${data_dir}/../observations/gages_9000.zarr

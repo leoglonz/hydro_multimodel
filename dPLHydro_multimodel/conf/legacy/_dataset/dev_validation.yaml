@@ -1,0 +1,32 @@
+# Data --------------------------------------------------------------------------
+attributes:
+  - len
+  - len_dir
+  - sinuosity
+  - slope
+  - stream_drop
+  - uparea
+
+name: dev_validation
+batch_size: 100
+#gage_locations: ${marquette_data_dir}/gage_information/formatted_gage_csvs/gages_validation_merit_info.csv
+gage_locations: /data/tkb5476/projects/dMC-dev/data/observations/gages_example.csv
+forcing_projection: merit
+#observation_source: global
+observation_source: zarr_usgs
+#observations: /data/shared_data/zarr_observations/Beck_et_al_2020/
+observations: /data/shared_data/zarr_observations/gages_9000
+shuffle: False
+streamflow_version: merit_global_v1.1
+#zone: 71
+time:
+  start: 1994/10/01
+  end: 1995/09/30
+  origin_start_date: 1980/01/01
+zarr:
+  edges: ${marquette_data_dir}/zarr/graph/edges/
+  gage_coo_indices: ${marquette_data_dir}/zarr/gage_coo_indices
+  HUC_TM: ${marquette_data_dir}/zarr/TMs/PFAF_
+  MERIT_TM: ${marquette_data_dir}/zarr/TMs/MERIT_FLOWLINES_
+#  q_prime: ${marquette_data_dir}/zarr/q_prime
+  streamflow: ${marquette_data_dir}/streamflow/zarr/${dataset.streamflow_version}/

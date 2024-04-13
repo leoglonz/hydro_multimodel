@@ -1,0 +1,46 @@
+defaults:
+  - _self_
+  - observations: camels_671
+  - hydra: settings
+## Config ----------------------------------------------------------------------------#
+mode: train
+model_output: F:\code_repos\water\data\model_runs\PGML_STemp_results\671_sites\dynamic
+
+target: ['00060_Mean']
+nn_model: LSTM
+hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
+
+dyn_hydro_params:
+  HBV: ['parBETA', 'parBETAET']
+  SACSMA: ['parTT']
+  PRMS: []
+
+
+## Settings for all models ----------------------------------------------------------------#
+
+nmul: 16
+routing_hydro_model: True
+potet_module: dataset
+potet_dataset_name: PET_hargreaves(mm/day)
+
+loss_function: RmseLoss_flow_comb
+loss_function_weights:
+    w1: 11.0
+    w2: 1.0
+
+train:
+  start_time: 1980/10/01
+  end_time: 1995/10/01
+test:
+  start_time: 1995/10/01
+  end_time: 2010/10/01
+
+warm_up: 365
+rho: 365
+batch_size: 100
+epochs: 50
+hidden_size: 256
+dropout: 0.5
+
+n_basins: 25
+save_epoch: 2

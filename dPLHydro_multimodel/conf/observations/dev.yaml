@@ -1,0 +1,13 @@
+name: dev
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/gages_example.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/gages_dev.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_1.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_2.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_3.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_4.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_5.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_6.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_7.csv
+gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_8.csv
+# gage_info: ${data_dir}/gage_information/formatted_gage_csvs/network_test_9.csv
+observations_path: ${data_dir}/../observations/gages_9000.zarr

@@ -1,0 +1,7 @@
+# Experiment-- ---------------------------------------------------------------------
+warmup: 72
+save_path: ${hydra:run.dir}
+tensorboard_dir: ${hydra:run.dir}
+checkpoint: /data/tkb5476/projects/dMC-dev/runs/trained_models/2024-02-19_15-05-52_5_epoch_training_merit_global_v1.1/dMCv0.1-gages_3000-merit_global_v1.1_epoch_6_mb_0.pt
+#checkpoint: /data/tkb5476/projects/dMC-dev/runs/trained_models/2024-02-02_07-25-30_6_epoch_run/dMCv0.1-gages_3000-dpl_v3_model_state_6_mini_batch_0.pt
+#checkpoint: /data/tkb5476/projects/dMC-dev/runs/dMCv0.1-gages_3000-dpl_v3-pre/2024-02-03_09-51-48_5_epoch_training/dMCv0.1-gages_3000-dpl_v3-pre_model_state_6_mini_batch_0.pt

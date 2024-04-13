@@ -1,0 +1,26 @@
+# Data --------------------------------------------------------------------------
+attributes:
+  - len
+  - len_dir
+  - sinuosity
+  - slope
+  - stream_drop
+  - uparea
+
+name: grdc_upper_mississippi_validation
+zone: 74
+gage_locations: ${data_dir}/observations/upper_mississippi.csv
+observation_source: grdc
+observations: ${data_dir}/observations/grdc_streamflow
+streamflow_version: merit_global_v1.1
+time:
+  start: 1981/10/01
+  end: 1995/09/30
+  origin_start_date: 1980/01/01
+zarr:
+  edges: ${marquette_data_dir}/zarr/graph/edges/
+  gage_coo_indices: ${marquette_data_dir}/zarr/gage_coo_indices
+  HUC_TM: ${marquette_data_dir}/zarr/TMs/PFAF_
+  MERIT_TM: ${marquette_data_dir}/zarr/TMs/MERIT_FLOWLINES_
+  q_prime: ${marquette_data_dir}/zarr/q_prime
+  streamflow: ${marquette_data_dir}/streamflow/zarr/${dataset.streamflow_version}/

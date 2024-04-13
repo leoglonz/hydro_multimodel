@@ -1,0 +1,17 @@
+name: train
+batch_size: 3
+#dropout_threshold: 20000
+#minimum_zones: 3
+epochs: 1
+rho: 10
+shuffle: True
+start_time: 1981/10/01
+end_time: 1981/10/30
+initialization: "xavier_normal"
+services:
+  dataset: ${hydra:runtime.cwd}/dataset_modules/general_dataset.py
+  experiment: ${hydra:runtime.cwd}/experiments/train.py
+  neural_networks:
+    mlp: ${hydra:runtime.cwd}/neural_networks/cuda_mlp.py
+  physics_models:
+    dMC: ${hydra:runtime.cwd}/physics_models/dMC_sparse_GPU.py
