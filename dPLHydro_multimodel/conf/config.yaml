@@ -6,7 +6,7 @@ defaults:
 ## Config -------------------------------#
 mode: train
 nn_model: LSTM
-hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
+hydro_models: ['HBV']
 ensemble_type: ensemble
 
 dyn_hydro_params:
@@ -42,7 +42,7 @@ test:
 nmul: 16
 warm_up: 365
 rho: 365
-batch_size: 200
+batch_size: 100
 epochs: 50
 hidden_size: 256
 dropout: 0.5

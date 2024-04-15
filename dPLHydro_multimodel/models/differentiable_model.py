@@ -78,15 +78,15 @@ class dPLHydroModel(torch.nn.Module):
         return params_dict
 
 
-    def forward(self, dataset_dictionary_sample):
-        params_all = self.NN_model(dataset_dictionary_sample['inputs_nn_scaled'])
+    def forward(self, dataset_dict_sample):
+        params_all = self.NN_model(dataset_dict_sample['inputs_nn_scaled'])
         # Breaking down params into different pieces for different models (PET, hydro)
         params_dict = self.breakdown_params(params_all)
         
         # Hydro model
         flow_out = self.hydro_model(
-            dataset_dictionary_sample['x_hydro_model'],
-            dataset_dictionary_sample['c_hydro_model'],
+            dataset_dict_sample['x_hydro_model'],
+            dataset_dict_sample['c_hydro_model'],
             params_dict['hydro_params_raw'],
             self.config,
             warm_up=self.config['warm_up'],
