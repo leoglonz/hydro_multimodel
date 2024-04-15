@@ -6,8 +6,9 @@ defaults:
 ## Config -------------------------------#
 mode: train
 nn_model: LSTM
-hydro_models: ['HBV']
-ensemble_type: ensemble
+hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
+ensemble_type:
+freeze_param_nn: False
 
 dyn_hydro_params:
   HBV: ['parBETA', 'parBETAET']
@@ -33,11 +34,11 @@ loss_function_weights:
     w2: 1.0
 
 train:
-  start_time: 1980/10/01
-  end_time: 1995/10/01
+    start_time: 1980/10/01
+    end_time: 1995/10/01
 test:
-  start_time: 1995/10/01
-  end_time: 2010/10/01
+    start_time: 1995/10/01
+    end_time: 2010/10/01
 
 nmul: 16
 warm_up: 365
@@ -47,7 +48,17 @@ epochs: 50
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5
-freeze: True
+
+weighting_nn:
+    wdropout: 0.5
+    hidden_size: 256
+    loss_factor: 15
+    method: sigmoid
+    target: ['00060_Mean']
+    loss_function: RmseLoss_flow_comb
+    loss_function_weights:
+        w1: 11.0
+        w2: 1.0
 
 n_basins: 25
 save_epoch: 1
@@ -55,7 +66,7 @@ save_epoch: 1
 name: hmm0.3.0-${forcings}
 data_dir: F:\code_repos\water\data
 output_dir: ${data_dir}/model_runs/hydro_multimodel_results/${forcings}/debugging
-# ${data_dir}\model_runs\hydro_multimodel_results\${forcings}\dynamic\debugging
+
 
 
 ## TODO: Add to seperate config in \observations\ ------------------------#

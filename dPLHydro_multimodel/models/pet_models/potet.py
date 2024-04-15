@@ -1,8 +1,5 @@
-import numpy as np
-import pandas as pd
 import torch
-import os
-# from core.read_configurations import config
+
 
 
 def potet_hamon(mean_air_temp, dayl, hamon_coef=0.0055):  # hamon_coef=0.1651

@@ -130,11 +130,6 @@ class HBVMul(torch.nn.Module):
 
     def forward(self, x_hydro_model, c_hydro_model, params_raw, args, muwts=None, warm_up=0, init=False, routing=False, comprout=False, conv_params_hydro=None):
         nmul = args['nmul']
-        # HBV(P, ETpot, T, parameters)
-        #
-        # Runs the HBV-light hydrological model (Seibert, 2005). NaN values have to be
-        # removed from the inputs.
-
         PRECS = 1e-5
 
         # Initialization

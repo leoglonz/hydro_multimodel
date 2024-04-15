@@ -1,14 +1,6 @@
-"""Functional interface."""
-
-import os
-import numpy as np
 import torch
 
-
-
-from mm_interface.master import set_globals
-
-
+from utils.master import set_globals
 
 # Set global torch device and dtype.
 device, dtype = set_globals()

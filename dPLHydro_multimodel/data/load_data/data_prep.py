@@ -240,5 +240,22 @@ def take_sample_test(args, dataset_dictionary, iS, iE):
     return dataset_dictionary_sample
 
 
+def breakdown_params(self, params_all):
+        params_dict = dict()
+        params_hydro_model = params_all[:, :, :self.ny]
+
+        # hydro params
+        params_dict['hydro_params_raw'] = torch.sigmoid(
+            params_hydro_model[:, :, :len(self.hydro_model.parameters_bound) * self.config['nmul']]).view(
+            params_hydro_model.shape[0], params_hydro_model.shape[1], len(self.hydro_model.parameters_bound),
+            self.config['nmul'])
+        # routing params
+        if self.config['routing_hydro_model'] == True:
+            params_dict['conv_params_hydro'] = torch.sigmoid(
+                params_hydro_model[-1, :, len(self.hydro_model.parameters_bound) * self.config['nmul']:])
+        else:
+            params_dict['conv_params_hydro'] = None
+        return params_dict
+
 
 # TODO add batch size into calculations here

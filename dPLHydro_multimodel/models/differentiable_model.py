@@ -6,8 +6,8 @@ from models.hydro_models.HBV.HBVmul import HBVMul
 from models.hydro_models.SACSMA.SACSMAmul import SACSMAMul
 from models.hydro_models.SACSMA_with_snowpack.SACSMA_snow_mul import SACSMA_snow_Mul
 
-from models.neural_networks.LSTM_models import CudnnLstmModel
-from models.neural_networks.MLP_models import MLPmul
+from models.neural_networks.lstm_models import CudnnLstmModel
+from models.neural_networks.mlp_models import MLPmul
 
 
 
@@ -77,9 +77,9 @@ class dPLHydroModel(torch.nn.Module):
             params_dict['conv_params_hydro'] = None
         return params_dict
 
-
     def forward(self, dataset_dict_sample):
         params_all = self.NN_model(dataset_dict_sample['inputs_nn_scaled'])
+
         # Breaking down params into different pieces for different models (PET, hydro)
         params_dict = self.breakdown_params(params_all)
         

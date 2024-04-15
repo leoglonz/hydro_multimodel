@@ -1,16 +1,7 @@
 import torch.nn
 
-from models.hydro_models.marrmot_PRMS.prms_marrmot import prms_marrmot
-from models.hydro_models.marrmot_PRMS_gw0.prms_marrmot_gw0 import prms_marrmot_gw0
-from models.hydro_models.HBV.HBVmul import HBVMul
-from models.hydro_models.SACSMA.SACSMAmul import SACSMAMul
-from models.hydro_models.SACSMA_with_snowpack.SACSMA_snow_mul import SACSMA_snow_Mul
 from models.differentiable_model import dPLHydroModel
 from models.loss_functions.get_loss_function import get_loss_func
-
-
-from models.neural_networks.LSTM_models import CudnnLstmModel
-from models.neural_networks.MLP_models import MLPmul
 
 
 
@@ -36,6 +27,9 @@ class MultimodelHandler(torch.nn.Module):
         for mod in self.config['hydro_models']:
             self.model_dict[mod] = dPLHydroModel(self.config, mod).to(self.config['device'])
             self.optim_dict[mod] = torch.optim.Adadelta(self.model_dict[mod].parameters())
+            
+            self.model_dict[mod].zero_grad()
+            self.model_dict[mod].train()
 
     def init_loss_func(self, obs):
         self.loss_func = get_loss_func(self.config, obs)
