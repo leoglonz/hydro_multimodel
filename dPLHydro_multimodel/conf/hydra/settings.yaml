@@ -12,7 +12,7 @@ help:
     Use --hydra-help to view Hydra specific help
 job:
   name: ${name}
-  chdir: True
+  chdir: False # Changes working dir to 'run' dir.
 run:
   dir: ${hydra:runtime.cwd}/runs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 sweep:

@@ -7,6 +7,10 @@ from typing import Any, Dict, List, Optional, Union
 from hydra.core.hydra_config import HydraConfig
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic.dataclasses import dataclass
+from torch import float16
+
+# from dPLHydro_multimodel.models import hydro_models
+# from old_files.hydroDL import dataset
 
 log = logging.getLogger(__name__)
 
@@ -31,10 +35,9 @@ def check_dictionary_paths(v: Dict[str, str]) -> Dict[str, Path]:
 
 
 class ModeEnum(str, Enum):
-    test = "test"
     train = "train"
+    test = "test"
     train_test = "train_test"
-    simulation = "simulation"
 
 
 class InitalizationEnum(str, Enum):
@@ -161,7 +164,7 @@ class Params:
 
 
 @dataclass
-class MLP:
+class LSTM:
     hidden_size: int
     input_size: int
     output_size: int
@@ -174,66 +177,86 @@ class MLP:
 
 
 class ExperimentConfig(BaseModel):
-    batch_size: int = 1
     start_time: str = "1994/10/01"
     end_time: str = "1995/09/30"
-    alpha: float = 3e3
-    area_lower_bound: int = 0
-    area_upper_bound: int = 500
-    checkpoint: Optional[str] = None
-    dropout_threshold: Optional[int] = None
-    epochs: Optional[int] = 5
-    factor: int = 100
-    learning_rate: float = 0.01
-    minimum_zones: Optional[int] = 3
-    range_bound_lower_bounds: List[float] = Field(
-        default_factory=lambda: [0.001, 0.001]
-    )
-    range_bound_upper_bounds: List[float] = Field(default_factory=lambda: [0.15, 1.0])
-    rho: Optional[int] = None
-    shuffle: bool = False
-    zone: Optional[List[int]] = None
 
-    @field_validator("checkpoint")
-    @classmethod
-    def validate_data_dir(cls, v: str) -> Path:
-        return check_path(v)
+
+class DynamicConfig(BaseModel):
+    HBV: list
+    SACSMA: list
+    PRMS: list
+
+
+class LossFunc(BaseModel):
+    w1: float = 11.0
+    w2: float = 1.0 
 
 
 @dataclass
 class ObservationConfig:
     name: str = "not_defined"
     gage_info: str = "not_defined"
+    attr_path: str = "not_defined"
     observations_path: str = "not_defined"
+    var_t_NN: list = "not_defined"
+    var_c_NN: list = "not_defined"
+    var_t_hydro_model: list = "not_defined"
+    var_c_hydro_model: list = "not_defined"
 
     @field_validator("gage_info", "observations_path")
     @classmethod
-    def validate_data_dir(cls, v: str) -> Union[Path, str]:
+    def validate_dir(cls, v: str) -> Union[Path, str]:
         if v == "not_defined":
             return v
         return check_path(v)
 
 
 class Config(BaseModel):
-    data_dir: str
-    # data_sources: DataSources
-    forcings: str
-    name: str
-    device: Union[List[int], str] = Field(default_factory=lambda: [0])
     mode: ModeEnum = Field(default=ModeEnum.train_test)
-    np_seed: int = 1
-    seed: int = 0
-    observations: ObservationConfig = Field(default_factory=ObservationConfig)
-    params: Params = Field(default_factory=Params)
-    spatial_mlp: MLP = MLP(
-        hidden_size=4,
-        input_size=6,
-        learnable_parameters=["n", "q_spatial", "p_spatial"],
-        output_size=3,
-    )
-    simulation: ExperimentConfig = Field(default_factory=ExperimentConfig)
+    nn_model: str
+    hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
+    dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
+    
+    random_seed: int = 0
+    device: str = 'cpu'
+    gpu_id: int = 0
+
+    routing_hydro_model: bool = True
+    forcings: str
+    potet_module: str
+    potet_dataset_name: str
+    target: list
+
+    loss_function: str
+    loss_function_weights: LossFunc
     train: ExperimentConfig = Field(default_factory=ExperimentConfig)
     test: ExperimentConfig = ExperimentConfig(batch_size=365)
+    params: Params = Field(default_factory=Params)
+
+    nmul: int = 1
+    warm_up: int
+    rho: int
+    batch_size: int
+    epochs: int
+    hidden_size: int
+    dropout: float
+    freeze: bool = True
+    nearzero: float
+
+    n_basins: int
+    save_epoch: int = 10
+
+    name: str
+    data_dir: str
+    output_dir: str
+
+    gage_info: str = "not_defined"
+    attr_path: str = "not_defined"
+    observations_path: str = "not_defined"
+    var_t_NN: list = "not_defined"
+    var_c_NN: list = "not_defined"
+    var_t_hydro_model: list = "not_defined"
+    var_c_hydro_model: list = "not_defined"
 
     def __init__(self, **data):
         super(Config, self).__init__(**data)
@@ -247,20 +270,35 @@ class Config(BaseModel):
                     "cfg.params.save_path = Path(__file__) "
                 )
 
+    # def merge_yaml_configs(source_file, target_file):
+    #     with open(source_file, 'r') as source_yaml_file:
+    #         source_config = yaml.safe_load(source_yaml_file)
+
+    #     with open(target_file, 'r+') as target_yaml_file:
+    #         target_config = yaml.safe_load(target_yaml_file)
+    #         target_config.update(source_config)
+    #         target_yaml_file.seek(0)
+    #         yaml.dump(target_config, target_yaml_file)
+
     @field_validator("data_dir")
     @classmethod
-    def validate_data_dir(cls, v: str) -> Path:
+    def validate_dir(cls, v: str) -> Path:
         return check_path(v)
 
-    @model_validator(mode="after")
-    @classmethod
-    def validate_devices(cls, config: Any) -> Any:
-        device = config.device
-        world_size = config.world_size
-        if isinstance(device, str):
-            log.info("Running dMC using the CPU")
-        elif len(device) < world_size:
-            msg = "length of device must be >= to the number of processes (world size)"
-            log.exception(msg)
-            raise ValueError(msg)
-        return config
+    # @field_validator("output_dir")
+    # @classmethod
+    # def validate_output_dir(cls, v: str) -> Path:
+    #     return check_path(v)
+
+
+    # @model_validator(mode="after")
+    # @classmethod
+    # def validate_devices(cls, config: Any) -> Any:
+    #     device = config.device
+    #     if isinstance(device, str):
+    #         log.info("Running dMC using the CPU")
+    #     elif len(device) < world_size:
+    #         msg = "length of device must be >= to the number of processes (world size)"
+    #         log.exception(msg)
+    #         raise ValueError(msg)
+    #     return config

@@ -1,5 +1,5 @@
 import torch
-from MODELS.PET_models.potet import get_potet
+from models.pet_models.potet import get_potet
 import torch.nn.functional as F
 
 class SACSMAMul(torch.nn.Module):

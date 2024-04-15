@@ -1,5 +1,5 @@
 import torch
-from MODELS.PET_models.potet import get_potet
+from models.pet_models.potet import get_potet
 import torch.nn.functional as F
 
 class SACSMA_snow_Mul(torch.nn.Module):
@@ -218,7 +218,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
         return out
 
     def source_flow_calculation(self, args, flow_out, c_NN, after_routing=True):
-        varC_NN = args["varC_NN"]
+        varC_NN = args["var_c_nn"]
         if "DRAIN_SQKM" in varC_NN:
             area_name = "DRAIN_SQKM"
         elif "area_gages2" in varC_NN:
@@ -279,8 +279,8 @@ class SACSMA_snow_Mul(torch.nn.Module):
             params_dict_raw[param] = self.change_param_range(param=params_raw[:, :, num, :],
                                                              bounds=self.parameters_bound[param])
 
-        vars = args["varT_hydro_model"]
-        vars_c = args["varC_hydro_model"]
+        vars = args["var_t_hydro_model"]
+        vars_c = args["var_c_hydro_model"]
         P = x_hydro_model[warm_up:, :, vars.index("prcp(mm/day)")]
         Pm = P.unsqueeze(2).repeat(1, 1, nmul)
         Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)
@@ -318,7 +318,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
-            if key not in args["dyn_params_list_hydro"]:  ## it is a static parameter
+            if key not in args['dyn_hydro_params']['SACSMA']:  ## it is a static parameter
                 params_dict[key] = params_dict_raw[key][-1, :, :]
 
         Nstep, Ngrid = P.size()
@@ -326,7 +326,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
         for t in range(Nstep):
             # do dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args["dyn_params_list_hydro"]:  ## it is a dynamic parameter
+                if key in args['dyn_hydro_params']['SACSMA']:  ## it is a dynamic parameter
                     params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
 
             uztwm = params_dict["f1"] * params_dict["smax"]

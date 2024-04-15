@@ -5,11 +5,13 @@ May decide to organize these later, but for now this file includes
 everything not in functional.py, and not in existing files.
 """
 import os
+import json
 import torch
 import numpy as np
 import platform
 
-from config.read_configurations import master_config as config
+from data.load_data.time import tRange2Array
+
 
 
 # Set list of supported hydro models here:
@@ -29,7 +31,7 @@ def set_globals():
         # Use Mac M-series ARM architecture.
         device = torch.device('mps')
     else:
-        device = torch.device("cpu")
+        device = torch.device('cpu')
     dtype = torch.float32
 
     return device, dtype
@@ -101,7 +103,7 @@ def create_dict_from_keys(keyList, mtd=0, dims=None, dat=None):
     """
     d = {}
     for kk, k in enumerate(keyList):
-        if mtd == 0 or mtd is None or mtd == "None":
+        if mtd == 0 or mtd is None or mtd == 'None':
             d[k] = None
         elif mtd == 1 or mtd == 'zeros':
             d[k] = create_tensor(dims)
@@ -133,3 +135,43 @@ def save_output(args_list, preds, y_obs, out_dir):
 
         np.save(os.path.join(out_dir, 'preds_' + dir + '.npy'), preds)
         np.save(os.path.join(out_dir, 'obs_' + dir + '.npy'), y_obs)
+
+
+def create_output_dirs(args):
+    # Checking the directory
+    os.makedirs(args['output_dir'], exist_ok=True)
+
+    out_folder = args['nn_model'] + \
+             '_E' + str(args['epochs']) + \
+             '_R' + str(args['rho']) + \
+             '_B' + str(args['batch_size']) + \
+             '_H' + str(args['hidden_size']) + \
+             '_n' + str(args['nmul']) + \
+             '_' + str(args['random_seed'])
+
+    os.makedirs(os.path.join(args['output_dir'], out_folder), exist_ok=True)
+
+    ## make a folder for static and dynamic parametrization
+    if args['dyn_hydro_params']['HBV'] != None:
+        dyn_params = 'dynamic_para'
+    else:
+        dyn_params = 'static_para'
+
+    testing_dir = 'test_results'
+    
+    os.makedirs(os.path.join(args['output_dir'], out_folder, dyn_params, testing_dir), 
+                exist_ok=True)
+    
+    args['output_dir'] = os.path.join(args['output_dir'], out_folder, dyn_params)
+    args['testing_dir'] = testing_dir
+
+    # saving the args file in output directory
+    config_file = json.dumps(args)
+    config_path = os.path.join(args['output_dir'], 'config_file.json')
+    if os.path.exists(config_path):
+        os.remove(config_path)
+    f = open(config_path, 'w')
+    f.write(config_file)
+    f.close()
+
+    return args

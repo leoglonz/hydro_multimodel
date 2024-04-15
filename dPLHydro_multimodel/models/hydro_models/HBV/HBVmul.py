@@ -1,5 +1,5 @@
 import torch
-from MODELS.PET_models.potet import get_potet
+from models.pet_models.potet import get_potet
 import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
@@ -9,10 +9,11 @@ import torch.nn.functional as F
 
 
 class HBVMul(torch.nn.Module):
-    """HBV Model Pytorch version"""
+    """
+    HBV Model Pytorch version (dynamic and static param capable.)
+    """
 
-    def __init__(self, args):
-        """Initiate a HBV instance"""
+    def __init__(self, config):
         super(HBVMul, self).__init__()
         self.parameters_bound = dict(parBETA=[1.0, 6.0],
                                      parFC=[50, 1000],
@@ -26,7 +27,7 @@ class HBVMul(torch.nn.Module):
                                      parCFMAX=[0.5, 10],
                                      parCFR=[0, 0.1],
                                      parCWH=[0, 0.2])
-        if 'parBETAET' in args['dyn_params_list_hydro']:
+        if 'parBETAET' in config['dyn_hydro_params']['HBV']:
             self.parameters_bound['parBETAET'] = [0.3, 5]
 
         self.conv_routing_hydro_model_bound = [
@@ -84,25 +85,25 @@ class HBVMul(torch.nn.Module):
 
 
     def source_flow_calculation(self, args, flow_out, c_NN, after_routing=True):
-        varC_NN = args["varC_NN"]
-        if "DRAIN_SQKM" in varC_NN:
-            area_name = "DRAIN_SQKM"
-        elif "area_gages2" in varC_NN:
-            area_name = "area_gages2"
+        varC_NN = args['var_c_nn']
+        if 'DRAIN_SQKM' in varC_NN:
+            area_name = 'DRAIN_SQKM'
+        elif 'area_gages2' in varC_NN:
+            area_name = 'area_gages2'
         else:
             print("area of basins are not available among attributes dataset")
         area = c_NN[:, varC_NN.index(area_name)].unsqueeze(0).unsqueeze(-1).repeat(
-            flow_out["flow_sim"].shape[
+            flow_out['flow_sim'].shape[
                 0], 1, 1)
         # flow calculation. converting mm/day to m3/sec
         if after_routing == True:
-            srflow = (1000 / 86400) * area * (flow_out["srflow"]).repeat(1, 1, args["nmul"])  # Q_t - gw - ss
-            ssflow = (1000 / 86400) * area * (flow_out["ssflow"]).repeat(1, 1, args["nmul"])  # ras
-            gwflow = (1000 / 86400) * area * (flow_out["gwflow"]).repeat(1, 1, args["nmul"])
+            srflow = (1000 / 86400) * area * (flow_out['srflow']).repeat(1, 1, args['nmul'])  # Q_t - gw - ss
+            ssflow = (1000 / 86400) * area * (flow_out['ssflow']).repeat(1, 1, args['nmul'])  # ras
+            gwflow = (1000 / 86400) * area * (flow_out['gwflow']).repeat(1, 1, args['nmul'])
         else:
-            srflow = (1000 / 86400) * area * (flow_out["srflow_no_rout"]).repeat(1, 1, args["nmul"])  # Q_t - gw - ss
-            ssflow = (1000 / 86400) * area * (flow_out["ssflow_no_rout"]).repeat(1, 1, args["nmul"])  # ras
-            gwflow = (1000 / 86400) * area * (flow_out["gwflow_no_rout"]).repeat(1, 1, args["nmul"])
+            srflow = (1000 / 86400) * area * (flow_out['srflow_no_rout']).repeat(1, 1, args['nmul'])  # Q_t - gw - ss
+            ssflow = (1000 / 86400) * area * (flow_out['ssflow_no_rout']).repeat(1, 1, args['nmul'])  # ras
+            gwflow = (1000 / 86400) * area * (flow_out['gwflow_no_rout']).repeat(1, 1, args['nmul'])
         # srflow = torch.clamp(srflow, min=0.0)  # to remove the small negative values
         # ssflow = torch.clamp(ssflow, min=0.0)
         # gwflow = torch.clamp(gwflow, min=0.0)
@@ -128,7 +129,7 @@ class HBVMul(torch.nn.Module):
     
 
     def forward(self, x_hydro_model, c_hydro_model, params_raw, args, muwts=None, warm_up=0, init=False, routing=False, comprout=False, conv_params_hydro=None):
-        nmul = args["nmul"]
+        nmul = args['nmul']
         # HBV(P, ETpot, T, parameters)
         #
         # Runs the HBV-light hydrological model (Seibert, 2005). NaN values have to be
@@ -140,7 +141,7 @@ class HBVMul(torch.nn.Module):
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
-                initmodel = HBVMul(args).to(args["device"])
+                initmodel = HBVMul(args).to(args['device'])
                 Qsinit, SNOWPACK, MELTWATER, SM, SUZ, SLZ = initmodel(xinit, c_hydro_model, params_raw, args,
                                                                       muwts=None, warm_up=0, init=True, routing=False,
                                                                       comprout=False, conv_params_hydro=None)
@@ -148,11 +149,11 @@ class HBVMul(torch.nn.Module):
 
             # Without buff time, initialize state variables with zeros
             Ngrid = x_hydro_model.shape[1]
-            SNOWPACK = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args["device"])
-            MELTWATER = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args["device"])
-            SM = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args["device"])
-            SUZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args["device"])
-            SLZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args["device"])
+            SNOWPACK = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
+            MELTWATER = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
+            SM = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
+            SUZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
+            SLZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
             # ETact = (torch.zeros([Ngrid,mu], dtype=torch.float32) + 0.001).cuda()
 
         ## parameters for prms_marrmot. there are 18 parameters in it. we take all params and make the changes
@@ -162,24 +163,24 @@ class HBVMul(torch.nn.Module):
             params_dict_raw[param] = self.change_param_range(param=params_raw[:, :, num, :],
                                                              bounds=self.parameters_bound[param])
 
-        vars = args["varT_hydro_model"]
-        vars_c = args["varC_hydro_model"]
-        P = x_hydro_model[warm_up:, :, vars.index("prcp(mm/day)")]
+        vars = args['var_t_hydro_model']
+        vars_c = args['var_c_hydro_model']
+        P = x_hydro_model[warm_up:, :, vars.index('prcp(mm/day)')]
         Pm= P.unsqueeze(2).repeat(1, 1, nmul)
-        Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)
-        Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(2).repeat(1, 1, nmul)
+        Tmaxf = x_hydro_model[warm_up:, :, vars.index('tmax(C)')].unsqueeze(2).repeat(1, 1, nmul)
+        Tminf = x_hydro_model[warm_up:, :, vars.index('tmin(C)')].unsqueeze(2).repeat(1, 1, nmul)
         mean_air_temp = (Tmaxf + Tminf) / 2
 
-        if args["potet_module"] == "potet_hamon":
-            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
+        if args['potet_module'] == 'potet_hamon':
+            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args['nmul'])
             PET = get_potet(
                 args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
             )     # mm/day
-        elif args["potet_module"] == "potet_hargreaves":
-            day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
-            lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
+        elif args['potet_module'] == 'potet_hargreaves':
+            day_of_year = x_hydro_model[warm_up:, :, vars.index('dayofyear')].unsqueeze(-1).repeat(1, 1, nmul)
+            lat = c_hydro_model[:, vars_c.index('lat')].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
-            #                                   nmul=args["nmul"])
+            #                                   nmul=args['nmul'])
 
             PET = get_potet(
                 args=args, tmin=Tminf, tmax=Tmaxf,
@@ -187,11 +188,11 @@ class HBVMul(torch.nn.Module):
                 day_of_year=day_of_year
             )
             # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
-        elif args["potet_module"] == "dataset":
+        elif args['potet_module'] == 'dataset':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
-            #                                 nmul=args["nmul"])
+            #                                 nmul=args['nmul'])
             # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args["potet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
+            PET = x_hydro_model[warm_up:, :, vars.index(args['potet_dataset_name'])].unsqueeze(-1).repeat(1, 1, nmul)
             # AET = PET_coef * PET
 
         Nstep, Ngrid = P.size()
@@ -200,62 +201,62 @@ class HBVMul(torch.nn.Module):
         # P = parPCORR.repeat(Nstep, 1) * P
 
         # Initialize time series of model variables
-        Qsimmu = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.001).to(args["device"])
-        Q0_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
-        Q1_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
-        Q2_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        Qsimmu = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.001).to(args['device'])
+        Q0_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args['device'])
+        Q1_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args['device'])
+        Q2_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args['device'])
         # # Debug for the state variables
         # # SMlog = np.zeros(P.size())
         # logSM = np.zeros(P.size())
         # logPS = np.zeros(P.size())
         # logswet = np.zeros(P.size())
         # logRE = np.zeros(P.size())
-        AET = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        AET = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args['device'])
 
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
-            if key not in args["dyn_params_list_hydro"]:  ## it is a static parameter
+            if key not in args['dyn_hydro_params']['HBV']:  ## it is a static parameter
                 params_dict[key] = params_dict_raw[key][-1, :, :]
 
         for t in range(Nstep):
             # do dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args["dyn_params_list_hydro"]:  ## it is a dynamic parameter
+                if key in args['dyn_hydro_params']['HBV']:  ## it is a dynamic parameter
                     params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
 
             # Separate precipitation into liquid and solid components
             PRECIP = Pm[t, :, :]  # need to check later, seems repeating with line 52
-            RAIN = torch.mul(PRECIP, (mean_air_temp[t, :, :] >= params_dict["parTT"]).type(torch.float32))
-            SNOW = torch.mul(PRECIP, (mean_air_temp[t, :, :] < params_dict["parTT"]).type(torch.float32))
+            RAIN = torch.mul(PRECIP, (mean_air_temp[t, :, :] >= params_dict['parTT']).type(torch.float32))
+            SNOW = torch.mul(PRECIP, (mean_air_temp[t, :, :] < params_dict['parTT']).type(torch.float32))
 
             # Snow
             SNOWPACK = SNOWPACK + SNOW
-            melt = params_dict["parCFMAX"] * (mean_air_temp[t, :, :] - params_dict["parTT"])
+            melt = params_dict['parCFMAX'] * (mean_air_temp[t, :, :] - params_dict['parTT'])
             melt = torch.clamp(melt, min=0.0)
             melt = torch.min(melt, SNOWPACK)
             MELTWATER = MELTWATER + melt
             SNOWPACK = SNOWPACK - melt
-            refreezing = params_dict["parCFR"] * params_dict["parCFMAX"] * (params_dict["parTT"] - mean_air_temp[t, :, :])
+            refreezing = params_dict['parCFR'] * params_dict['parCFMAX'] * (params_dict['parTT'] - mean_air_temp[t, :, :])
             refreezing = torch.clamp(refreezing, min=0.0)
             refreezing = torch.min(refreezing, MELTWATER)
             SNOWPACK = SNOWPACK + refreezing
             MELTWATER = MELTWATER - refreezing
-            tosoil = MELTWATER - (params_dict["parCWH"] * SNOWPACK)
+            tosoil = MELTWATER - (params_dict['parCWH'] * SNOWPACK)
             tosoil = torch.clamp(tosoil, min=0.0)
             MELTWATER = MELTWATER - tosoil
 
             # Soil and evaporation
-            soil_wetness = (SM / params_dict["parFC"]) ** params_dict["parBETA"]
+            soil_wetness = (SM / params_dict['parFC']) ** params_dict['parBETA']
             soil_wetness = torch.clamp(soil_wetness, min=0.0, max=1.0)
             recharge = (RAIN + tosoil) * soil_wetness
 
             SM = SM + RAIN + tosoil - recharge
-            excess = SM - params_dict["parFC"]
+            excess = SM - params_dict['parFC']
             excess = torch.clamp(excess, min=0.0)
             SM = SM - excess
             # parBETAET only has effect when it is a dynamic parameter (=1 otherwise).
-            evapfactor = (SM / (params_dict["parLP"] * params_dict["parFC"]))
+            evapfactor = (SM / (params_dict['parLP'] * params_dict['parFC']))
             if 'parBETAET' in params_dict:
                 evapfactor = evapfactor ** params_dict['parBETAET']
             evapfactor  = torch.clamp(evapfactor, min=0.0, max=1.0)
@@ -266,14 +267,14 @@ class HBVMul(torch.nn.Module):
 
             # Groundwater boxes
             SUZ = SUZ + recharge + excess
-            PERC = torch.min(SUZ, params_dict["parPERC"])
+            PERC = torch.min(SUZ, params_dict['parPERC'])
             SUZ = SUZ - PERC
-            Q0 = params_dict["parK0"] * torch.clamp(SUZ - params_dict["parUZL"], min=0.0)
+            Q0 = params_dict['parK0'] * torch.clamp(SUZ - params_dict['parUZL'], min=0.0)
             SUZ = SUZ - Q0
-            Q1 = params_dict["parK1"] * SUZ
+            Q1 = params_dict['parK1'] * SUZ
             SUZ = SUZ - Q1
             SLZ = SLZ + PERC
-            Q2 = params_dict["parK2"] * SLZ
+            Q2 = params_dict['parK2'] * SLZ
             SLZ = SLZ - Q2
             Qsimmu[t, :, :] = Q0 + Q1 + Q2
             Q0_sim[t, :, :] = Q0

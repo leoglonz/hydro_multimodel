@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-from MODELS.PET_models.potet import get_potet
+from models.pet_models.potet import get_potet
 # from functorch import vmap, jacrev, jacfwd, vjp
 import torch.nn.functional as F
 
@@ -40,7 +40,7 @@ class prms_marrmot_gw0(torch.nn.Module):
         ]
 
     def source_flow_calculation(self, args, flow_out, c_NN, after_routing=True):
-        varC_NN = args["varC_NN"]
+        varC_NN = args["var_c_NN"]
         if "DRAIN_SQKM" in varC_NN:
             area_name = "DRAIN_SQKM"
         elif "area_gages2" in varC_NN:

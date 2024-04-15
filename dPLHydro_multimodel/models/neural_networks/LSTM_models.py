@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import math
 
-from MODELS.NN_models.dropout import createMask, DropMask
+from models.neural_networks.dropout import createMask, DropMask
 
 
 class CudnnLstm(torch.nn.Module):

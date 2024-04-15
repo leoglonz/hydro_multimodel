@@ -1,24 +1,3 @@
-# This file contains an interface for multimodel synthesis, along with 
-# ensembling objects to manipulate the interface into different ensembling methods.
-#
-# Acknowledgements:
-#  - Syntax and smaller codes reproduced from C. Shen.
-#  - WeightedEnsemble code repurposed from K. Sawadekar precip fusion.
-#  - HBV, SAC-SMA, Marrmot PRMS models and setup modified from F. Rahmani.
-#  - dHBV model and setup from MHPI Team C. Shen, et al.
-################################################################################
-
-from config.read_configurations import config_hbv as hbvArgs
-from config.read_configurations import config_hbv_hydrodl as dplhbvArgs
-from config.read_configurations import config_prms as prmsArgs
-from config.read_configurations import config_sacsma as sacsmaArgs
-from config.read_configurations import config_sacsma_snow as sacsmaSnowArgs
-
-try:
-    import numpy as np
-except ModuleNotFoundError:
-    np = None
-
 import torch
 import torch.nn as nn
 

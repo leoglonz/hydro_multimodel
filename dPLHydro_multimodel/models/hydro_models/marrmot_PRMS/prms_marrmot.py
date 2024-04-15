@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-from MODELS.PET_models.potet import get_potet
+from models.pet_models.potet import get_potet
 # from functorch import vmap, jacrev, jacfwd, vjp
 import torch.nn.functional as F
 
@@ -37,7 +37,7 @@ class prms_marrmot(torch.nn.Module):
         ]
 
     def source_flow_calculation(self, args, flow_out, c_NN, after_routing=True):
-        varC_NN = args["varC_NN"]
+        varC_NN = args["var_c_nn"]
         if "DRAIN_SQKM" in varC_NN:
             area_name = "DRAIN_SQKM"
         elif "area_gages2" in varC_NN:
@@ -211,10 +211,10 @@ class prms_marrmot(torch.nn.Module):
         return out
 
     def forward(self, x_hydro_model, c_hydro_model, params_raw, args,  warm_up=0, init=False, routing=True, conv_params_hydro=None):
-        NEARZERO = args["NEARZERO"]
+        NEARZERO = args["nearzero"]
         nmul = args["nmul"]
-        vars = args["varT_hydro_model"]
-        vars_c = args["varC_hydro_model"]
+        vars = args["var_t_hydro_model"]
+        vars_c = args["var_c_hydro_model"]
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
@@ -301,12 +301,12 @@ class prms_marrmot(torch.nn.Module):
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
-            if key not in args["dyn_params_list_hydro"]:  ## it is a static parameter
+            if key not in args["dyn_hydro_params"]['PRMS']:  ## it is a static parameter
                 params_dict[key] = params_dict_raw[key][-1, :, :]
         for t in range(Ndays):
             # do dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args["dyn_params_list_hydro"]:  ## it is a dynamic parameter
+                if key in args["dyn_hydro_params"]['PRMS']:  ## it is a dynamic parameter
                     params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
             scn = params_dict["fscn"] * params_dict["scx"]
             remx = (1 - params_dict["flz"]) * params_dict["stot"]

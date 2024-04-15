@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-from MODELS.PET_models.potet import get_potet
+from models.pet_models.potet import get_potet
 # from functorch import vmap, jacrev, jacfwd, vjp
 import torch.nn.functional as F
 
