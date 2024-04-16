@@ -35,16 +35,16 @@ Upload these files manually to Colab and make sure they are under the folder "hy
 
 
 import os
-import sys
-import shutil
-import subprocess
-import stat
-import platform
-import os
-import requests
-import zipfile
-from tqdm import tqdm
 import pickle
+import platform
+import shutil
+import stat
+import subprocess
+import sys
+import zipfile
+
+import requests
+from tqdm import tqdm
 
 rootDatabase = r"D:\data\CAMELS"
 os.chdir(rootDatabase)
@@ -173,10 +173,11 @@ def extractCAMELS(Ttrain,attrLst,varF,camels,forType='daymet',flow_regime=1,subs
 # os.system("conda develop .")
 
 import os
+
 import hydroDLpack
+import numpy as np
 from hydroDL_depr.master import default
 from hydroDLpack.data import camels
-import numpy as np
 
 forType = 'daymet'
 flow_regime = 1

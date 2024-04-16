@@ -1,8 +1,8 @@
 """All functions related to time"""
 
 import datetime as dt
-import numpy as np
 
+import numpy as np
 
 
 def t2dt(t, hr=False):

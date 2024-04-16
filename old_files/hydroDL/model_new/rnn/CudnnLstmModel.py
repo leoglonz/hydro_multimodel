@@ -1,14 +1,15 @@
 """A class for an LSTM model that uses Cuda"""
-from hydroDL.model_new.rnn.CudnnLstm import CudnnLstm
+import csv
 import math
+
+import numpy as n
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
 import torch.nn.functional as F
-from hydroDL.model_new.dropout import DropMask, createMask
 from hydroDL.model_new import rnn
-import csv
-import numpy as n
+from hydroDL.model_new.dropout import DropMask, createMask
+from hydroDL.model_new.rnn.CudnnLstm import CudnnLstm
+from torch.nn import Parameter
 
 
 class CudnnLstmModel(torch.nn.Module):

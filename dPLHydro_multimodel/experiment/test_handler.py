@@ -7,15 +7,14 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import xarray as xr
-from injector import inject
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader
-
 from conf.config import Config
 from data.temporally_batched_dataset import TemporallyBatchedDataset
 from experiment.experiment_tracker import Tracker
+from injector import inject
 from neural_networks import NeuralNetwork
 from physics_models import PhysicsModel
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
 
 log = logging.getLogger(__name__)
 

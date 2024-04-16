@@ -1,8 +1,9 @@
 import os
-import torch
-import numpy as np
-import random
 import platform
+import random
+
+import numpy as np
+import torch
 
 
 def set_globals() -> None:

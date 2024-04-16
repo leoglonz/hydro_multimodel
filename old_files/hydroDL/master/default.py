@@ -1,9 +1,9 @@
-import hydroDL
-from collections import OrderedDict
-from hydroDL.data import dbCsv, camels
-
-import os
 import collections
+import os
+from collections import OrderedDict
+
+import hydroDL
+from hydroDL.data import camels, dbCsv
 
 dirDB = "/"
 dirOut = "/"

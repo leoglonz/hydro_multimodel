@@ -1,10 +1,10 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models.neural_networks.dropout import DropMask, createMask
 from torch.nn import Parameter
-import math
-
-from models.neural_networks.dropout import createMask, DropMask
 
 
 class CudnnLstm(torch.nn.Module):

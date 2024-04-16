@@ -1,27 +1,26 @@
 """
 Scripts for plotting results are kept here.
 """
+import math
+import os
+import random
+# from hydroDL import utils
+import string
+
+import matplotlib.dates as mdates
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import math
 import scipy
-import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
-import matplotlib.gridspec as gridspec
-
-# from hydroDL import utils
-import string
-import random
-import os
-
+from matplotlib.ticker import (AutoMinorLocator, FormatStrFormatter,
+                               MultipleLocator)
 # os.environ['PROJ_LIB'] = r'/home/fzr5082/anaconda3/envs/PGML_STemp/share/proj/'
 #  r'/opt/anaconda/pkgs/proj4-5.2.0-he6710b0_1/share/proj/'
 from mpl_toolkits import basemap
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter, AutoMinorLocator
-import matplotlib.dates as mdates
-
 
 
 def plotBoxFig(

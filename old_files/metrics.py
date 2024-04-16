@@ -3,8 +3,8 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import BaseModel, ConfigDict
 import scipy.stats as stats
+from pydantic import BaseModel, ConfigDict
 
 log = logging.getLogger()
 

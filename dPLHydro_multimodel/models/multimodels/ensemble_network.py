@@ -1,10 +1,8 @@
-import torch
-
-from models.neural_networks.lstm_models import CudnnLstmModel
-from models.loss_functions.get_loss_function import get_loss_func
 import models.multimodels.mm_functional as F
+import torch
+from models.loss_functions.get_loss_function import get_loss_func
+from models.neural_networks.lstm_models import CudnnLstmModel
 from utils import master as m
-
 
 # Set global torch device and dtype.
 device, dtype = m.set_globals()

@@ -2,7 +2,6 @@ import logging
 
 import torch
 import xarray as xr
-
 from data import BaseDataset
 from data.utils import create_hydrofabric_attributes, scale
 from data.utils.Hydrofabric import Hydrofabric

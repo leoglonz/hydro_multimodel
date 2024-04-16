@@ -1,12 +1,13 @@
+import csv
 import math
+
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
 import torch.nn.functional as F
+from hydroDL.model_new import cnn, rnn
 from hydroDL.model_new.dropout import DropMask, createMask
-from hydroDL.model_new import rnn, cnn
-import csv
-import numpy as np
+from torch.nn import Parameter
 
 
 class Cnn1d(nn.Module):

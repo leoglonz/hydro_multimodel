@@ -2,7 +2,6 @@ import torch
 import torch.nn
 
 
-
 def createMask(x, dr, seed):
     if torch.cuda.is_available():
         generator = torch.Generator(device="cuda")

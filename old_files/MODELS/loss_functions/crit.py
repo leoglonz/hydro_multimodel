@@ -1,6 +1,7 @@
-import torch
 import json
 import os
+
+import torch
 
 
 class SigmaLoss(torch.nn.Module):

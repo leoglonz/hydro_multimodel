@@ -10,10 +10,9 @@ import numpy.typing as npt
 import scipy.stats as stats
 import torch
 import torch.nn as nn
-from torch.utils.tensorboard.writer import SummaryWriter
-
 from conf.config import Config
 from experiment.metrics import Metrics
+from torch.utils.tensorboard.writer import SummaryWriter
 
 log = logging.getLogger(__name__)
 

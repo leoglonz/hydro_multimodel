@@ -1,12 +1,13 @@
 # ~/anaconda3/envs/envGeoDB/bin/python
 
 import os
-import numpy as np
-from osgeo import gdal
-import psycopg2
 import subprocess
-from datetime import datetime as dt
 import time
+from datetime import datetime as dt
+
+import numpy as np
+import psycopg2
+from osgeo import gdal
 
 dbName = "gisdb"
 schName = "modis"

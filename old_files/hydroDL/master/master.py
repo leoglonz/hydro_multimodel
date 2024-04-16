@@ -1,17 +1,18 @@
-import os
-import hydroDL
-from collections import OrderedDict
-import numpy as np
+import datetime as dt
 import json
+import os
+import random
+import time
+from collections import OrderedDict
+
+import hydroDL
+import numpy as np
+import pandas as pd
+import torch
 from hydroDL import utils
 from hydroDL.model_new import crit, rnn
-from hydroDL.model_new.train import trainModel
 from hydroDL.model_new.test import testModel
-import datetime as dt
-import pandas as pd
-import random
-import torch
-import time
+from hydroDL.model_new.train import trainModel
 
 
 def wrapMaster(out, optData, optModel, optLoss, optTrain):

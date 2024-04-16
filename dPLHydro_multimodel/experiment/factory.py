@@ -2,8 +2,6 @@ import logging
 from pathlib import Path
 from typing import Dict
 
-from injector import Module, multiprovider, provider
-
 from conf.config import Config
 # from data.all_edges_dataset import AllEdgesDataset
 from data.general_dataset import GeneralDataset
@@ -11,20 +9,17 @@ from data.temporally_batched_dataset import TemporallyBatchedDataset
 from data.utils import determine_proc_zone, format_gage_data
 from data.utils.Dates import Dates
 from data.utils.Dropout import Dropout
-from models.neural_networks import NeuralNetwork
+from injector import Module, multiprovider, provider
 from models.hydro_models import PhysicsModel
+from models.neural_networks import NeuralNetwork
 
 log = logging.getLogger(__name__)
 
 
 class Factory(Module):
     def __init__(self, cfg: Config):
-        from data.utils import (
-            read_gage_info,
-            set_attributes,
-            set_global_indexing,
-            set_min_max_statistics,
-        )
+        from data.utils import (read_gage_info, set_attributes,
+                                set_global_indexing, set_min_max_statistics)
         from data.utils.ObservationReader import get_observation_reader
 
         self._observation_reader = get_observation_reader(cfg)

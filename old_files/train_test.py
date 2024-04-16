@@ -2,36 +2,29 @@
 Training and Testing functions for the hydro models (PGML versions + HydroDL)
 """
 
+import datetime as dt
+import json
 import os
 import platform
+import time
 
 import numpy as np
 import pandas as pd
 import torch
-import json
-import datetime as dt
-from tqdm import tqdm
-
+from core.data_processing.data_loading import loadData
+from core.data_processing.data_prep import randomIndex, selectSubset
+from core.data_processing.model import (
+    converting_flow_from_ft3_per_sec_to_mm_per_day, take_sample_test)
+from core.data_processing.normalization import transNorm
+from core.utils.master import create_output_dirs
+from core.utils.randomseed_config import randomseed_config
 from hydroDL import master, utils
 from hydroDL.data import camels
 from hydroDL.master.master import loadModel
 from hydroDL.model import train
-
-from core.utils.randomseed_config import randomseed_config
-from core.utils.master import create_output_dirs
-from MODELS.loss_functions.get_loss_function import get_lossFun
-from core.data_processing.data_loading import loadData
-from core.data_processing.normalization import transNorm
-from core.data_processing.model import (
-    take_sample_test,
-    converting_flow_from_ft3_per_sec_to_mm_per_day
-)
-
-import time
-from tqdm import tqdm
 from hydroDL.model_new import crit
-from core.data_processing.data_prep import selectSubset, randomIndex
-
+from MODELS.loss_functions.get_loss_function import get_lossFun
+from tqdm import tqdm
 
 
 def test_differentiable_model(args, diff_model):
@@ -597,13 +590,12 @@ def train_ensemble(model,
 
 
 import math
-import torch.nn as nn
-from torch.nn import Parameter
-import torch.nn.functional as F
+
 import torch.autograd as autograd
-
+import torch.nn as nn
+import torch.nn.functional as F
 from hydroDL.model.dropout import DropMask, createMask
-
+from torch.nn import Parameter
 
 
 class CudnnLstm(nn.Module):

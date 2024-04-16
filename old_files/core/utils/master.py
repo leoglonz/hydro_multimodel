@@ -1,12 +1,12 @@
 """
 General utility scripts are kept here.
 """
-import os
 import json
+import os
 from collections import OrderedDict
-from core.utils.time import tRange2Array
-import torch
 
+import torch
+from core.utils.time import tRange2Array
 
 
 def readMasterFile(out):

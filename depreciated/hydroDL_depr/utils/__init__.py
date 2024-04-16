@@ -1,7 +1,7 @@
-from . import time
-from . import grid
-from .interp import interpNan
 import numpy as np
+
+from . import grid, time
+from .interp import interpNan
 
 
 def index2d(ind, ny, nx):

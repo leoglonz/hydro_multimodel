@@ -3,10 +3,10 @@ Functions related to loading and acquiring dataframes are kept here.
 May contain some near-identical functions in the mean time while merging models.
 """
 import os
+
 import numpy as np
 import pandas as pd
 from core.utils.time import tRange2Array
-
 
 
 class DataFrame_dataset:

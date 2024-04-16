@@ -6,16 +6,15 @@ import logging
 import time
 from typing import Any, Dict, Union
 
-import torch
 import hydra
-from omegaconf import DictConfig, OmegaConf
-from pydantic import ValidationError
-
+import torch
 from conf.config import Config, ModeEnum
 from experiment import build_handler
 from experiment.experiment_tracker import ExperimentTracker
-from utils.utils import set_globals, set_platform_dir
+from omegaconf import DictConfig, OmegaConf
+from pydantic import ValidationError
 from utils.master import create_output_dirs
+from utils.utils import set_globals, set_platform_dir
 
 log = logging.getLogger(__name__)
 

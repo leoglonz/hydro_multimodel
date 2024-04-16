@@ -4,6 +4,7 @@ We keep them separated so that each model can easily be setup as desired.
 """
 
 import os
+
 try: 
     from ruamel.yaml import YAML
 except ModuleNotFoundError:

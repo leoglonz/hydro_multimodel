@@ -1,6 +1,7 @@
 import torch
-from MODELS.PET_models.potet import get_potet
 import torch.nn.functional as F
+from MODELS.PET_models.potet import get_potet
+
 
 class SACSMA_snow_Mul(torch.nn.Module):
     """HBV Model with multiple components and dynamic parameters PyTorch version"""

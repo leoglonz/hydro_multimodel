@@ -1,8 +1,8 @@
 import pandas as pd
 import torch
-from MODELS.PET_models.potet import get_potet
 # from functorch import vmap, jacrev, jacfwd, vjp
 import torch.nn.functional as F
+from MODELS.PET_models.potet import get_potet
 
 
 class prms_marrmot_gw0(torch.nn.Module):

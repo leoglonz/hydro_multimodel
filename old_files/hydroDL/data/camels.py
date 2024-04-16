@@ -1,16 +1,16 @@
 # read camels dataset
-import os
-import pandas as pd
-import numpy as np
+import collections
 import datetime as dt
-from hydroDL import utils # , pathCamels
+import json
+import os
+import time
+
+import numpy as np
+import pandas as pd
+from hydroDL import utils  # , pathCamels
+from hydroDL.dataset import Dataframe
 from hydroDL.utils.time import tRange2Array
 from pandas.api.types import is_numeric_dtype, is_string_dtype
-import time
-import json
-from hydroDL.dataset import Dataframe
-import os
-import collections
 
 pathCamels = collections.OrderedDict(
         DB=os.path.join(os.path.sep, "/Users/leoglonz/Desktop/water", "data", "Camels"),

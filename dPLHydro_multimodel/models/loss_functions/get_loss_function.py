@@ -1,5 +1,7 @@
 import importlib
+
 import numpy as np
+
 
 def get_loss_func(args, obs):
     # module = importlib.import_module(args['loss_function'])

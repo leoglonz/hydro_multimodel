@@ -3,14 +3,16 @@ read and extract data from CSV database.
 This module allows you to read time series inputs/forcings and define subsets
 to read from.
 """
+import datetime as dt
 import os
+import time
+
+import hydroDL_depr
+import hydroDL_depr.utils as utils
 import numpy as np
 import pandas as pd
-import time
-import datetime as dt
-import hydroDL_depr.utils as utils
+
 from . import Dataframe, DataModel
-import hydroDL_depr
 
 ################################################
 # The definitions between ### are for convenience only.

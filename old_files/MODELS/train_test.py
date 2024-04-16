@@ -1,21 +1,17 @@
 import os
+import time
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 import tqdm
-import time
-from post import stat, plot
-import matplotlib.pyplot as plt
-from core.load_data.normalizing import init_norm_stats
+from core.load_data.data_prep import (No_iter_nt_ngrid, take_sample_test,
+                                      take_sample_train)
 from core.load_data.dataFrame_loading import loadData
-from core.load_data.data_prep import (
-    No_iter_nt_ngrid,
-    take_sample_train,
-    take_sample_test
-)
-from core.load_data.normalizing import transNorm
+from core.load_data.normalizing import init_norm_stats, transNorm
 from MODELS.loss_functions.get_loss_function import get_lossFun
-
+from post import plot, stat
 
 
 def train_differentiable_model(args, diff_model, optim, start_epoch=1):

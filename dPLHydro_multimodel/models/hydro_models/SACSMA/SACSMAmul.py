@@ -1,6 +1,7 @@
 import torch
-from models.pet_models.potet import get_potet
 import torch.nn.functional as F
+from models.pet_models.potet import get_potet
+
 
 class SACSMAMul(torch.nn.Module):
     """HBV Model with multiple components and dynamic parameters PyTorch version"""

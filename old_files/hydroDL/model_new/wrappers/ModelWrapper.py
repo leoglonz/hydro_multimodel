@@ -1,5 +1,5 @@
-import torch
 import hydroDL.core.logger as logger
+import torch
 
 log = logger.get_logger("model.wrappers.ModelWrapper")
 

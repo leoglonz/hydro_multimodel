@@ -15,13 +15,14 @@ Default settings:
 
 """
 
-import torch
-import torch.nn as nn
+import math
+import os
+import time
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import time
-import os
-import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+from post import plot, stat
 from sklearn import preprocessing
-from post import stat, plot
-import math

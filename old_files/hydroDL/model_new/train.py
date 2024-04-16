@@ -1,16 +1,16 @@
-import numpy as np
-import torch
-import time
 import os
-from hydroDL.model_new.settings import make_train_settings
-from hydroDL.model_new.data.load.train.default import load_data
-from hydroDL.model_new import cnn
-import pandas as pd
+import time
 from time import sleep
-from tqdm import trange
+
 import hydroDL.core.logger as logger
-from hydroDL.model_new import crit
+import numpy as np
+import pandas as pd
+import torch
+from hydroDL.model_new import cnn, crit
+from hydroDL.model_new.data.load.train.default import load_data
+from hydroDL.model_new.settings import make_train_settings
 from hydroDL.model_new.wrappers.ModelWrapper import ModelWrapper
+from tqdm import trange
 
 log = logger.get_logger("model.train_.train")
 

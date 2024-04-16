@@ -4,9 +4,8 @@ May contain some near-identical functions in the mean time while merging models.
 """
 import numpy as np
 import torch
-from core.utils.time import tRange2Array
 from core.data_processing.data_prep import randomIndex, selectSubset
-
+from core.utils.time import tRange2Array
 
 
 def train_val_test_split_action1(set_name, args, time1, x_total, y_total):

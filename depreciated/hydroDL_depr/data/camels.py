@@ -1,12 +1,14 @@
 # read camels dataset
-import os
-import pandas as pd
-import numpy as np
 import datetime as dt
-from hydroDL_depr import utils, pathCamels
-from pandas.api.types import is_numeric_dtype, is_string_dtype
-import time
 import json
+import os
+import time
+
+import numpy as np
+import pandas as pd
+from hydroDL_depr import pathCamels, utils
+from pandas.api.types import is_numeric_dtype, is_string_dtype
+
 from . import Dataframe
 
 # module variable

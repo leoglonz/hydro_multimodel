@@ -1,5 +1,4 @@
 import torch
-
 from utils.master import set_globals
 
 # Set global torch device and dtype.

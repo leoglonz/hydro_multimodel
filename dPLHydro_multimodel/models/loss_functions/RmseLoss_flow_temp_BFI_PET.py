@@ -1,6 +1,8 @@
-import torch
 import json
 import os
+
+import torch
+
 
 class RmseLoss_flow_temp_BFI_PET(torch.nn.Module):
     def __init__(self, w1=0.5, w2=None, w3=0.05, w4=0.01, alpha=0.25, beta=1e-6):

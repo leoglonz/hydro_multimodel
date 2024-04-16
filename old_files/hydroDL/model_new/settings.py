@@ -1,6 +1,6 @@
 """A file that creates the settings dictionary"""
-import torch
 import numpy as np
+import torch
 from hydroDL.model_new import rnn
 
 

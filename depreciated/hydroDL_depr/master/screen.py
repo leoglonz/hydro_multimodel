@@ -5,8 +5,9 @@
 # source /home/kxf227/anaconda3/bin/activate
 # conda activate pytorch
 
-import os
 import argparse
+import os
+
 from hydroDL_depr import master
 from hydroDL_depr.utils import email
 

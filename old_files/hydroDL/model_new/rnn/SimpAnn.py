@@ -1,8 +1,9 @@
 import math
+
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
 import torch.nn.functional as F
+from torch.nn import Parameter
 
 
 class SimpAnn(torch.nn.Module):

@@ -1,6 +1,8 @@
-import torch
 import json
 import os
+
+import torch
+
 
 class RmseLoss_flow_temp(torch.nn.Module):
     def __init__(self, w1=0.5, w2=None, alpha=0.25, beta=1e-6):

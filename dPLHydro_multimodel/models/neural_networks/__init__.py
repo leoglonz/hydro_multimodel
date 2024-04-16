@@ -5,7 +5,6 @@ from typing import Callable, Dict
 
 import torch
 import torch.nn as nn
-
 from conf.config import InitalizationEnum
 
 log = logging.getLogger(__name__)

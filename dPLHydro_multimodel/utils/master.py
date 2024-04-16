@@ -4,15 +4,13 @@ General scripts for running multimodel interface.
 May decide to organize these later, but for now this file includes
 everything not in functional.py, and not in existing files.
 """
-import os
 import json
-import torch
-import numpy as np
+import os
 import platform
 
+import numpy as np
+import torch
 from data.load_data.time import tRange2Array
-
-
 
 # Set list of supported hydro models here:
 supported_models = ['HBV', 'dPLHBV_stat', 'dPLHBV_dyn', 'SACSMA', 'SACSMA_snow',

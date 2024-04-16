@@ -1,18 +1,18 @@
 import torch.nn
-
-from MODELS.hydro_models.marrmot_PRMS.prms_marrmot import prms_marrmot
-from MODELS.hydro_models.marrmot_PRMS_gw0.prms_marrmot_gw0 import prms_marrmot_gw0
+from core.utils.small_codes import source_flow_calculation
 from MODELS.hydro_models.HBV.HBVmul import HBVMul
+from MODELS.hydro_models.marrmot_PRMS.prms_marrmot import prms_marrmot
+from MODELS.hydro_models.marrmot_PRMS_gw0.prms_marrmot_gw0 import \
+    prms_marrmot_gw0
 from MODELS.hydro_models.SACSMA.SACSMAmul import SACSMAMul
-from MODELS.hydro_models.SACSMA_with_snowpack.SACSMA_snow_mul import SACSMA_snow_Mul
-
-from MODELS.temp_models.SNTEMP.PGML_STemp import SNTEMP_flowSim
-from MODELS.temp_models.SNTEMP_with_gw0.PGML_STemp_gw0 import SNTEMP_flowSim_gw0
-
+from MODELS.hydro_models.SACSMA_with_snowpack.SACSMA_snow_mul import \
+    SACSMA_snow_Mul
 from MODELS.NN_models.LSTM_models import CudnnLstmModel
 from MODELS.NN_models.MLP_models import MLPmul
+from MODELS.temp_models.SNTEMP.PGML_STemp import SNTEMP_flowSim
+from MODELS.temp_models.SNTEMP_with_gw0.PGML_STemp_gw0 import \
+    SNTEMP_flowSim_gw0
 
-from core.utils.small_codes import source_flow_calculation
 
 # import MODELS
 class diff_hydro_temp_model(torch.nn.Module):

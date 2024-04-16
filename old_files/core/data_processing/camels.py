@@ -1,17 +1,17 @@
 """
 Code for reading CAMELS data.
 """
-import os
-import pandas as pd
-import numpy as np
 import datetime as dt
+import json
+import os
+import time
+
+import numpy as np
+import pandas as pd
 import utils
 from pandas.api.types import is_numeric_dtype, is_string_dtype
-import time
-import json
+
 from . import Dataframe
-
-
 
 # module variable
 # tRange = [19800101, 20150101]

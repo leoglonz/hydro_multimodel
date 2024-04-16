@@ -1,13 +1,12 @@
 import os
 import time
+
+import hydroDL_depr
 import numpy as np
 import pandas as pd
 import torch
+from hydroDL_depr.model import cnn, crit, rnn
 from tqdm import tqdm
-
-import hydroDL_depr
-from hydroDL_depr.model import rnn, cnn, crit
-
 
 
 def trainModel(model,

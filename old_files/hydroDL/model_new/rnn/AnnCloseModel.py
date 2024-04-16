@@ -1,11 +1,12 @@
+import csv
 import math
+
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
 import torch.nn.functional as F
 from hydroDL.model_new import cnn
-import csv
-import numpy as np
+from torch.nn import Parameter
 
 
 class AnnCloseModel(torch.nn.Module):

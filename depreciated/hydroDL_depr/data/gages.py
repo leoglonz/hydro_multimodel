@@ -10,15 +10,17 @@ Created on Tue Mar  3 11:40:57 2020
 This script is used to read the streamflow data from GAGES II
 """
 
-import os
-import pandas as pd
-import numpy as np
 import datetime as dt
-from datetime import date, timedelta
-from hydroDL_depr import utils, pathGAGES
-from pandas.api.types import is_numeric_dtype, is_string_dtype
-import time
 import json
+import os
+import time
+from datetime import date, timedelta
+
+import numpy as np
+import pandas as pd
+from hydroDL_depr import pathGAGES, utils
+from pandas.api.types import is_numeric_dtype, is_string_dtype
+
 from . import Dataframe
 
 # module variable

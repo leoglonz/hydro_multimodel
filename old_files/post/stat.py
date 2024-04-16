@@ -1,11 +1,10 @@
 """
 Scripts here are used for calculating model results and other statistics.
 """
-import numpy as np
-import scipy.stats
 import warnings
 
-
+import numpy as np
+import scipy.stats
 
 keyLst = ["Bias", "RMSE", "ubRMSE", "Corr", "MSE"]
 

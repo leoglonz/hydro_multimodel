@@ -1,10 +1,11 @@
-import numpy as np
-import torch
-import time
 import os
+import time
+
 import hydroDL
-from hydroDL.model import rnn, cnn, crit
+import numpy as np
 import pandas as pd
+import torch
+from hydroDL.model import cnn, crit, rnn
 
 
 def trainModel(model,

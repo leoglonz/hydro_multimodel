@@ -1,14 +1,16 @@
-import os
-import hydroDL_depr
-from collections import OrderedDict
-import numpy as np
-import json
-from hydroDL_depr import utils
 import datetime as dt
-import pandas as pd
+import json
+import os
 import random
-import torch
 import time
+from collections import OrderedDict
+
+import hydroDL_depr
+import numpy as np
+import pandas as pd
+import torch
+from hydroDL_depr import utils
+
 
 def wrapMaster(out, optData, optModel, optLoss, optTrain):
     mDict = OrderedDict(

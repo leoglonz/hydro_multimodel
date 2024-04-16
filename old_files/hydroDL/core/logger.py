@@ -1,10 +1,10 @@
 """a class that imports the python logger and creates logging"""
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import sys
-from hydroDL.core.read import get_real_path
-from hydroDL.core import APP_LOGGER_NAME
+from logging.handlers import TimedRotatingFileHandler
 
+from hydroDL.core import APP_LOGGER_NAME
+from hydroDL.core.read import get_real_path
 
 LOG_FILE_PATH = get_real_path("../logs/hydroDL.log")
 

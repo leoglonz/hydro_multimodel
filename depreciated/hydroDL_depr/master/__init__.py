@@ -1,3 +1,4 @@
-from .master import readMasterFile, writeMasterFile, wrapMaster, train, test, loadData, loadModel
 from . import default
+from .master import (loadData, loadModel, readMasterFile, test, train,
+                     wrapMaster, writeMasterFile)
 from .screen import runTrain

@@ -1,4 +1,5 @@
 import pickle
+
 train_file = 'training_file'
 validation_file = 'validation_file'
 # Load X, Y, C from a file
@@ -7,13 +8,14 @@ with open(train_file, 'rb') as f:
 with open(validation_file, 'rb') as g:
     val_x, val_y, val_c = pickle.load(g)
 
+import math
+from datetime import datetime, timedelta
+
+import numpy as np
+import swat_functional as F
 #------NEW------------
 import torch
 import torch.nn as nn
-import swat_functional as F
-from datetime import datetime, timedelta
-import numpy as np
-import math
 
 # global definitions:
 device = torch.cuda.current_device() if torch.cuda.is_available() else torch.device("cpu")
@@ -427,6 +429,8 @@ def calculate_slope_length(mean_slope_m_per_km, distance_km):
 #slsoil = 50m
 
 import pandas as pd
+
+
 def an_temp(tmp_arr, Ttrain):
     start_date = pd.to_datetime(str(Ttrain[0]), format='%Y%m%d')
     end_date = pd.to_datetime(str(Ttrain[1]), format='%Y%m%d')

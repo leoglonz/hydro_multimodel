@@ -1,13 +1,15 @@
+import csv
 import math
+import random
+
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
 import torch.nn.functional as F
-from .dropout import DropMask, createMask
+from torch.nn import Parameter
+
 from . import cnn
-import csv
-import numpy as np
-import random
+from .dropout import DropMask, createMask
 
 
 class LSTMcell_untied(torch.nn.Module):

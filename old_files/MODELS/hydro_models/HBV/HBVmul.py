@@ -1,8 +1,9 @@
 import torch
-from MODELS.PET_models.potet import get_potet
 import torch.nn as nn
-from torch.nn import Parameter
 import torch.nn.functional as F
+from MODELS.PET_models.potet import get_potet
+from torch.nn import Parameter
+
 # from .dropout import DropMask, createMask
 # from . import cnn
 

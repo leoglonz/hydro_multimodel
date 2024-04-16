@@ -1,15 +1,15 @@
-import numpy as np
-import scipy
-import matplotlib.pyplot as plt
-import statsmodels.api as sm
-from matplotlib.collections import PatchCollection
-from matplotlib.patches import Rectangle
-import matplotlib.gridspec as gridspec
-from hydroDL import utils
 import string
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy
+import statsmodels.api as sm
+from hydroDL import utils
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Rectangle
 
 # from mpl_toolkits import basemap
 

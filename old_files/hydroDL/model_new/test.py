@@ -1,15 +1,16 @@
-import numpy as np
-import torch
-import time
 import os
+import time
+
 import hydroDL
-from hydroDL.model_new import cnn, rnn
-import pandas as pd
 import hydroDL.core.logger as logger
-from hydroDL.model_new.wrappers.ModelWrapper import ModelWrapper
-from hydroDL.model_new.settings import make_test_settings
+import numpy as np
+import pandas as pd
+import torch
+from hydroDL.model_new import cnn, rnn
 from hydroDL.model_new.data.load.test.default import load_data
 from hydroDL.model_new.data.post_process.default import post_process
+from hydroDL.model_new.settings import make_test_settings
+from hydroDL.model_new.wrappers.ModelWrapper import ModelWrapper
 
 log = logger.get_logger("model.test_.test")
 

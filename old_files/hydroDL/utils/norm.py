@@ -1,7 +1,8 @@
 import os
-import pandas as pd
-import numpy as np
 import shutil
+
+import numpy as np
+import pandas as pd
 
 
 def trans_norm(
@@ -72,8 +73,9 @@ def re_folder(path_s, del_old_path=False):
 
 def fix_seed(SEED):
     import os
-    import numpy as np
     import random
+
+    import numpy as np
     import torch
     np.random.seed(SEED)
     random.seed(SEED)

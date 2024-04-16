@@ -2,11 +2,10 @@
 Low-level data manipulation functions are kept here. 
 May contain some near-identical functions in the mean time while merging models.
 """
-import torch
 import numpy as np
+import torch
 from core.data_processing.normalization import transNorm
 from core.utils.time import tRange2Array
-
 
 
 def scaling(args, x, y, c):

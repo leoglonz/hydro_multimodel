@@ -8,11 +8,10 @@ import numpy as np
 import numpy.typing as npt
 import torch
 import zarr
-from tqdm import tqdm
-
 from dMC.conf.config import Config
 from dMC.dataset_modules.utils.Dates import Dates
 from dMC.dataset_modules.utils.Network import FullZoneNetwork, Network
+from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 

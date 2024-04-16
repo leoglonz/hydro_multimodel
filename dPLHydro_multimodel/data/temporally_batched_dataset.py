@@ -1,12 +1,9 @@
 import logging
 
-from dMC.dataset_modules import BaseDataset
-from dMC.dataset_modules.utils import (
-    create_hydrofabric_attributes,
-    create_hydrofabric_observations,
-    scale,
-)
 from data.utils.Hydrofabric import Hydrofabric
+from dMC.dataset_modules import BaseDataset
+from dMC.dataset_modules.utils import (create_hydrofabric_attributes,
+                                       create_hydrofabric_observations, scale)
 from dMC.dataset_modules.utils.Mapping import MeritMap
 from dMC.dataset_modules.utils.Network import Network
 

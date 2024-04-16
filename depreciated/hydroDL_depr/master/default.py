@@ -1,6 +1,8 @@
-import hydroDL_depr
 from collections import OrderedDict
-from hydroDL_depr.data import dbCsv, camels, gages
+
+import hydroDL_depr
+from hydroDL_depr.data import camels, dbCsv, gages
+
 # SMAP default options
 optDataSMAP = OrderedDict(
     name='hydroDL.data.dbCsv.DataframeCsv',

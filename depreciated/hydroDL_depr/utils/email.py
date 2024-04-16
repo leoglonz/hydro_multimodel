@@ -1,4 +1,5 @@
-import smtplib, ssl
+import smtplib
+import ssl
 
 
 def sendEmail(subject, text, receiver='dpfeng201@gmail.com'):

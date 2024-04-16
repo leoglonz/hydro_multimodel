@@ -1,6 +1,6 @@
 """A file that contains training functions requiring z"""
-import torch
 import numpy as np
+import torch
 from hydroDL.model_new import rnn
 
 

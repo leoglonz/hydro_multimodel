@@ -4,7 +4,6 @@ from typing import Union
 
 import torch
 import xarray as xr
-
 from dMC.dataset_modules.utils.Dates import Dates
 from dMC.dataset_modules.utils.Mapping import MeritMap
 from dMC.dataset_modules.utils.Network import FullZoneNetwork, Network

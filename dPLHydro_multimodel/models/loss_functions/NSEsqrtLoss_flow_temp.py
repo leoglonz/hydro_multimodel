@@ -1,7 +1,9 @@
-import torch
-import numpy as np
 import json
 import os
+
+import numpy as np
+import torch
+
 
 class NSEsqrtLoss_flow_temp(torch.nn.Module):
     # Similar as Fredrick 2019, batch NSE loss, use RMSE and STD instead
