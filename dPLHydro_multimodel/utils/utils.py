@@ -50,24 +50,26 @@ def set_platform_dir(path=None) -> str:
 
 def randomseed_config(seed=0) -> None:
     """
-    Fix the random seeds and behavior for reproducibility.
-    Default seed is 0, None means random.
+    Fix the random seeds for reproducibility.
+    seed=None -> random.
     """
     if seed == None:
-        # Generate random seed
         randomseed = int(np.random.uniform(low=0, high=1e6))
-        print("Random seed updated!")
-    else:
-        print("Setting seed 0.")
-        random.seed(seed)
-        np.random.seed(seed)
+        pass
 
-        if torch.cuda.is_available():
-            torch.manual_seed(seed)
-            torch.cuda.manual_seed(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
-            # torch.use_deterministic_algorithms(True)
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    try:
+        import torch
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        # torch.use_deterministic_algorithms(True)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    except:
+        pass
 
 
 def create_tensor(dims, requires_grad=False) -> torch.Tensor:
