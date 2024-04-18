@@ -2,6 +2,7 @@ import os
 import platform
 import random
 
+from pathlib import Path
 import numpy as np
 import torch
 
@@ -70,6 +71,41 @@ def randomseed_config(seed=0) -> None:
         torch.cuda.manual_seed_all(seed)
     except:
         pass
+
+
+def print_args(args):
+    print("\033[1m" + "Basic Config" + "\033[0m")
+    print(f'  {"Experiment Mode:":<20}{args.mode:<20}')
+    print(f'  {"Ensemble Mode:":<20}{args.ensemble_type:<20}')
+
+    for i, mod in enumerate(args.hydro_models):
+        print(f'  {f"Model {i+1}:":<20}{mod:<20}')
+    print()
+
+    print("\033[1m" + "Data Loader" + "\033[0m")
+    print(f'  {"Data:":<20}{args.forcings:<20}')
+    print(f'  {"Data Source:":<20}{Path(args.forcings).name:<20}')
+    # print(f'  {"Checkpoints:":<20}{args.checkpoints:<20}')
+    print()
+
+    print("\033[1m" + "Run Parameters" + "\033[0m")
+    print(f'  {"Train Epochs:":<20}{args.epochs:<20}{"Batch Size:":<20}{args.batch_size:<20}')
+    print(f'  {"Dropout:":<20}{args.dropout:<20}{"Hidden Size:":<20}{args.hidden_size:<20}')
+    print(f'  {"Warmup:":<20}{args.warm_up:<20}{"Number of Models:":<20}{args.nmul:<20}')
+    print(f'  {"Optimizer:":<20}{args.loss_function:<20}')
+    print()
+
+    print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
+    print(f'  {"Dropout:":<20}{args.weighting_nn.wdropout:<20}{"Hidden Size:":<20}{args.weighting_nn.hidden_size:<20}')
+    print(f'  {"Optimizer:":<20}{args.weighting_nn.loss_function:<20}{"Loss Factor:":<20}{args.weighting_nn.loss_factor:<20}')
+    print()
+
+    print("\033[1m" + "GPU" + "\033[0m")
+    print(f'  {"Use GPU:":<20}{args.device:<20}{"GPU:":<20}{args.gpu_id:<20}')
+    print()
+
+    print("\033[1m" + "De-stationary Projector Params" + "\033[0m")
+    print()
 
 
 def create_tensor(dims, requires_grad=False) -> torch.Tensor:

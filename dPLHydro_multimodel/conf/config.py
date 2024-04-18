@@ -191,6 +191,15 @@ class LossFunc(BaseModel):
     w1: float = 11.0
     w2: float = 1.0 
 
+class WeightingConfig(BaseModel):
+    wdropout: float
+    hidden_size: int
+    loss_factor: int
+    method: str
+    target: list
+    loss_function: str
+    loss_function_weights: LossFunc
+
 
 @dataclass
 class ObservationConfig:
@@ -215,6 +224,7 @@ class Config(BaseModel):
     mode: ModeEnum = Field(default=ModeEnum.train_test)
     nn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
+    ensemble_type: str
     dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
     
     random_seed: int = 0
@@ -242,6 +252,8 @@ class Config(BaseModel):
     dropout: float
     freeze: bool = True
     nearzero: float
+
+    weighting_nn: WeightingConfig
 
     n_basins: int
     save_epoch: int = 10
