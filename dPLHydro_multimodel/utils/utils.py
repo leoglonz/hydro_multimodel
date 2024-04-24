@@ -7,14 +7,15 @@ import numpy as np
 import torch
 
 
-def set_globals() -> None:
+def set_globals(cfg) -> None:
     """
-    Select torch device and dtype global variables per user system.
+    Select torch device, gpu device id (if available), and dtype global vars.
     """ 
-    global device, dtype
+    # global device, dtype
 
     if torch.cuda.is_available():
-        device = torch.cuda.current_device()
+        device = cfg.device_id
+        torch.cuda.set_device(device)
     elif torch.backends.mps.is_available():
         # Use Mac M-series ARM architecture.
         device = torch.device('mps')
