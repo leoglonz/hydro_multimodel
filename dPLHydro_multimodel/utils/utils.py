@@ -7,15 +7,12 @@ import numpy as np
 import torch
 
 
-def set_globals(cfg) -> None:
+def set_globals() -> list:
     """
     Select torch device, gpu device id (if available), and dtype global vars.
     """ 
-    # global device, dtype
-
     if torch.cuda.is_available():
-        device = cfg.device_id
-        torch.cuda.set_device(device)
+        device = torch.device('cuda')
     elif torch.backends.mps.is_available():
         # Use Mac M-series ARM architecture.
         device = torch.device('mps')
@@ -75,7 +72,7 @@ def randomseed_config(seed=0) -> None:
 
 
 def print_args(args):
-    print("\033[1m" + "Basic Config" + "\033[0m")
+    print("\033[1m" + "Basic Config Info" + "\033[0m")
     print(f'  {"Experiment Mode:":<20}{args.mode:<20}')
     print(f'  {"Ensemble Mode:":<20}{args.ensemble_type:<20}')
 
@@ -97,7 +94,7 @@ def print_args(args):
     print()
 
     print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
-    print(f'  {"Dropout:":<20}{args.weighting_nn.wdropout:<20}{"Hidden Size:":<20}{args.weighting_nn.hidden_size:<20}')
+    print(f'  {"Dropout:":<20}{args.weighting_nn.dropout:<20}{"Hidden Size:":<20}{args.weighting_nn.hidden_size:<20}')
     print(f'  {"Optimizer:":<20}{args.weighting_nn.loss_function:<20}{"Loss Factor:":<20}{args.weighting_nn.loss_factor:<20}')
     print()
 

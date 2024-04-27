@@ -50,7 +50,7 @@ class dPLHydroModel(torch.nn.Module):
             raise ValueError(self.config['nn_model'], "is not a valid neural network type.")
 
     def get_nn_model_dim(self) -> None:
-        self.nx = len(self.config['var_t_nn'] + self.config['var_c_nn'])
+        self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
 
         # output size of NN
         if self.config['routing_hydro_model'] == True:

@@ -1,11 +1,11 @@
 import logging
 
 from conf.config import Config, ModeEnum
+from experiment.train import TrainModel
 from experiment.test import TestModel
 # from experiment.factory import Factory
 # from experiment.test_handler import TestHandler
 # from experiment.train_handler import TrainHandler
-from experiment.train import TrainModel
 
 # from typing import Union
 

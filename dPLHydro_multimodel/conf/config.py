@@ -192,7 +192,7 @@ class LossFunc(BaseModel):
     w2: float = 1.0 
 
 class WeightingConfig(BaseModel):
-    wdropout: float
+    dropout: float
     hidden_size: int
     loss_factor: int
     method: str
@@ -221,6 +221,8 @@ class ObservationConfig:
 
 
 class Config(BaseModel):
+    observations: ObservationConfig
+
     mode: ModeEnum = Field(default=ModeEnum.train_test)
     nn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])

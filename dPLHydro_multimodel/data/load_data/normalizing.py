@@ -17,7 +17,7 @@ def calStatbasinnorm(
     """
     y[y == (-999)] = np.nan
     y[y < 0] = 0
-    attr_list = args['var_c_nn']
+    attr_list = args['observations']['var_c_nn']
     # attr_data = read_attr_data(args, idLst=idLst)
     if 'DRAIN_SQKM' in attr_list:
         area_name = 'DRAIN_SQKM'
@@ -88,7 +88,7 @@ def calStatAll(args, x, c, y):
             statDict[args['target'][i]] = calStat(y[:, :, i: i+1])
 
     # forcing
-    varList = args['var_t_nn']
+    varList = args['observations']['var_t_nn']
     for k in range(len(varList)):
         var = varList[k]
         if var == 'prcp(mm/day)':
@@ -98,7 +98,7 @@ def calStatAll(args, x, c, y):
         else:
             statDict[var] = calStat(x[:, :, k])
     # attributes
-    varList = args['var_c_nn']
+    varList = args['observations']['var_c_nn']
     for k, var in enumerate(varList):
         statDict[var] = calStat(c[:, k])
 

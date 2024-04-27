@@ -18,12 +18,13 @@ class EnsembleWeights(torch.nn.Module):
         super(EnsembleWeights, self).__init__()
         self.config = config
         self.name = 'Ensemble Weighting Network'
-        self.init_model()
+        self.get_model()
     
-    def init_model(self) -> None:
+    def get_model(self) -> None:
         """
         Initialize LSTM and optimizer.
         """
+        self.get_nn_model_dim()
 
         self.lstm = CudnnLstmModel(nx=self.nx,
                                       ny=self.ny,
@@ -39,14 +40,14 @@ class EnsembleWeights(torch.nn.Module):
         self.loss_func = self.loss_func.to(F.device)
 
     def get_nn_model_dim(self) -> None:
-        self.nx = len(self.config['var_t_nn'] + self.config['var_c_nn'])
+        self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
         self.ny = len(self.config['hydro_models'])#output size of NN
 
     def forward(self, dataset_dict_sample):
         self.dataset_dict_sample = dataset_dict_sample
 
         # Get scaled mini-batch of basin forcings + attributes.
-        nn_inputs = dataset_dict_sample['inputs_nn_scaled'].requires_grad(True)
+        nn_inputs = dataset_dict_sample['inputs_nn_scaled'].requires_grad_(True)
 
         # Forward lstm to get model weights.
         self.weights = self.lstm(nn_inputs)

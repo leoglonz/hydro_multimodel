@@ -49,8 +49,8 @@ class TrainModel:
         # Stats for normalization of nn inputs:
         init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
         
-        x_nn_scaled = transNorm(self.config, dataset_dict['x_nn'], varLst=self.config['var_t_nn'], toNorm=True)
-        c_nn_scaled = transNorm(self.config, dataset_dict['c_nn'], varLst=self.config['var_c_nn'], toNorm=True)
+        x_nn_scaled = transNorm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
+        c_nn_scaled = transNorm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
         c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
         del dataset_dict['x_nn']
         dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)

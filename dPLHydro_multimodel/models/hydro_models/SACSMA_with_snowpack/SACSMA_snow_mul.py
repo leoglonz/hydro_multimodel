@@ -280,8 +280,8 @@ class SACSMA_snow_Mul(torch.nn.Module):
             params_dict_raw[param] = self.change_param_range(param=params_raw[:, :, num, :],
                                                              bounds=self.parameters_bound[param])
 
-        vars = args["var_t_hydro_model"]
-        vars_c = args["var_c_hydro_model"]
+        vars = args['observations']["var_t_hydro_model"]
+        vars_c = args['observations']["var_c_hydro_model"]
         P = x_hydro_model[warm_up:, :, vars.index("prcp(mm/day)")]
         Pm = P.unsqueeze(2).repeat(1, 1, nmul)
         Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)

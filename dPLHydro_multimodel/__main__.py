@@ -1,5 +1,5 @@
 """
-Use this script to run multimodel training/testing.
+Use this script interfaces with experiment (train/test) scripts.
 """
 
 import logging
@@ -14,7 +14,7 @@ from experiment.experiment_tracker import ExperimentTracker
 from omegaconf import DictConfig, OmegaConf
 from pydantic import ConfigDict, ValidationError
 from utils.master import create_output_dirs
-from utils.utils import set_globals, set_platform_dir
+from utils.utils import set_globals, set_platform_dir, print_args
 
 log = logging.getLogger(__name__)
 
@@ -35,36 +35,33 @@ def main(cfg: DictConfig) -> None:
         experiment_tracker = ExperimentTracker(cfg=config)
 
         # Set device, dtype, and model save path.
-        set_globals()
+        # torch.cuda.set_device(config.gpu_id)
         config.output_dir = set_platform_dir(config.output_dir)
         config_dict = create_output_dirs(config_dict)
 
         experiment_name = config.mode
         log.info(f"RUNNING MODE: {config.mode}")
-
-        # if config.mode == ModeEnum.train_test:
-        #     # Run training and testing together.
-        #     # Train:
-        #     config.mode = ModeEnum.train
-        #     train_experiment_handler = build_handler(config)
-        #     train_experiment_handler.run(config, experiment_tracker)
-
-        #     # Test: (first transfer weights)
-        #     config.mode = ModeEnum.test
-        #     test_experiment_handler = build_handler(config)
-        #     test_experiment_handler.neural_networks = (
-        #         train_experiment_handler.neural_networks
-        #     )
-        #     test_experiment_handler.run(config, experiment_tracker)
-
-        # else:
-        #     # Run either training or testing. 
-        #     experiment_handler = build_handler(config, config_dict)
-        #     experiment_handler.run(experiment_tracker=experiment_tracker)
-
-        # print(config_dict)
-        from utils.utils import print_args
         print_args(config)
+
+        if config.mode == ModeEnum.train_test:
+            # Run training and testing together.
+            # Train:
+            config.mode = ModeEnum.train
+            train_experiment_handler = build_handler(config)
+            train_experiment_handler.run(config, experiment_tracker)
+
+            # Test: (first transfer weights)
+            config.mode = ModeEnum.test
+            test_experiment_handler = build_handler(config)
+            test_experiment_handler.neural_networks = (
+                train_experiment_handler.neural_networks
+            )
+            test_experiment_handler.run(config, experiment_tracker)
+
+        else:
+            # Run either training or testing. 
+            experiment_handler = build_handler(config, config_dict)
+            experiment_handler.run(experiment_tracker=experiment_tracker)
 
 
         total_time = time.perf_counter() - start_time

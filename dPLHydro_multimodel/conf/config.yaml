@@ -20,7 +20,7 @@ dyn_hydro_params:
 ## Config for all differentiable hydrology models ------#
 random_seed: 0
 device: cuda
-gpu_id: 0
+gpu_id: 8
 
 routing_hydro_model: True
 forcings: gages2_50
@@ -50,7 +50,7 @@ dropout: 0.5
 nearzero: 1e-5
 
 weighting_nn:
-    wdropout: 0.5
+    dropout: 0.5
     hidden_size: 256
     loss_factor: 15
     method: sigmoid
@@ -63,8 +63,9 @@ weighting_nn:
 n_basins: 25
 save_epoch: 1
 
-data_dir: /Users/leoglonz/Desktop/water/data
+# data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
+data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/data
 
 name: hmm0.3.0-${forcings}
 output_dir: ${data_dir}/model_runs/hydro_multimodel_results/${forcings}/debugging

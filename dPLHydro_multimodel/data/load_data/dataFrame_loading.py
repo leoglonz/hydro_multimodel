@@ -24,7 +24,7 @@ class DataFrame_dataset(Data_Reader):
         self.args = args
         self.inputfile = data_path
         if attr_path == None:
-            self.inputfile_attr = os.path.join(os.path.realpath(self.args['attr_path']))  # the static data
+            self.inputfile_attr = os.path.join(os.path.realpath(self.args['observations']['attr_path']))  # the static data
         else:
             self.inputfile_attr = os.path.join(os.path.realpath(attr_path))  # the static data
 
@@ -80,7 +80,7 @@ class DataFrame_dataset(Data_Reader):
     def getDataConst(self, args, varLst, doNorm=True, rmNan=True):
         if type(varLst) is str:
             varLst = [varLst]
-        inputfile = os.path.join(os.path.realpath(args['forcing_path']))
+        inputfile = os.path.join(os.path.realpath(args['observations']['forcing_path']))
         if self.inputfile_attr.endswith('.csv'):
             dfMain = pd.read_csv(self.inputfile)
             dfC = pd.read_csv(self.inputfile_attr)
@@ -111,7 +111,7 @@ class numpy_dataset(Data_Reader):
         self.args = args
         self.inputfile = data_path   # the dynamic data
         if attr_path == None:
-            self.inputfile_attr = os.path.join(os.path.realpath(self.args['attr_path']))  # the static data
+            self.inputfile_attr = os.path.join(os.path.realpath(self.args['observations']['attr_path']))  # the static data
         else:
             self.inputfile_attr = os.path.join(os.path.realpath(attr_path))  # the static data
         # These are default forcings and attributes that are read from the dataset
@@ -212,10 +212,10 @@ class choose_class_to_read_dataset():
 
 def loadData(args, trange):
     out_dict = dict()
-    forcing_dataset_class = choose_class_to_read_dataset(args, trange, args['forcing_path'])
+    forcing_dataset_class = choose_class_to_read_dataset(args, trange, args['observations']['forcing_path'])
     # getting inputs for neural network:
-    out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(args, varLst=args['var_t_nn'])
-    out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(args, varLst=args['var_c_nn'])
+    out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(args, varLst=args['observations']['var_t_nn'])
+    out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(args, varLst=args['observations']['var_c_nn'])
     obs_raw = forcing_dataset_class.read_data.getDataTs(args, varLst=args['target'])
     # Streamflow unit conversion.
     if '00060_Mean' in args['target']:
@@ -225,8 +225,8 @@ def loadData(args, trange):
     else:
         out_dict['obs'] = obs_raw
     
-    out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(args, varLst=args['var_t_hydro_model'])
-    out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(args, varLst=args['var_c_hydro_model'])
+    out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(args, varLst=args['observations']['var_t_hydro_model'])
+    out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(args, varLst=args['observations']['var_c_hydro_model'])
 
     return out_dict
 
@@ -235,7 +235,7 @@ def converting_flow_from_ft3_per_sec_to_mm_per_day(args, c_NN_sample, obs_sample
     varTar_NN = args['target']
     if '00060_Mean' in varTar_NN:
         obs_flow_v = obs_sample[:, :, varTar_NN.index('00060_Mean')]
-        varC_NN = args['var_c_nn']
+        varC_NN = args['observations']['var_c_nn']
         if 'DRAIN_SQKM' in varC_NN:
             area_name = 'DRAIN_SQKM'
         elif 'area_gages2' in varC_NN:

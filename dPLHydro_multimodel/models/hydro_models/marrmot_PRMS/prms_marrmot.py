@@ -213,8 +213,8 @@ class prms_marrmot(torch.nn.Module):
     def forward(self, x_hydro_model, c_hydro_model, params_raw, args,  warm_up=0, init=False, routing=True, conv_params_hydro=None):
         NEARZERO = args["nearzero"]
         nmul = args["nmul"]
-        vars = args["var_t_hydro_model"]
-        vars_c = args["var_c_hydro_model"]
+        vars = args['observations']["var_t_hydro_model"]
+        vars_c = args['observations']["var_c_hydro_model"]
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
