@@ -191,6 +191,7 @@ class LossFunc(BaseModel):
     w1: float = 11.0
     w2: float = 1.0 
 
+
 class WeightingConfig(BaseModel):
     dropout: float
     hidden_size: int
@@ -198,6 +199,8 @@ class WeightingConfig(BaseModel):
     method: str
     target: list
     loss_function: str
+    loss_lower_bound: float = 0.95
+    loss_upper_bound: float = 1.05
     loss_function_weights: LossFunc
 
 

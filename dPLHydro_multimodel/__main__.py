@@ -35,7 +35,7 @@ def main(cfg: DictConfig) -> None:
         experiment_tracker = ExperimentTracker(cfg=config)
 
         # Set device, dtype, and model save path.
-        # torch.cuda.set_device(config.gpu_id)
+        torch.cuda.set_device(config.gpu_id)
         config.output_dir = set_platform_dir(config.output_dir)
         config_dict = create_output_dirs(config_dict)
 
@@ -62,7 +62,6 @@ def main(cfg: DictConfig) -> None:
             # Run either training or testing. 
             experiment_handler = build_handler(config, config_dict)
             experiment_handler.run(experiment_tracker=experiment_tracker)
-
 
         total_time = time.perf_counter() - start_time
         log.info(

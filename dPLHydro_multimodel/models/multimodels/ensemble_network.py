@@ -4,6 +4,7 @@ from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
 from utils import master as m
 
+
 # Set global torch device and dtype.
 device, dtype = m.set_globals()
 
@@ -19,6 +20,7 @@ class EnsembleWeights(torch.nn.Module):
         self.config = config
         self.name = 'Ensemble Weighting Network'
         self.get_model()
+        self.range_bound_loss = F.RangeBoundLoss(config)
     
     def get_model(self) -> None:
         """
@@ -37,7 +39,7 @@ class EnsembleWeights(torch.nn.Module):
     
     def init_loss_func(self, obs):
         self.loss_func = get_loss_func(self.config['weighting_nn'], obs)
-        self.loss_func = self.loss_func.to(F.device)
+        self.loss_func = self.loss_func.to(self.config['device'])
 
     def get_nn_model_dim(self) -> None:
         self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
@@ -49,8 +51,11 @@ class EnsembleWeights(torch.nn.Module):
         # Get scaled mini-batch of basin forcings + attributes.
         nn_inputs = dataset_dict_sample['inputs_nn_scaled'].requires_grad_(True)
 
-        # Forward lstm to get model weights.
-        self.weights = self.lstm(nn_inputs)
+        # Initialize loss function.
+        self.init_loss_func(self.dataset_dict_sample['obs'])
+
+        # Forward lstm to get model weights + remove warmup period from output.
+        self.weights = self.lstm(nn_inputs)[self.config['warm_up']:,:,:]
 
     def get_loss(self, hydro_preds, ep_loss):
         # total loss is the sum of range bound loss, and streamflow ensemble preds vs obs.
@@ -66,12 +71,14 @@ class EnsembleWeights(torch.nn.Module):
             raise ValueError(self.config['weighting_nn']['method'], "is not a valid model weighting method.")
 
         # Loss on weights.
-        self.calc_range_bound_loss()
+        weights_sum = torch.sum(self.weights_scaled, dim=2)
+        self.range_bound_loss([weights_sum])
 
         # Get ensembled streamflow.
-        self.ensemble_pred = torch.zeros((ntstep, ngage), requires_grad=True, dtype=torch.float32).to(F.device)
-        for mod in range(self.weights.shape[2]):
-            self.ensemble_pred += self.weights_scaled[:, :, mod] * hydro_preds[:, :, mod]
+        self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
+
+        for i, mod in enumerate(self.config['hydro_models']):
+            self.ensemble_pred += self.weights_scaled[:, :, i] * hydro_preds[mod]['flow_sim'][:, :].squeeze()
         # torch.sum(hydro_preds * weights_scaled, dim=2)
 
         # Loss on streamflow preds.

@@ -12,15 +12,15 @@ ensemble_type: ensemble
 freeze_param_nn: False
 
 dyn_hydro_params:
-  HBV: ['parBETA', 'parBETAET']
-  SACSMA: ['parTT']
+  HBV: []
+  SACSMA: []
   PRMS: []
 
 
 ## Config for all differentiable hydrology models ------#
 random_seed: 0
 device: cuda
-gpu_id: 8
+gpu_id: 2
 
 routing_hydro_model: True
 forcings: gages2_50
@@ -41,7 +41,7 @@ test:
     end_time: 2010/10/01
 
 nmul: 16
-warm_up: 365
+warm_up: 0
 rho: 365
 batch_size: 100
 epochs: 50
@@ -52,10 +52,12 @@ nearzero: 1e-5
 weighting_nn:
     dropout: 0.5
     hidden_size: 256
-    loss_factor: 15
     method: sigmoid
     target: ['00060_Mean']
     loss_function: RmseLoss_flow_comb
+    loss_factor: 15
+    loss_lower_bound: 0.95
+    loss_upper_bound: 1.05
     loss_function_weights:
         w1: 11.0
         w2: 1.0
