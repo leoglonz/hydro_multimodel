@@ -50,7 +50,7 @@ class RangeBoundLoss(nn.Module):
         self.lb = torch.tensor([self.cfg['weighting_nn']['loss_lower_bound']], device=cfg['device'])
         self.ub = torch.tensor([self.cfg['weighting_nn']['loss_upper_bound']],device=cfg['device'])
         self.factor = torch.tensor(self.cfg['weighting_nn']['loss_factor'])
-        log.info(f"wNN Loss Factor: {self.factor}")
+        log.info(f"wtNN Loss Factor: {self.factor}")
 
     def forward(self, inputs):
         loss = 0

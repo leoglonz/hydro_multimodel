@@ -36,8 +36,9 @@ def check_dictionary_paths(v: Dict[str, str]) -> Dict[str, Path]:
 
 class ModeEnum(str, Enum):
     train = "train"
-    test = "test"
+    test = "        "
     train_test = "train_test"
+    train_wts_only = "train_wts_only"
 
 
 class InitalizationEnum(str, Enum):
@@ -223,6 +224,25 @@ class ObservationConfig:
         return check_path(v)
 
 
+# @dataclass
+# class LoadModelConfig:
+#     name: str = "not_defined"
+#     gage_info: str = "not_defined"
+#     attr_path: str = "not_defined"
+#     observations_path: str = "not_defined"
+#     var_t_NN: list = "not_defined"
+#     var_c_NN: list = "not_defined"
+#     var_t_hydro_model: list = "not_defined"
+#     var_c_hydro_model: list = "not_defined"
+
+#     @field_validator("gage_info", "observations_path")
+#     @classmethod
+#     def validate_dir(cls, v: str) -> Union[Path, str]:
+#         if v == "not_defined":
+#             return v
+#         return check_path(v)
+
+
 class Config(BaseModel):
     observations: ObservationConfig
 
@@ -230,8 +250,14 @@ class Config(BaseModel):
     nn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
     ensemble_type: str
+    freeze_para_nn: bool
+    # train_wts_only: bool
     dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
     
+    # HBV: str
+    # marrmot_PRMS: str
+    # SACSMA_w_snow: str
+
     random_seed: int = 0
     device: str = 'cpu'
     gpu_id: int = 0
@@ -267,13 +293,13 @@ class Config(BaseModel):
     data_dir: str
     output_dir: str
 
-    gage_info: str = "not_defined"
-    attr_path: str = "not_defined"
-    observations_path: str = "not_defined"
-    var_t_NN: list = "not_defined"
-    var_c_NN: list = "not_defined"
-    var_t_hydro_model: list = "not_defined"
-    var_c_hydro_model: list = "not_defined"
+    # gage_info: str = "not_defined"
+    # attr_path: str = "not_defined"
+    # observations_path: str = "not_defined"
+    # var_t_NN: list = "not_defined"
+    # var_c_NN: list = "not_defined"
+    # var_t_hydro_model: list = "not_defined"
+    # var_c_hydro_model: list = "not_defined"
 
     def __init__(self, **data):
         super(Config, self).__init__(**data)

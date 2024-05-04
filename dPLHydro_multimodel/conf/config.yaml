@@ -1,20 +1,21 @@
 defaults:
-  - _self_
-  - observations: gages2_50
-  - hydra: settings
+    - _self_
+    - observations: camels_671_dp #gages2_50
+    # - load_models: load_models_config
+    - hydra: settings
 
 
 ## Config -------------------------------#
-mode: train
+mode: train_wts_only
 nn_model: LSTM
 hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
 ensemble_type: ensemble
-freeze_param_nn: False
+freeze_para_nn: False
 
 dyn_hydro_params:
-  HBV: []
-  SACSMA: []
-  PRMS: []
+    HBV: []
+    SACSMA: []
+    PRMS: []
 
 
 ## Config for all differentiable hydrology models ------#
@@ -23,7 +24,7 @@ device: cuda
 gpu_id: 2
 
 routing_hydro_model: True
-forcings: gages2_50
+forcings: camels_671_dp
 potet_module: dataset
 potet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']
@@ -67,7 +68,12 @@ save_epoch: 1
 
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
-data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/data
+data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs
 
 name: hmm0.3.0-${forcings}
-output_dir: ${data_dir}/model_runs/hydro_multimodel_results/${forcings}/debugging
+output_dir: ${data_dir}/saved_models/debugging_may4
+
+## Use pre-trained hydro models to only train weighting LSTM.
+HBV: /data/lgl5139/hydro_multimodel/model_runs/hydro_models/static/LSTM_HBV_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
+marrmot_PRMS: /data/lgl5139/hydro_multimodel/model_runs/hydro_models/static/LSTM_marrmot_PRMS_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
+SACSMA_w_snow: /data/lgl5139/hydro_multimodel/model_runs/hydro_models/static/LSTM_SACSMA_with_snow_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt

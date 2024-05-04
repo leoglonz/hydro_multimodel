@@ -19,10 +19,10 @@ class EnsembleWeights(torch.nn.Module):
         super(EnsembleWeights, self).__init__()
         self.config = config
         self.name = 'Ensemble Weighting Network'
-        self.get_model()
+        self._init_model()
         self.range_bound_loss = F.RangeBoundLoss(config)
     
-    def get_model(self) -> None:
+    def _init_model(self) -> None:
         """
         Initialize LSTM and optimizer.
         """
@@ -33,13 +33,18 @@ class EnsembleWeights(torch.nn.Module):
                                       hiddenSize=self.config['weighting_nn']['hidden_size'],
                                       dr=self.config['weighting_nn']['dropout']
                                       ).to(F.device)
-        self.optim = torch.optim.Adadelta(self.lstm.parameters())
+        # self.optim = torch.optim.Adadelta(self.lstm.parameters()) 
+        # Save model parameters to pass to optimizer
+        self.model_params = self.lstm.parameters()
         self.lstm.zero_grad()
         self.lstm.train()
     
     def init_loss_func(self, obs):
         self.loss_func = get_loss_func(self.config['weighting_nn'], obs)
         self.loss_func = self.loss_func.to(self.config['device'])
+
+    def init_optimizer(self):
+        self.optim = torch.optim.Adadelta(self.model_params)
 
     def get_nn_model_dim(self) -> None:
         self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
@@ -52,12 +57,12 @@ class EnsembleWeights(torch.nn.Module):
         nn_inputs = dataset_dict_sample['inputs_nn_scaled'].requires_grad_(True)
 
         # Initialize loss function.
-        self.init_loss_func(self.dataset_dict_sample['obs'])
+        # self.init_loss_func(self.dataset_dict_sample['obs'])
 
         # Forward lstm to get model weights + remove warmup period from output.
         self.weights = self.lstm(nn_inputs)[self.config['warm_up']:,:,:]
 
-    def get_loss(self, hydro_preds, ep_loss):
+    def calc_loss(self, hydro_preds, loss_dict):
         # total loss is the sum of range bound loss, and streamflow ensemble preds vs obs.
         ntstep = self.weights.shape[0]
         ngage = self.weights.shape[1]
@@ -72,7 +77,7 @@ class EnsembleWeights(torch.nn.Module):
 
         # Loss on weights.
         weights_sum = torch.sum(self.weights_scaled, dim=2)
-        self.range_bound_loss([weights_sum])
+        loss_rb = self.range_bound_loss([weights_sum])
 
         # Get ensembled streamflow.
         self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
@@ -82,13 +87,21 @@ class EnsembleWeights(torch.nn.Module):
         # torch.sum(hydro_preds * weights_scaled, dim=2)
 
         # Loss on streamflow preds.
-        loss_sf = self.loss_func(self.ensemble_pred, self.dataset_dict_sample['obs'])
+        loss_sf = self.loss_func(self.config,
+                                 self.ensemble_pred,
+                                 self.dataset_dict_sample['obs'],
+                                 igrid=self.dataset_dict_sample['iGrid']
+                                 )
+        # self.lstm.zero_grad()
 
-        total_loss = self.range_bound_loss + loss_sf
+        total_loss = loss_rb + loss_sf
+        loss_dict['wtNN'] += total_loss.item()
 
-        total_loss.backward()
-        self.optim.step()
-        self.optim.zero_grad()
-        ep_loss += total_loss.item()
+        # total_loss.backward()
+        # self.optim2.step()
+        # self.optim2.zero_grad()
+        # comb_loss += total_loss.item()
+        # return comb_loss
 
-        return ep_loss
+        return total_loss, loss_dict
+    

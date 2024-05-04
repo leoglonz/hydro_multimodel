@@ -173,3 +173,22 @@ def create_output_dirs(args):
     f.close()
 
     return args
+
+
+
+
+
+
+
+# def loadModel(out, epoch=None):
+#     if epoch is None:
+#         mDict = readMasterFile(out)
+#         epoch = mDict['train']['nEpoch']
+#     model = hydroDL.model.train.loadModel(out, epoch)
+#     return model
+
+
+def loadModel(outFolder, epoch, modelName='model'):
+    modelFile = os.path.join(outFolder, modelName + '_Ep' + str(epoch) + '.pt')
+    model = torch.load(modelFile)
+    return model
