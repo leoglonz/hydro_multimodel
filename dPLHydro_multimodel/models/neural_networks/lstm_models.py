@@ -8,7 +8,7 @@ from torch.nn import Parameter
 
 
 class CudnnLstm(torch.nn.Module):
-    def __init__(self, *, inputSize, hiddenSize, dr=0.5, drMethod="drW", gpu=0):
+    def __init__(self, *, inputSize, hiddenSize, dr=0.5, drMethod="drW"):
         super(CudnnLstm, self).__init__()
         self.inputSize = inputSize
         self.hiddenSize = hiddenSize
@@ -139,7 +139,6 @@ class CudnnLstmModel(torch.nn.Module):
         self.lstm = CudnnLstm(inputSize=hiddenSize, hiddenSize=hiddenSize, dr=dr)
         
         self.linearOut = torch.nn.Linear(hiddenSize, ny)
-        self.gpu = 1
         self.activation_sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, doDropMC=False, dropoutFalse=False):

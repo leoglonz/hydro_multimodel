@@ -1,5 +1,5 @@
 name: camels_671_dp
-gage_info: /scratch/fzr5082/PGML_STemp_results/inputs/dataset_20240331/forcing_50_20240331.feather 
+gage_info: /scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/attr_camels_all_sep14_2023.feather
 # forcing_path: ${data_dir}\Camels\camels_671_2023113_prep\camels_671_dp_20231113.feather
 # attr_path: ${data_dir}\Camels\camels_671_2023113_prep\attr_camels_all_sep14_2023.feather
 forcing_path: /scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/camels_671_dp_20231113.feather

@@ -22,7 +22,7 @@ class EnsembleWeights(torch.nn.Module):
         self._init_model()
         self.range_bound_loss = F.RangeBoundLoss(config)
     
-    def _init_model(self) -> None:
+    def _init_model(self):
         """
         Initialize LSTM and optimizer.
         """
@@ -38,8 +38,9 @@ class EnsembleWeights(torch.nn.Module):
         self.model_params = self.lstm.parameters()
         self.lstm.zero_grad()
         self.lstm.train()
+        
     
-    def init_loss_func(self, obs):
+    def init_loss_func(self, obs) -> None:
         self.loss_func = get_loss_func(self.config['weighting_nn'], obs)
         self.loss_func = self.loss_func.to(self.config['device'])
 
@@ -48,22 +49,28 @@ class EnsembleWeights(torch.nn.Module):
 
     def get_nn_model_dim(self) -> None:
         self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
-        self.ny = len(self.config['hydro_models'])#output size of NN
+        self.ny = len(self.config['hydro_models'])  # Output size of NN
 
-    def forward(self, dataset_dict_sample):
+    def forward(self, dataset_dict_sample, eval=False) -> None:
         self.dataset_dict_sample = dataset_dict_sample
 
         # Get scaled mini-batch of basin forcings + attributes.
+        # inputs_nn_scaled = x_nn + c_nn, forcings + basin attributes
         nn_inputs = dataset_dict_sample['inputs_nn_scaled'].requires_grad_(True)
 
-        # Initialize loss function.
-        # self.init_loss_func(self.dataset_dict_sample['obs'])
+        if eval: self.lstm.eval()  # For testing.
 
-        # Forward lstm to get model weights + remove warmup period from output.
+        # Forward for model weights + remove warmup period from output.
         self.weights = self.lstm(nn_inputs)[self.config['warm_up']:,:,:]
 
-    def calc_loss(self, hydro_preds, loss_dict):
-        # total loss is the sum of range bound loss, and streamflow ensemble preds vs obs.
+    def calc_loss(self, hydro_preds, loss_dict=None) -> None:
+        """
+        Computes composite loss: 
+        1) Takes in predictions from set of hydro models, and computes a loss on the linear combination of model predictions using lstm-derived weights.
+
+        2) Calculates range-bound loss on the lstm weights.
+        """
+                
         ntstep = self.weights.shape[0]
         ngage = self.weights.shape[1]
 
@@ -75,15 +82,20 @@ class EnsembleWeights(torch.nn.Module):
         else:
             raise ValueError(self.config['weighting_nn']['method'], "is not a valid model weighting method.")
 
-        # Loss on weights.
+        # Range-bound loss on weights.
         weights_sum = torch.sum(self.weights_scaled, dim=2)
         loss_rb = self.range_bound_loss([weights_sum])
 
         # Get ensembled streamflow.
         self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
 
-        for i, mod in enumerate(self.config['hydro_models']):
-            self.ensemble_pred += self.weights_scaled[:, :, i] * hydro_preds[mod]['flow_sim'][:, :].squeeze()
+        for i, mod in enumerate(self.config['hydro_models']):  
+            h_pred = hydro_preds[mod]['flow_sim'][:, :].squeeze()
+            if self.weights_scaled.size(0) != h_pred.size(0):
+                # Cut out warmup data present when testing model from loaded mod file.
+                h_pred = h_pred[self.config['warm_up']:,:]
+
+            self.ensemble_pred += self.weights_scaled[:, :, i] * h_pred 
         # torch.sum(hydro_preds * weights_scaled, dim=2)
 
         # Loss on streamflow preds.
@@ -94,8 +106,11 @@ class EnsembleWeights(torch.nn.Module):
                                  )
         # self.lstm.zero_grad()
 
+        # Return total_loss for optimizer.
         total_loss = loss_rb + loss_sf
-        loss_dict['wtNN'] += total_loss.item()
+        if loss_dict:
+            loss_dict['wtNN'] += total_loss.item()
+            return total_loss, loss_dict
 
         # total_loss.backward()
         # self.optim2.step()
@@ -103,5 +118,6 @@ class EnsembleWeights(torch.nn.Module):
         # comb_loss += total_loss.item()
         # return comb_loss
 
-        return total_loss, loss_dict
+        return total_loss
+    
     

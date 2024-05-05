@@ -1,6 +1,7 @@
 from gettext import NullTranslations
 import logging
 import os
+from re import I
 import time
 
 import numpy as np
@@ -35,7 +36,7 @@ class TrainModel:
         # Initialize the weighting LSTM.
         self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
-    def _get_data_dict(self) -> None:
+    def _get_data_dict(self):
         log.info(f"Collecting training data")
 
         # Preparing training data.
@@ -53,10 +54,8 @@ class TrainModel:
         x_nn_scaled = transNorm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
         c_nn_scaled = transNorm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
         c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
-        del dataset_dict['x_nn']
         dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
-        del x_nn_scaled, c_nn_scaled   # we just need 'inputs_nn_model' which is a combination of these two.
-
+        del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
         self.dataset_dict = dataset_dict
 
     def run(self, experiment_tracker) -> None:
@@ -70,6 +69,7 @@ class TrainModel:
     
         # Initialize loss function(s) and optimizer.
         self.dplh_model_handler.init_loss_func(self.dataset_dict['obs'])
+        self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
         optim = self.dplh_model_handler.optim
 
         if self.config['ensemble_type'] != None:
@@ -129,6 +129,9 @@ class TrainModel:
                 for mod in self.config['hydro_models']:                
                     save_dir = os.path.join(self.config['output_dir'], mod+ '_model_Ep' + str(epoch) + '.pt')
                     torch.save(self.dplh_model_handler.model_dict[mod], save_dir)
+                if self.config['freeze_para_nn'] == False:
+                    save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
+                    torch.save(self.ensemble_lstm.lstm, save_dir)
 
         if self.config['freeze_para_nn'] == True:
                 # Train weighting network after hydro models have been trained
@@ -139,15 +142,18 @@ class TrainModel:
                 self.batch_size = batch_size
                 self.run_ensemble_train()            
     
-    def run_ensemble_train(self):
+    def run_ensemble_train(self) -> None:
         """
         Only used when training parameterization and weighting networks in series
         (i.e., training the weighting network with parameterization networks frozen).
         """
+
+        raise NotImplementedError("Code currently needs to borrow from train_wts_only.py to work. Maybe just use this other experiment and call it here like TrainWeightModel.")
+
         # Use this to later implement code to run from checkpoint file
         start_epoch = 1
         for epoch in range(start_epoch, self.config['epochs'] + 1):
-            wt_loss = 0
+            loss = 0
 
             start_time = time.perf_counter()
             prog_str = 'Epoch ' + str(epoch) + '/' + str(self.config['epochs'])
@@ -159,8 +165,15 @@ class TrainModel:
                                                         self.nt,
                                                         self.batch_size)
 
-                # Train weighting network in parallel w/ diff hydro models.
+                # Forward diff hydro models (in eval mode) and weighting network.
+                self.model_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
                 self.ensemble_lstm(dataset_dict_sample)
 
                 # Compute loss.
-                self.ensemble_lstm.calc_loss(self.model_preds, wt_loss)
+                self.ensemble_lstm.calc_loss(self.model_preds, loss)
+
+            # Save models:
+            if epoch % self.config['save_epoch'] == 0:
+                save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
+                torch.save(self.ensemble_lstm.lstm, save_dir)
+                

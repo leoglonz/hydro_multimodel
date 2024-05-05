@@ -24,8 +24,7 @@ class MultimodelHandler(torch.nn.Module):
             # Reinitialize trained model(s).
             for mod in self.config['hydro_models']:
                 load_path = self.config[mod]
-                self.model_dict[mod] = torch.load(load_path)
-                self.model_dict[mod].zero_grad()
+                self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
 
         else:
             # Initializing differentiable hydrology model(s) and bulk optimizer.
@@ -36,28 +35,29 @@ class MultimodelHandler(torch.nn.Module):
 
                 self.model_dict[mod].zero_grad()
                 self.model_dict[mod].train()
-            
             self.init_optimizer()
 
-    def init_loss_func(self, obs):
+    def init_loss_func(self, obs) -> None:
         self.loss_func = get_loss_func(self.config, obs)
         self.loss_func = self.loss_func.to(self.config['device'])
 
-    def init_optimizer(self):
+    def init_optimizer(self) -> None:
         self.optim = torch.optim.Adadelta(self.all_model_params)
 
-    def forward(self, dataset_dict_sample):        
+    def forward(self, dataset_dict_sample, eval=False) -> None:        
         # Batch running of the differentiable models in parallel
         self.flow_out_dict = dict()
         self.dataset_dict_sample = dataset_dict_sample
 
         for mod in self.model_dict:
+            if eval: self.model_dict[mod].eval()  # For testing.
+
             # Forward each diff hydro model.
             self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
 
         return self.flow_out_dict
 
-    def calc_loss(self, loss_dict):
+    def calc_loss(self, loss_dict) -> None:
         total_loss = 0
         for mod in self.model_dict:
             loss = self.loss_func(self.config,
@@ -69,8 +69,7 @@ class MultimodelHandler(torch.nn.Module):
 
             total_loss += loss
             loss_dict[mod] += loss.item()
-
-                        
+        
         # total_loss.backward()
         # self.optim.step()
 

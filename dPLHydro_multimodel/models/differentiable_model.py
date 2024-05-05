@@ -19,9 +19,9 @@ class dPLHydroModel(torch.nn.Module):
         super(dPLHydroModel, self).__init__()
         self.config = config
         self.model_name = model_name 
-        self.get_model()
+        self._init_model()
 
-    def get_model(self) -> None:
+    def _init_model(self):
         # hydro_model_initialization
         if self.model_name == 'marrmot_PRMS':
             self.hydro_model = prms_marrmot()
@@ -59,7 +59,7 @@ class dPLHydroModel(torch.nn.Module):
         else:
             self.ny = self.args['nmul'] * len(self.hydro_model.parameters_bound)
 
-    def breakdown_params(self, params_all):
+    def breakdown_params(self, params_all) -> None:
         params_dict = dict()
         params_hydro_model = params_all[:, :, :self.ny]
 
@@ -76,7 +76,7 @@ class dPLHydroModel(torch.nn.Module):
             params_dict['conv_params_hydro'] = None
         return params_dict
 
-    def forward(self, dataset_dict_sample):
+    def forward(self, dataset_dict_sample) -> None:
         params_all = self.NN_model(dataset_dict_sample['inputs_nn_scaled'])
 
         # Breaking down params into different pieces for different models (PET, hydro)
@@ -102,3 +102,4 @@ class dPLHydroModel(torch.nn.Module):
                 torch.sum(flow_out['flow_sim'], dim=0) + 0.00001))[:, 0]
         
         return flow_out
+    

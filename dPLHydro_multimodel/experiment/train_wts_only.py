@@ -28,36 +28,29 @@ class TrainWeightsModel:
         self.config = config
         self.config['device'], self.config['dtype'] = set_globals()
 
-        # Initializing collection of trained differentiable hydrology models.
+        # Initializing collection of trained differentiable hydrology models and weighting LSTM.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
-        # Initialize the weighting LSTM.
         self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
-
-    def _get_data_dict(self) -> None:
+    def _get_data_dict(self):
         log.info(f"Collecting training data")
 
-        # Preparing training data.
-        # Formatting date ranges:
+        # Prepare training data, format date ranges:
         self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
         self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
         self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
 
         dataset_dict = loadData(self.config, trange=self.train_trange)
 
-        # Normalizations
-        # Stats for normalization of nn inputs:
+        # Normalization + stats for nn input normalization:
         init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
         
         x_nn_scaled = transNorm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
         c_nn_scaled = transNorm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
         c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
-        del dataset_dict['x_nn']
         dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
-        del x_nn_scaled, c_nn_scaled   # we just need 'inputs_nn_model' which is a combination of these two.
-
+        del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
         self.dataset_dict = dataset_dict
-
 
     def run(self, experiment_tracker) -> None:
         log.info(f"Training model: {self.config['name']}")
@@ -70,30 +63,12 @@ class TrainWeightsModel:
     
         # Initialize the loss function and optimizer:
         self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
+        self.ensemble_lstm.init_optimizer()
+        optim = self.ensemble_lstm.optim
+        
 
-
-
-
-
-
-
-
-
-        # Initialize loss function(s) and optimizer.
-        self.dplh_model_handler.init_loss_func(self.dataset_dict['obs'])
-        optim = self.dplh_model_handler.optim
-
-        if self.config['ensemble_type'] != None:
-            self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
-            optim.add_param_group({'params': self.ensemble_lstm.model_params})
-
-
-        start_epoch = 1  # Use this to later implement code to run from checkpoint file
-        for epoch in range(start_epoch, self.config['epochs'] + 1):
-            # Store loss across epochs, init to 0.
-            ep_loss_dict = dict.fromkeys(self.config['hydro_models'], 0)
-            if self.config['ensemble_type'] != None:
-                ep_loss_dict['wtNN'] = 0
+        for epoch in range(1, self.config['epochs'] + 1):
+            ep_loss = 0
 
             start_time = time.perf_counter()
             prog_str = 'Epoch ' + str(epoch) + '/' + str(self.config['epochs'])
@@ -105,27 +80,15 @@ class TrainWeightsModel:
                                                         nt,
                                                         batch_size)
 
-                # Forward diff hydro models.
+                # Forward diff hydro models (in eval mode) and weighting network.
                 self.model_preds = self.dplh_model_handler(dataset_dict_sample)
+                self.ensemble_lstm(dataset_dict_sample)
 
-                # Epoch loss for all diff hydro models.
-                hydro_loss, ep_loss_dict = self.dplh_model_handler.calc_loss(ep_loss_dict)
-
-                if (self.config['ensemble_type'] != None) and (self.config['freeze_para_nn'] == False):
-                        # Train weighting network in parallel w/ diff hydro models.
-                        self.ensemble_lstm(dataset_dict_sample)
-
-                        # Compute loss.
-                        wt_nn_loss, ep_loss_dict = self.ensemble_lstm.calc_loss(self.model_preds, ep_loss_dict)
-                else:
-                    wt_nn_loss = 0
-
-                # Run backward and optimizer on all models simultaneously.
-                total_loss = hydro_loss + wt_nn_loss
-                total_loss.backward()
+                # Loss calculation + step optimizer.
+                loss = self.ensemble_lstm.calc_loss(self.model_preds)
+                loss.backward()
                 optim.step()
-                optim.zero_grad(set_to_none=True)  # set none avoids costly read-writes. Could be problematic.
-
+                optim.zero_grad(set_to_none=True)  # Set none avoids costly read-writes
 
             # Log epoch stats.
             ep_loss_dict = {key: value / minibatch_iter for key, value in ep_loss_dict.items()}
@@ -137,42 +100,5 @@ class TrainWeightsModel:
             
             # Save models:
             if epoch % self.config['save_epoch'] == 0:
-                for mod in self.config['hydro_models']:                
-                    save_dir = os.path.join(self.config['output_dir'], mod+ '_model_Ep' + str(epoch) + '.pt')
-                    torch.save(self.dplh_model_handler.model_dict[mod], save_dir)
-
-        if self.config['ensemble_type'] != None:
-            if self.config['freeze_para_nn'] == True:
-                # Train weighting network after hydro models have been trained
-                # and their parameterization networks have been frozen.
-                self.minibatch_iter = minibatch_iter
-                self.ngrid_train = ngrid_train
-                self.nt = nt
-                self.batch_size = batch_size
-                self.run_ensemble_train()            
-    
-    def run_ensemble_train(self):
-        """
-        Only used when training parameterization and weighting networks in series
-        (i.e., training the weighting network with parameterization networks frozen).
-        """
-        # Use this to later implement code to run from checkpoint file
-        start_epoch = 1
-        for epoch in range(start_epoch, self.config['epochs'] + 1):
-            wt_loss = 0
-
-            start_time = time.perf_counter()
-            prog_str = 'Epoch ' + str(epoch) + '/' + str(self.config['epochs'])
-
-            for i_iter in tqdm.tqdm(range(1, self.minibatch_iter + 1), desc=prog_str, leave=False, dynamic_ncols=True):
-                dataset_dict_sample = take_sample_train(self.config,
-                                                        self.dataset_dict,
-                                                        self.ngrid_train,
-                                                        self.nt,
-                                                        self.batch_size)
-
-                # Train weighting network in parallel w/ diff hydro models.
-                self.ensemble_lstm(dataset_dict_sample)
-
-                # Compute loss.
-                self.ensemble_lstm.calc_loss(self.model_preds, wt_loss)
+                save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
+                torch.save(self.ensemble_lstm.lstm, save_dir)

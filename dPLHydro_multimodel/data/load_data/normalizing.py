@@ -115,6 +115,7 @@ def transNorm(args, x, varLst, *, toNorm):
         varLst = [varLst]
     out = np.zeros(x.shape)
     x_temp = x.copy()
+    
     for k in range(len(varLst)):
         var = varLst[k]
 

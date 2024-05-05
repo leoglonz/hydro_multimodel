@@ -41,7 +41,7 @@ def main(cfg: DictConfig) -> None:
 
         experiment_name = config.mode
         log.info(f"RUNNING MODE: {config.mode}")
-        print_args(config)
+        # print_args(config)
 
         if config.mode == ModeEnum.train_test:
             # Run training and testing together.

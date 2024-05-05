@@ -1,12 +1,12 @@
 defaults:
     - _self_
-    - observations: camels_671_dp #gages2_50
+    - observations: camels_671_dp # gages2_50, camels_671_dp
     # - load_models: load_models_config
     - hydra: settings
 
 
 ## Config -------------------------------#
-mode: train_wts_only
+mode: train_wts_only #train_wts_only
 nn_model: LSTM
 hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
 ensemble_type: ensemble
@@ -21,7 +21,7 @@ dyn_hydro_params:
 ## Config for all differentiable hydrology models ------#
 random_seed: 0
 device: cuda
-gpu_id: 2
+gpu_id: 5
 
 routing_hydro_model: True
 forcings: camels_671_dp
@@ -42,7 +42,7 @@ test:
     end_time: 2010/10/01
 
 nmul: 16
-warm_up: 0
+warm_up: 365
 rho: 365
 batch_size: 100
 epochs: 50
@@ -71,9 +71,12 @@ save_epoch: 1
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs
 
 name: hmm0.3.0-${forcings}
-output_dir: ${data_dir}/saved_models/debugging_may4
+output_dir: ${data_dir}/${forcings}/saved_models/debugging_may5_final
 
 ## Use pre-trained hydro models to only train weighting LSTM.
-HBV: /data/lgl5139/hydro_multimodel/model_runs/hydro_models/static/LSTM_HBV_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
-marrmot_PRMS: /data/lgl5139/hydro_multimodel/model_runs/hydro_models/static/LSTM_marrmot_PRMS_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
-SACSMA_w_snow: /data/lgl5139/hydro_multimodel/model_runs/hydro_models/static/LSTM_SACSMA_with_snow_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
+# HBV: /data/lgl5139/hydro_multimodel/model_runs/_hydro_models/static/LSTM_HBV_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
+# marrmot_PRMS: /data/lgl5139/hydro_multimodel/model_runs/_hydro_models/static/LSTM_marrmot_PRMS_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
+# SACSMA_with_snow: /data/lgl5139/hydro_multimodel/model_runs/_hydro_models/static/LSTM_SACSMA_with_snow_E50_R365_B100_H256_tr1980_1995_n16_0/model_Ep50.pt
+HBV: /data/lgl5139/hydro_multimodel/model_runs/May1/HBV_model_Ep50.pt
+marrmot_PRMS: /data/lgl5139/hydro_multimodel/model_runs/May1/marrmot_PRMS_model_Ep50.pt
+SACSMA_with_snow: /data/lgl5139/hydro_multimodel/model_runs/May1/SACSMA_with_snow_model_Ep50.pt
