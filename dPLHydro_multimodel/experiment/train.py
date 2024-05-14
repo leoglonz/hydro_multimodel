@@ -32,7 +32,6 @@ class TrainModel:
         # Initializing collection of differentiable hydrology models and their optimizers.
         # Training this object will parallel train all hydro models specified for ensemble.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
-
         # Initialize the weighting LSTM.
         self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
@@ -76,8 +75,11 @@ class TrainModel:
             # self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
             optim.add_param_group({'params': self.ensemble_lstm.model_params})
 
+        if self.config['use_checkpoint'] == True:
+            start_epoch = self.config['checkpoint']['start_epoch']
+        else:
+            start_epoch = 1
 
-        start_epoch = 1  # Use this to later implement code to run from checkpoint file
         for epoch in range(start_epoch, self.config['epochs'] + 1):
             # Store loss across epochs, init to 0.
             ep_loss_dict = dict.fromkeys(self.config['hydro_models'], 0)
@@ -126,7 +128,7 @@ class TrainModel:
             
             # Save models:
             if epoch % self.config['save_epoch'] == 0:
-                for mod in self.config['hydro_models']:                
+                for mod in self.config['hydro_models']:
                     save_dir = os.path.join(self.config['output_dir'], mod+ '_model_Ep' + str(epoch) + '.pt')
                     torch.save(self.dplh_model_handler.model_dict[mod], save_dir)
                 if self.config['freeze_para_nn'] == False:
@@ -134,13 +136,14 @@ class TrainModel:
                     torch.save(self.ensemble_lstm.lstm, save_dir)
 
         if self.config['freeze_para_nn'] == True:
-                # Train weighting network after hydro models have been trained
-                # and their parameterization networks have been frozen.
-                self.minibatch_iter = minibatch_iter
-                self.ngrid_train = ngrid_train
-                self.nt = nt
-                self.batch_size = batch_size
-                self.run_ensemble_train()            
+            # Train weighting network after hydro models have been trained
+            # and their parameterization networks have been frozen.
+            self.minibatch_iter = minibatch_iter
+            self.ngrid_train = ngrid_train
+            self.start_epoch = start_epoch
+            self.nt = nt
+            self.batch_size = batch_size
+            self.run_ensemble_train()            
     
     def run_ensemble_train(self) -> None:
         """
@@ -148,12 +151,15 @@ class TrainModel:
         (i.e., training the weighting network with parameterization networks frozen).
         """
 
-        raise NotImplementedError("Code currently needs to borrow from train_wts_only.py to work. Maybe just use this other experiment and call it here like TrainWeightModel.")
+        # raise NotImplementedError("Code currently needs to borrow from train_wts_only.py to work. Maybe just use this other experiment and call it here like TrainWeightModel.")
 
-        # Use this to later implement code to run from checkpoint file
-        start_epoch = 1
-        for epoch in range(start_epoch, self.config['epochs'] + 1):
-            loss = 0
+        # Initialize the loss function and optimizer:
+        self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
+        self.ensemble_lstm.init_optimizer()
+        optim = self.ensemble_lstm.optim
+
+        for epoch in range(self.start_epoch, self.config['epochs'] + 1):
+            ep_loss = 0
 
             start_time = time.perf_counter()
             prog_str = 'Epoch ' + str(epoch) + '/' + str(self.config['epochs'])
@@ -165,12 +171,22 @@ class TrainModel:
                                                         self.nt,
                                                         self.batch_size)
 
-                # Forward diff hydro models (in eval mode) and weighting network.
-                self.model_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
+                # Forward diff hydro models and weighting network.
+                self.model_preds = self.dplh_model_handler(dataset_dict_sample)
                 self.ensemble_lstm(dataset_dict_sample)
 
                 # Compute loss.
-                self.ensemble_lstm.calc_loss(self.model_preds, loss)
+                loss = self.ensemble_lstm.calc_loss(self.model_preds)
+                ep_loss += loss.item()
+                loss.backward()
+                optim.step()
+                optim.zero_grad(set_to_none=True)  # Set none avoids costly read-writes, but could actually increase run times
+
+            # Log epoch stats.
+            elapsed = time.perf_counter() - start_time
+            mem_aloc = int(torch.cuda.memory_reserved(device=self.config['device']) * 0.000001)
+            log.info("Weighting network loss after epoch {}: {:.6f} \n".format(epoch,ep_loss) +
+                    "~ Runtime {:.2f} sec, {} Mb reserved GPU memory".format(elapsed,mem_aloc))
 
             # Save models:
             if epoch % self.config['save_epoch'] == 0:

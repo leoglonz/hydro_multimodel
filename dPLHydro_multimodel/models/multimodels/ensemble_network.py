@@ -24,7 +24,7 @@ class EnsembleWeights(torch.nn.Module):
     
     def _init_model(self):
         """
-        Initialize LSTM and optimizer.
+        Initialize LSTM.
         """
         self.get_nn_model_dim()
 
@@ -38,14 +38,13 @@ class EnsembleWeights(torch.nn.Module):
         self.model_params = self.lstm.parameters()
         self.lstm.zero_grad()
         self.lstm.train()
-        
     
     def init_loss_func(self, obs) -> None:
         self.loss_func = get_loss_func(self.config['weighting_nn'], obs)
         self.loss_func = self.loss_func.to(self.config['device'])
 
     def init_optimizer(self):
-        self.optim = torch.optim.Adadelta(self.model_params)
+        self.optim = torch.optim.Adadelta(self.lstm.parameters())
 
     def get_nn_model_dim(self) -> None:
         self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
@@ -58,10 +57,14 @@ class EnsembleWeights(torch.nn.Module):
         # inputs_nn_scaled = x_nn + c_nn, forcings + basin attributes
         nn_inputs = dataset_dict_sample['inputs_nn_scaled'].requires_grad_(True)
 
-        if eval: self.lstm.eval()  # For testing.
+        if eval: self.lstm.eval()  # For testing
+        self.weights = self.lstm(nn_inputs) # Forward
 
-        # Forward for model weights + remove warmup period from output.
-        self.weights = self.lstm(nn_inputs)[self.config['warm_up']:,:,:]
+        self.weights_dict = dict()
+        for i, mod in enumerate(self.config['hydro_models']):
+            # Extract predictions into model dict + remove warmup period from output.
+            self.weights_dict[mod] = self.weights[self.config['warm_up']:,:,i]
+            
 
     def calc_loss(self, hydro_preds, loss_dict=None) -> None:
         """
@@ -71,7 +74,7 @@ class EnsembleWeights(torch.nn.Module):
         2) Calculates range-bound loss on the lstm weights.
         """
                 
-        ntstep = self.weights.shape[0]
+        ntstep = self.weights.shape[0] ### TODO replace weights with weights_dict.
         ngage = self.weights.shape[1]
 
         # Scale weights.

@@ -35,7 +35,7 @@ class TrainWeightsModel:
     def _get_data_dict(self):
         log.info(f"Collecting training data")
 
-        # Prepare training data, format date ranges:
+        # Prepare training data,format date ranges:
         self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
         self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
         self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
@@ -65,9 +65,13 @@ class TrainWeightsModel:
         self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
         self.ensemble_lstm.init_optimizer()
         optim = self.ensemble_lstm.optim
-        
 
-        for epoch in range(1, self.config['epochs'] + 1):
+        if self.config['use_checkpoint'] == True:
+            start_epoch = self.config['checkpoint']['start_epoch']
+        else:
+            start_epoch = 1
+
+        for epoch in range(start_epoch, self.config['epochs'] + 1):
             ep_loss = 0
 
             start_time = time.perf_counter()
@@ -80,22 +84,21 @@ class TrainWeightsModel:
                                                         nt,
                                                         batch_size)
 
-                # Forward diff hydro models (in eval mode) and weighting network.
+                # Forward diff hydro models and weighting network.
                 self.model_preds = self.dplh_model_handler(dataset_dict_sample)
                 self.ensemble_lstm(dataset_dict_sample)
 
                 # Loss calculation + step optimizer.
                 loss = self.ensemble_lstm.calc_loss(self.model_preds)
+                ep_loss += loss.item()
                 loss.backward()
                 optim.step()
-                optim.zero_grad(set_to_none=True)  # Set none avoids costly read-writes
+                optim.zero_grad(set_to_none=True)  # Set none avoids costly read-writes, but could actually increase run times
 
             # Log epoch stats.
-            ep_loss_dict = {key: value / minibatch_iter for key, value in ep_loss_dict.items()}
-            loss_formated = ", ".join(f"{key}: {value:.6f}" for key, value in ep_loss_dict.items())
             elapsed = time.perf_counter() - start_time
             mem_aloc = int(torch.cuda.memory_reserved(device=self.config['device']) * 0.000001)
-            log.info("Per-model loss after epoch {}: {} \n".format(epoch,loss_formated) +
+            log.info("Weighting network loss after epoch {}: {:.6f} \n".format(epoch,ep_loss) +
                     "~ Runtime {:.2f} sec, {} Mb reserved GPU memory".format(elapsed,mem_aloc))
             
             # Save models:

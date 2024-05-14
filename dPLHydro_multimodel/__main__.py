@@ -47,7 +47,7 @@ def main(cfg: DictConfig) -> None:
             # Run training and testing together.
             # Train:
             config.mode = ModeEnum.train
-            train_experiment_handler = build_handler(config)
+            train_experiment_handler = build_handler(config, config_dict)
             train_experiment_handler.run(config, experiment_tracker)
 
             # Test: (first transfer weights)

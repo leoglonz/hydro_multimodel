@@ -25,7 +25,17 @@ class MultimodelHandler(torch.nn.Module):
             for mod in self.config['hydro_models']:
                 load_path = self.config[mod]
                 self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
+        elif self.config['use_checkpoint']:
+            # Reinitialize trained model(s).
+            self.all_model_params = []
+            for mod in self.config['hydro_models']:
+                load_path = self.config['checkpoint'][mod]
+                self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
+                self.all_model_params += list(self.model_dict[mod].parameters())
 
+                self.model_dict[mod].zero_grad()
+                self.model_dict[mod].train()
+            self.init_optimizer()
         else:
             # Initializing differentiable hydrology model(s) and bulk optimizer.
             self.all_model_params = []

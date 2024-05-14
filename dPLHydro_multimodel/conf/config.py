@@ -36,7 +36,7 @@ def check_dictionary_paths(v: Dict[str, str]) -> Dict[str, Path]:
 
 class ModeEnum(str, Enum):
     train = "train"
-    test = "        "
+    test = "test"
     train_test = "train_test"
     train_wts_only = "train_wts_only"
 
@@ -205,6 +205,13 @@ class WeightingConfig(BaseModel):
     loss_function_weights: LossFunc
 
 
+class Checkpoint(BaseModel):
+    start_epoch: int
+    HBV: str
+    marrmot_PRMS: str
+    SACSMA_with_snow: str
+
+
 @dataclass
 class ObservationConfig:
     name: str = "not_defined"
@@ -292,6 +299,8 @@ class Config(BaseModel):
     name: str
     data_dir: str
     output_dir: str
+    use_checkpoint: bool
+    checkpoint: Checkpoint
 
     # gage_info: str = "not_defined"
     # attr_path: str = "not_defined"
