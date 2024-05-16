@@ -45,7 +45,7 @@ nmul: 16
 warm_up: 365
 rho: 365
 batch_size: 100
-epochs: 8
+epochs: 50
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5

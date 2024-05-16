@@ -114,7 +114,7 @@ from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
 from utils.utils import set_globals
 from data.load_data.data_prep import take_sample_test
-from utils.master import save_output
+from utils.master import save_outputs
 
 log = logging.getLogger(__name__)
 
@@ -187,7 +187,9 @@ class TestModel:
         self._get_data_dict()
 
         batch_preds_list = []
-        for i in range(0, len(self.iS)):
+        prog_str = f"Testing on batches of {self.config['n_basins']}"
+
+        for i in tqdm.tqdm(range(0, len(self.iS)), desc=prog_str, leave=False, dynamic_ncols=True):
             dataset_dict_sample = take_sample_test(self.config,
                                                          self.dataset_dict,
                                                          self.iS[i],
@@ -207,9 +209,8 @@ class TestModel:
                 preds += wt_nn_preds[mod] * model_preds[mod]['flow_sim'].squeeze() # Linear combination of streamflows.
             
             batch_preds_list.append(preds.cpu().detach())
-            print(batch_preds_list[0].shape)
 
         y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :].squeeze()
-        save_output(self.config, batch_preds_list, y_obs, calculate_metrics=True)
+        save_outputs(self.config, batch_preds_list, y_obs, calculate_metrics=True)
         
         torch.cuda.empty_cache()
