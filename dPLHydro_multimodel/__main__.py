@@ -48,7 +48,7 @@ def main(cfg: DictConfig) -> None:
             # Train:
             config.mode = ModeEnum.train
             train_experiment_handler = build_handler(config, config_dict)
-            train_experiment_handler.run(config, experiment_tracker)
+            train_experiment_handler.run(experiment_tracker=experiment_tracker)
 
             # Test: (first transfer weights)
             config.mode = ModeEnum.test
@@ -68,6 +68,7 @@ def main(cfg: DictConfig) -> None:
             f"| {experiment_name} completed | "
             f"Time Elapsed : {(total_time / 60):.6f} minutes"
         ) 
+
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Cleaning up...")
         torch.cuda.empty_cache()

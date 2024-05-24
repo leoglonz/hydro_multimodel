@@ -19,7 +19,6 @@ class MultimodelHandler(torch.nn.Module):
         the multimodel.
         """
         self.model_dict = dict()
-
         if self.config['mode'] == 'train_wts_only':
             # Reinitialize trained model(s).
             for mod in self.config['hydro_models']:

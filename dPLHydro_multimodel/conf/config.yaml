@@ -10,7 +10,9 @@ mode: test #train_wts_only
 nn_model: LSTM
 hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
 ensemble_type: ensemble
-freeze_para_nn: False
+freeze_para_nn: True
+use_checkpoint: False
+
 
 dyn_hydro_params:
     HBV: []
@@ -71,9 +73,9 @@ save_epoch: 1
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs
 
 name: hmm0.3.0-${forcings}
-output_dir: ${data_dir}/${forcings}/saved_models/debugging_may5_final/froz_para
+output_dir: ${data_dir}/${forcings}/saved_models/debugging_may5_final/
+# debugging_may5_final  debug_may24
 
-use_checkpoint: True
 checkpoint:
     start_epoch: 7
     HBV: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/debugging_may5_final/froz_para/LSTM_E50_R365_B100_H256_n16_0/static_para/HBV_model_Ep6.pt

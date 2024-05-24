@@ -37,8 +37,8 @@ class TrainWeightsModel:
 
         # Prepare training data,format date ranges:
         self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
-        self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
-        self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
+        # self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
+        # self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
 
         dataset_dict = loadData(self.config, trange=self.train_trange)
 

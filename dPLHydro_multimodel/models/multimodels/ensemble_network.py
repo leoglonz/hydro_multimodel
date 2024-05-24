@@ -59,25 +59,16 @@ class EnsembleWeights(torch.nn.Module):
 
         if eval: self.lstm.eval()  # For testing
         self.weights = self.lstm(nn_inputs) # Forward
+        self._scale_weights()
 
         self.weights_dict = dict()
         for i, mod in enumerate(self.config['hydro_models']):
             # Extract predictions into model dict + remove warmup period from output.
-            self.weights_dict[mod] = self.weights[self.config['warm_up']:,:,i]
-            
+            self.weights_dict[mod] = self.weights_scaled[self.config['warm_up']:,:,i]
 
-    def calc_loss(self, hydro_preds, loss_dict=None) -> None:
-        """
-        Computes composite loss: 
-        1) Takes in predictions from set of hydro models, and computes a loss on the linear combination of model predictions using lstm-derived weights.
-
-        2) Calculates range-bound loss on the lstm weights.
-        """
-                
-        ntstep = self.weights.shape[0] ### TODO replace weights with weights_dict.
-        ngage = self.weights.shape[1]
-
-        # Scale weights.
+        return self.weights_dict
+    
+    def _scale_weights(self):
         if self.config['weighting_nn']['method'] == 'sigmoid':
             self.weights_scaled = torch.sigmoid(self.weights)
         elif self.config['weighting_nn']['method'] == 'softmax':
@@ -85,29 +76,40 @@ class EnsembleWeights(torch.nn.Module):
         else:
             raise ValueError(self.config['weighting_nn']['method'], "is not a valid model weighting method.")
 
+    def calc_loss(self, hydro_preds_dict, loss_dict=None) -> None:
+        """
+        Compute a composite loss: 
+        1) Takes in predictions from set of hydro models, and computes a loss on the linear combination of model predictions using lstm-derived weights.
+
+        2) Calculates range-bound loss on the lstm weights.
+        """
         # Range-bound loss on weights.
         weights_sum = torch.sum(self.weights_scaled, dim=2)
         loss_rb = self.range_bound_loss([weights_sum])
 
         # Get ensembled streamflow.
-        self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
+        self.ensemble_models(hydro_preds_dict)
 
-        for i, mod in enumerate(self.config['hydro_models']):  
-            h_pred = hydro_preds[mod]['flow_sim'][:, :].squeeze()
-            if self.weights_scaled.size(0) != h_pred.size(0):
-                # Cut out warmup data present when testing model from loaded mod file.
-                h_pred = h_pred[self.config['warm_up']:,:]
+        # # Old ensembling calculation
+        # ntstep = self.weights.shape[0] ### TODO replace weights with weights_dict.
+        # ngage = self.weights.shape[1]
+        # self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
 
-            self.ensemble_pred += self.weights_scaled[:, :, i] * h_pred 
-        # torch.sum(hydro_preds * weights_scaled, dim=2)
+        # for i, mod in enumerate(self.config['hydro_models']):  
+        #     h_pred = hydro_preds_dict[mod]['flow_sim'][:, :].squeeze()
+        #     if self.weights_scaled.size(0) != h_pred.size(0):
+        #         # Cut out warmup data present when testing model from loaded mod file.
+        #         h_pred = h_pred[self.config['warm_up']:,:]
+        #     self.ensemble_pred += self.weights_scaled[:, :, i] * h_pred 
+        # # torch.sum(hydro_preds_dict * weights_scaled, dim=2)
 
         # Loss on streamflow preds.
         loss_sf = self.loss_func(self.config,
-                                 self.ensemble_pred,
+                                 self.ensemble_pred['flow_sim'],
                                  self.dataset_dict_sample['obs'],
                                  igrid=self.dataset_dict_sample['iGrid']
                                  )
-        # self.lstm.zero_grad()
+        # self.lstm.zero_grad()  # Shouldn't be necessary
 
         # Return total_loss for optimizer.
         total_loss = loss_rb + loss_sf
@@ -123,4 +125,23 @@ class EnsembleWeights(torch.nn.Module):
 
         return total_loss
     
-    
+    def ensemble_models(self, hydro_preds_dict):
+        """
+        Calculate composite predictions by combining individual hydrology model results scaled by learned nn weights.
+        
+        Returns: predictions dict with attributes
+        'flow_sim', 'srflow', 'ssflow', 'gwflow', 'AET_hydro', 'PET_hydro', 'flow_sim_no_rout', 'srflow_no_rout', 'ssflow_no_rout', 'gwflow_no_rout', 'BFI_sim'
+        """
+        self.ensemble_pred = dict()
+        keys = list(hydro_preds_dict[self.config['hydro_models'][0]].keys())
+        keys.remove('flow_sim_no_rout')
+
+        for key in keys:
+            self.ensemble_pred[key] = 0
+            for mod in self.config['hydro_models']:
+                # if self.weights_dict[mod].size(0) != hydro_preds_dict[mod]['flow_sim'].squeeze().size(0):
+                #     # Cut out warmup data present when testing model from loaded mod file.
+                #     h_pred = h_pred[self.config['warm_up']:,:]
+                self.ensemble_pred[key] += self.weights_dict[mod] * hydro_preds_dict[mod][key].squeeze()
+
+        return self.ensemble_pred

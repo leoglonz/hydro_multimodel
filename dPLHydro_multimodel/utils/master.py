@@ -11,6 +11,7 @@ import platform
 import numpy as np
 import torch
 from data.load_data.time import tRange2Array
+from utils.stat import statError
 
 # Set list of supported hydro models here:
 supported_models = ['HBV', 'dPLHBV_stat', 'dPLHBV_dyn', 'SACSMA', 'SACSMA_snow',
@@ -60,7 +61,6 @@ def set_platform_dir():
     return dir
 
 
-
 def get_model_dict(modList):
     """
     Create model and argument dictionaries to individual manage models in an
@@ -79,13 +79,11 @@ def get_model_dict(modList):
     return models, arg_list
 
 
-
 def create_tensor(dims, requires_grad=False):
     """
     A small function to centrally manage device, data types, etc., of new arrays.
     """
     return torch.zeros(dims,requires_grad=requires_grad,dtype=dtype).to(device)
-
 
 
 def create_dict_from_keys(keyList, mtd=0, dims=None, dat=None):
@@ -114,146 +112,69 @@ def create_dict_from_keys(keyList, mtd=0, dims=None, dat=None):
     return d
 
 
-# def save_output(args_list, preds, y_obs, out_dir):
-#     """
-#     Save extracted test preds and obs for all models.
-#     """
-#     for i, mod in enumerate(args_list):
-#         if i == 0:
-#             multim_dir = str(mod)
-#         else:
-#             multim_dir += '_' + str(mod)
-
-#         out_dir = os.path.join(out_dir, multim_dir)
-#         if not os.path.exists(out_dir):
-#             os.makedirs(out_dir, exist_ok=True)
-
-#         arg = args_list[list(args_list)[1]]
-#         dir = 'multim_E' + str(arg['epochs']) + '_B' + str(arg['batch_size']) + '_R' + str(arg['rho']) +  '_BT' + str(arg['warm_up']) + '_H' + str(arg['hidden_size']) + '_tr1980_1995_n' + str(arg['nmul'])
-
-#         np.save(os.path.join(out_dir, 'preds_' + dir + '.npy'), preds)
-#         np.save(os.path.join(out_dir, 'obs_' + dir + '.npy'), y_obs)
-
-
-def save_outputs(args, list_out_diff_model, y_obs, calculate_metrics=True):
-    for key in list_out_diff_model[0].keys():
-        if len(list_out_diff_model[0][key].shape) == 3:
-            dim = 1
-        else:
+def save_outputs(config, preds_list, y_obs):
+    for key in preds_list[0].keys():
+        if len(preds_list[0][key].shape) == 3:
             dim = 0
-        concatenated_tensor = torch.cat([d[key] for d in list_out_diff_model], dim=dim)
-        file_name = key + ".npy"
-        np.save(os.path.join(args["out_dir"], args["testing_dir"], file_name), concatenated_tensor.numpy())
+        else:
+            dim = 1
+        # print(key)
+
+        # for d in preds_list:
+        #     print(d[key])
+        #     print(d[key].shape)
+
+
+        concatenated_tensor = torch.cat([d[key] for d in preds_list], dim=dim)
+        file_name = key + ".npy"        
+
+        np.save(os.path.join(config['testing_dir'], file_name), concatenated_tensor.numpy())
 
     # Reading flow observation
-    for var in args["target"]:
-        item_obs = y_obs[:, :, args["target"].index(var)]
-        file_name = var + ".npy"
-        np.save(os.path.join(args["out_dir"], args["testing_dir"], file_name), item_obs)
-
-    if calculate_metrics == True:
-        predLst = list()
-        obsLst = list()
-        name_list = []
-        
-        flow_sim = torch.cat([d["flow_sim"] for d in list_out_diff_model], dim=1)
-        flow_obs = y_obs[:, :, args["target"].index("00060_Mean")]
-        predLst.append(flow_sim.numpy())
-        obsLst.append(np.expand_dims(flow_obs, 2))
-        name_list.append("flow")
-
-        # we need to swap axes here to have [basin, days]
-        statDictLst = [
-            stat.statError(np.swapaxes(x.squeeze(), 1, 0), np.swapaxes(y.squeeze(), 1, 0))
-            for (x, y) in zip(predLst, obsLst)
-        ]
-        ### save this file
-        # median and STD calculation
-        for st, name in zip(statDictLst, name_list):
-            count = 0
-            mdstd = np.zeros([len(st), 3])
-            for key in st.keys():
-                median = np.nanmedian(st[key])  # abs(i)
-                STD = np.nanstd(st[key])  # abs(i)
-                mean = np.nanmean(st[key])  # abs(i)
-                k = np.array([[median, STD, mean]])
-                mdstd[count] = k
-                count = count + 1
-            mdstd = pd.DataFrame(
-                mdstd, index=st.keys(), columns=["median", "STD", "mean"]
-            )
-            mdstd.to_csv((os.path.join(args["out_dir"], args["testing_dir"], "mdstd_" + name + ".csv")))
-
-            # Show boxplots of the results
-            # plt.rcParams["font.size"] = 14
-            # keyLst = ["Bias", "RMSE", "ubRMSE", "NSE", "Corr"]
-            # dataBox = list()
-            # for iS in range(len(keyLst)):
-            #     statStr = keyLst[iS]
-            #     temp = list()
-            #     # for k in range(len(st)):
-            #     data = st[statStr]
-            #     data = data[~np.isnan(data)]
-            #     temp.append(data)
-            #     dataBox.append(temp)
-            # labelname = [
-            #     "Hybrid differentiable model"
-            # ]  # ['STA:316,batch158', 'STA:156,batch156', 'STA:1032,batch516']   # ['LSTM-34 Basin']
-
-            # xlabel = ["Bias ($\mathregular{deg}$C)", "RMSE", "ubRMSE", "NSE", "Corr"]
-            # fig = plot.plotBoxFig(
-            #     dataBox, xlabel, label2=labelname, sharey=False, figsize=(16, 8)
-            # )
-            # fig.patch.set_facecolor("white")
-            # boxPlotName = "PGML"
-            # fig.suptitle(boxPlotName, fontsize=12)
-            # plt.rcParams["font.size"] = 12
-            # plt.savefig(
-            #     os.path.join(args["out_dir"], args["testing_dir"], "Box_" + name + ".png")
-            # )  # , dpi=500
-            # # fig.show()
-            # plt.close()
+    for var in config['target']:
+        item_obs = y_obs[:, :, config['target'].index(var)]
+        file_name = var + '.npy'
+        np.save(os.path.join(config['testing_dir'], file_name), item_obs)
 
 
-def create_output_dirs(args):
-    # Checking the directory
-    os.makedirs(args['output_dir'], exist_ok=True)
+def create_output_dirs(config):
+    out_folder = config['nn_model'] + \
+             '_E' + str(config['epochs']) + \
+             '_R' + str(config['rho'])  + \
+             '_B' + str(config['batch_size']) + \
+             '_H' + str(config['hidden_size']) + \
+             '_n' + str(config['nmul']) + \
+             '_' + str(config['random_seed'])
 
-    out_folder = args['nn_model'] + \
-             '_E' + str(args['epochs']) + \
-             '_R' + str(args['rho']) + \
-             '_B' + str(args['batch_size']) + \
-             '_H' + str(args['hidden_size']) + \
-             '_n' + str(args['nmul']) + \
-             '_' + str(args['random_seed'])
-
-    os.makedirs(os.path.join(args['output_dir'], out_folder), exist_ok=True)
-
-    ## make a folder for static and dynamic parametrization
-    if args['dyn_hydro_params']['HBV'] != []:
-        dyn_params = 'dynamic_para'
+    # make a folder for static and dynamic parametrization
+    if config['dyn_hydro_params']['HBV'] != []:
+        dyn_state = 'dynamic_para'
     else:
-        dyn_params = 'static_para'
+        dyn_state = 'static_para'
+    if config['freeze_para_nn'] == True:
+        para_state = 'frozen_pnn'
+    else:
+        para_state = 'free_pnn'
 
-    testing_dir = 'test_results'
-    
-    os.makedirs(os.path.join(args['output_dir'], out_folder, dyn_params, testing_dir), 
-                exist_ok=True)
-    
-    args['output_dir'] = os.path.join(args['output_dir'], out_folder, dyn_params)
-    args['testing_dir'] = testing_dir
+    test_dir = 'test' + str(config['test']['start_time'][:4]) + '_' + str(config['test']['end_time'][:4])
 
-    # saving the args file in output directory
-    config_file = json.dumps(args)
-    config_path = os.path.join(args['output_dir'], 'config_file.json')
+    test_path = os.path.join(config['output_dir'], para_state, out_folder, dyn_state, test_dir)
+
+    config['testing_dir'] = test_path
+    os.makedirs(test_path, exist_ok=True)
+    
+    config['output_dir'] = os.path.join(config['output_dir'], para_state, out_folder, dyn_state)
+
+    # saving the config file in output directory
+    config_file = json.dumps(config)
+    config_path = os.path.join(config['output_dir'], 'config_file.json')
     if os.path.exists(config_path):
         os.remove(config_path)
     f = open(config_path, 'w')
     f.write(config_file)
     f.close()
 
-    return args
-
+    return config
 
 
 # def loadModel(out, epoch=None):

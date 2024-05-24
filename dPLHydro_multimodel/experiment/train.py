@@ -38,8 +38,7 @@ class TrainModel:
     def _get_data_dict(self):
         log.info(f"Collecting training data")
 
-        # Preparing training data.
-        # Formatting date ranges:
+        # Prepare training data.
         self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
         self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
         self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
@@ -81,6 +80,7 @@ class TrainModel:
             start_epoch = 1
 
         for epoch in range(start_epoch, self.config['epochs'] + 1):
+            print('running epoch 1')
             # Store loss across epochs, init to 0.
             ep_loss_dict = dict.fromkeys(self.config['hydro_models'], 0)
             if self.config['ensemble_type'] != None:
