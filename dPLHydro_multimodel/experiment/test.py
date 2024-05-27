@@ -34,7 +34,8 @@ class TestModel:
         # Training this object will parallel train all hydro models specified for ensemble.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
         # Initialize the weighting LSTM.
-        self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
+        if self.config['ensemble_type'] != None:
+            self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def _get_data_dict(self):
         log.info(f"Collecting testing data")
@@ -83,18 +84,22 @@ class TestModel:
                                                    self.iS[i],
                                                    self.iE[i])
             
-            hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)        
-            wt_nn_preds = self.ensemble_lstm(dataset_dict_sample, eval=True)
+            hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
+            if self.config['ensemble_type'] != None:
+                # Calculate ensembled streamflow.
+                wt_nn_preds = self.ensemble_lstm(dataset_dict_sample, eval=True)
+                ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
 
-            # print(model_preds['HBV']['flow_sim'].squeeze().shape)
-            # print(wts_nn_preds['HBV'].shape)
-            # print(self.dataset_dict['obs'][self.config['warm_up']:, :, :].shape)
+                 # print(model_preds['HBV']['flow_sim'].squeeze().shape)
+                # print(wts_nn_preds['HBV'].shape)
+                # print(self.dataset_dict['obs'][self.config['warm_up']:, :, :].shape)
 
-            # Calculate ensembled streamflow.
-            ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
-            # batched_preds_list.append(ensemble_pred.cpu().detach())
-            batched_preds_list.append({key: tensor.cpu().detach() for key, tensor in ensemble_pred.items()})
-            
+                # batched_preds_list.append(ensemble_pred.cpu().detach())
+                batched_preds_list.append({key: tensor.cpu().detach() for key,
+                                           tensor in ensemble_pred.items()})
+            else:
+                batched_preds_list.append({key: tensor.cpu().detach() for key,
+                                           tensor in hydro_preds.items()})
 
         # Get observation data.
         y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]

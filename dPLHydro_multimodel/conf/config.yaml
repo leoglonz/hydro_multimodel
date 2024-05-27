@@ -1,6 +1,6 @@
 defaults:
     - _self_
-    - observations: camels_671_dp # gages2_50, camels_671_dp
+    - observations: gages2_50 # gages2_50, camels_671_dp
     # - load_models: load_models_config
     - hydra: settings
 
@@ -8,8 +8,8 @@ defaults:
 ## Config -------------------------------#
 mode: test #train_wts_only
 nn_model: LSTM
-hydro_models: ['HBV', 'SACSMA_with_snow', 'marrmot_PRMS']
-ensemble_type: ensemble
+hydro_models: ['HBV']
+ensemble_type: None
 freeze_para_nn: True
 use_checkpoint: False
 
@@ -26,7 +26,7 @@ device: cuda
 gpu_id: 1
 
 routing_hydro_model: True
-forcings: camels_671_dp
+forcings: gages2_50
 potet_module: dataset
 potet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']
@@ -47,7 +47,7 @@ nmul: 16
 warm_up: 365
 rho: 365
 batch_size: 100
-epochs: 50
+epochs: 5
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5
