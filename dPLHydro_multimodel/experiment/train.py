@@ -1,8 +1,8 @@
-from gettext import NullTranslations
 import logging
 import os
-from re import I
 import time
+from gettext import NullTranslations
+from re import I
 
 import numpy as np
 import torch

@@ -1,9 +1,9 @@
-import os
-import numpy as np
 import json
-from core.load_data.dataFrame_loading import (
-    loadData
-)
+import os
+
+import numpy as np
+from core.load_data.dataFrame_loading import loadData
+
 
 def calStatbasinnorm(
     y, c, args

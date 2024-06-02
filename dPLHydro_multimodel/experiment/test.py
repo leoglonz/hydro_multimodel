@@ -6,16 +6,16 @@ import pandas as pd
 import torch
 import tqdm
 from conf.config import Config
-from data.load_data.data_prep import No_iter_nt_ngrid, take_sample_train
+from data.load_data.data_prep import (No_iter_nt_ngrid, take_sample_test,
+                                      take_sample_train)
 from data.load_data.dataFrame_loading import loadData
 from data.load_data.normalizing import init_norm_stats, transNorm
 from data.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
-from utils.utils import set_globals
-from data.load_data.data_prep import take_sample_test
 from utils.master import save_outputs
 from utils.stat import statError
+from utils.utils import set_globals
 
 log = logging.getLogger(__name__)
 

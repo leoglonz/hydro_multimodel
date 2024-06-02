@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from models.pet_models.potet import get_potet
 
 
-
 class SACSMA_snow_Mul(torch.nn.Module):
     """HBV Model with multiple components and dynamic parameters PyTorch version"""
     # Add an ET shape parameter for the original ET equation; others are the same as HBVMulTD()

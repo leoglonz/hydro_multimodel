@@ -1,6 +1,7 @@
+import warnings
+
 import numpy as np
 import scipy.stats
-import warnings
 
 keyLst = ["Bias", "RMSE", "ubRMSE", "Corr", "MSE"]
 def statError(pred, target):

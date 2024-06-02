@@ -14,7 +14,7 @@ from experiment.experiment_tracker import ExperimentTracker
 from omegaconf import DictConfig, OmegaConf
 from pydantic import ConfigDict, ValidationError
 from utils.master import create_output_dirs
-from utils.utils import randomseed_config, set_platform_dir, print_args
+from utils.utils import print_args, randomseed_config, set_platform_dir
 
 log = logging.getLogger(__name__)
 

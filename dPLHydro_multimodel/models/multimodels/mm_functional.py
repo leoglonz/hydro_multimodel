@@ -1,9 +1,9 @@
+import logging
+
 import torch
 import torch.nn as nn
-import logging
-from utils.master import set_globals
-
 from conf.config import Config
+from utils.master import set_globals
 
 log = logging.getLogger(__name__)
 
