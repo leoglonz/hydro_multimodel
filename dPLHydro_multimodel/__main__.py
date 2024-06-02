@@ -14,7 +14,7 @@ from experiment.experiment_tracker import ExperimentTracker
 from omegaconf import DictConfig, OmegaConf
 from pydantic import ConfigDict, ValidationError
 from utils.master import create_output_dirs
-from utils.utils import set_globals, set_platform_dir, print_args
+from utils.utils import randomseed_config, set_platform_dir, print_args
 
 log = logging.getLogger(__name__)
 
@@ -92,5 +92,6 @@ def initialize_config(cfg: DictConfig) -> Config:
 
 
 if __name__ == "__main__":
+    randomseed_config()
     main()
     print("Experiment ended.")

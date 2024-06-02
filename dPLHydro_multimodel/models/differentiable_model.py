@@ -35,7 +35,7 @@ class dPLHydroModel(torch.nn.Module):
             self.hydro_model = SACSMA_snow_Mul()
         else:
             raise ValueError(self.model_name, "is not a valid hydrology model.")
-    
+
         # Get dim of NN model based on hydro model
         self.get_nn_model_dim()
         # NN_model_initialization

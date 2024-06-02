@@ -264,10 +264,7 @@ class prms_marrmot(torch.nn.Module):
         #################
         # inputs
         Precip = (x_hydro_model[warm_up:, :, vars.index("prcp(mm/day)")].unsqueeze(-1).repeat(1, 1, nmul))
-        Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(-1).repeat(1, 1, nmul)
-        Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(-1).repeat(1, 1, nmul)
-        mean_air_temp = (Tmaxf + Tminf) / 2
-
+        mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(-1).repeat(1, 1, nmul)
         Ndays, Ngrid = Precip.shape[0], Precip.shape[1]
 
         if args["potet_module"] == "potet_hamon":
@@ -276,6 +273,8 @@ class prms_marrmot(torch.nn.Module):
         elif args["potet_module"] == "potet_hargreaves":
             day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(Precip.shape[0], 1, nmul)
+            Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(-1).repeat(1, 1, nmul)
+            Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(-1).repeat(1, 1, nmul)
             PET = get_potet(args=args, tmin=Tminf, tmax=Tmaxf,
                             tmean=mean_air_temp, lat=lat,
                             day_of_year=day_of_year)
@@ -377,6 +376,9 @@ class prms_marrmot(torch.nn.Module):
             flux_qres = torch.clamp(flux_excs - flux_sep, min=0.0)
 
             RES_storage = RES_storage + flux_qres
+            flux_gad = params_dict["k1"] * ((RES_storage / params_dict['resmax']) ** params_dict["k2"])
+            flux_gad = torch.min(flux_gad, RES_storage)
+            RES_storage = torch.clamp(RES_storage - flux_gad, min=NEARZERO)
             flux_ras = params_dict["k3"] * RES_storage + params_dict["k4"] * (RES_storage ** 2)
             flux_ras = torch.min(flux_ras, RES_storage)
             RES_storage = torch.clamp(RES_storage - flux_ras, min=NEARZERO)
@@ -385,9 +387,6 @@ class prms_marrmot(torch.nn.Module):
             # flux_ras = flux_ras + RES_excess
             # RES_storage = torch.clamp(RES_storage - RES_excess, min=NEARZERO)
 
-            flux_gad = params_dict["k1"] * ((RES_storage / params_dict['resmax']) ** params_dict["k2"])
-            flux_gad = torch.min(flux_gad, RES_storage)
-            RES_storage = torch.clamp(RES_storage - flux_gad, min=NEARZERO)
 
             GW_storage = GW_storage + flux_gad + flux_sep
             flux_bas = params_dict["k5"] * GW_storage

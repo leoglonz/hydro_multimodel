@@ -130,13 +130,13 @@ class numpy_dataset(Data_Reader):
         if type(varLst) is str:
             varLst = [varLst]
        # TODO: looking for a way to read different types of attr + forcings together
-        if self.inputfile.endswith('.npy'):
+        if self.inputfile.endswith(".npy"):
             forcing_main = np.load(self.inputfile)
-            if self.inputfile_attr.endswith('.npy'):
+            if self.inputfile_attr.endswith(".npy"):
                 attr_main = np.load(self.inputfile_attr)
-            elif self.inputfile_attr.endswith('.feather'):
+            elif self.inputfile_attr.endswith(".feather"):
                 attr_main = pd.read_feather(self.inputfile_attr)
-        elif self.inputfile.endswith('.pt'):
+        elif self.inputfile.endswith(".pt"):
             forcing_main = torch.load(self.inputfile)
             attr_main = torch.load(self.inputfile_attr)
         else:
@@ -164,7 +164,7 @@ class numpy_dataset(Data_Reader):
             x = np.concatenate((x, xattr), axis=2)
 
         data = x
-        tLst = tRange2Array(args['tRange'])
+        tLst = tRange2Array(args["tRange"])
         C, ind1, ind2 = np.intersect1d(self.time, tLst, return_indices=True)
         data = data[:, ind2, :]
         return np.swapaxes(data, 1, 0)
@@ -197,12 +197,14 @@ class numpy_dataset(Data_Reader):
         #     data[np.where(np.isnan(data))] = 0
         return data
 
+
 class choose_class_to_read_dataset():
     def __init__(self, args, trange, data_path):
         self.args = args
         self.trange = trange
         self.data_path = data_path
         self.get_dataset_class()
+        
     def get_dataset_class(self) -> None:
         if self.data_path.endswith(".feather") or self.data_path.endswith(".csv"):
             self.read_data = DataFrame_dataset(args=self.args, tRange=self.trange, data_path=self.data_path)

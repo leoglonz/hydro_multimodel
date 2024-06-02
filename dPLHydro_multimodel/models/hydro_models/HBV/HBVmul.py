@@ -162,10 +162,9 @@ class HBVMul(torch.nn.Module):
         vars = args['observations']['var_t_hydro_model']
         vars_c = args['observations']['var_c_hydro_model']
         P = x_hydro_model[warm_up:, :, vars.index('prcp(mm/day)')]
-        Pm= P.unsqueeze(2).repeat(1, 1, nmul)
-        Tmaxf = x_hydro_model[warm_up:, :, vars.index('tmax(C)')].unsqueeze(2).repeat(1, 1, nmul)
-        Tminf = x_hydro_model[warm_up:, :, vars.index('tmin(C)')].unsqueeze(2).repeat(1, 1, nmul)
-        mean_air_temp = (Tmaxf + Tminf) / 2
+        Pm = P.unsqueeze(2).repeat(1, 1, nmul)
+        mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(2).repeat(1, 1, nmul)
+
 
         if args['potet_module'] == 'potet_hamon':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args['nmul'])
@@ -175,6 +174,8 @@ class HBVMul(torch.nn.Module):
         elif args['potet_module'] == 'potet_hargreaves':
             day_of_year = x_hydro_model[warm_up:, :, vars.index('dayofyear')].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index('lat')].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
+            Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)
+            Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(2).repeat(1, 1, nmul)
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
             #                                   nmul=args['nmul'])
 
@@ -208,6 +209,12 @@ class HBVMul(torch.nn.Module):
         # logswet = np.zeros(P.size())
         # logRE = np.zeros(P.size())
         AET = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args['device'])
+        recharge_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        excs_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        evapfactor_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        tosoil_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        PERC_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        
 
         # do static parameters
         params_dict = dict()
@@ -278,6 +285,11 @@ class HBVMul(torch.nn.Module):
             Q2_sim[t, :, :] = Q2
             # # for debug state variables
             # SMlog[t,:] = SM.detach().cpu().numpy()
+            recharge_sim[t, :, :] = recharge
+            excs_sim[t, :, :] = excess
+            evapfactor_sim[t, :, :] = evapfactor
+            tosoil_sim[t, :, :] = tosoil
+            PERC_sim[t, :, :] = PERC
 
         # get the primary average
         if muwts is None:
@@ -322,7 +334,6 @@ class HBVMul(torch.nn.Module):
                 Qs = Qsrout
 
         else: # no routing, output the primary average simulations
-
             Qs = torch.unsqueeze(Qsimave, -1) # add a dimension
 
         if init is True:     # means we are in warm up
@@ -338,5 +349,11 @@ class HBVMul(torch.nn.Module):
                         srflow_no_rout=Q0_sim.mean(-1, keepdim=True),
                         ssflow_no_rout=Q1_sim.mean(-1, keepdim=True),
                         gwflow_no_rout=Q2_sim.mean(-1, keepdim=True),
+                        recharge=recharge_sim.mean(-1, keepdim=True),
+                        excs=excs_sim.mean(-1, keepdim=True),
+                        evapfactor=evapfactor_sim.mean(-1, keepdim=True),
+                        tosoil=tosoil_sim.mean(-1, keepdim=True),
+                        percolation=PERC_sim.mean(-1, keepdim=True),
                         )
+
 

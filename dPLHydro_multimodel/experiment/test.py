@@ -34,7 +34,7 @@ class TestModel:
         # Training this object will parallel train all hydro models specified for ensemble.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
         # Initialize the weighting LSTM.
-        if self.config['ensemble_type'] != None:
+        if self.config['ensemble_type'] != 'None':
             self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def _get_data_dict(self):
@@ -47,8 +47,8 @@ class TestModel:
 
         # Read data for the test time range
         dataset_dict = loadData(self.config, trange=self.test_trange)
-        
-        # Normalizations
+
+        # Normalizatio ns
         # init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
         x_nn_scaled = transNorm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
         c_nn_scaled = transNorm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
@@ -85,62 +85,61 @@ class TestModel:
                                                    self.iE[i])
             
             hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
-            if self.config['ensemble_type'] != None:
+
+            if self.config['ensemble_type'] != 'None':
                 # Calculate ensembled streamflow.
                 wt_nn_preds = self.ensemble_lstm(dataset_dict_sample, eval=True)
                 ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
-
-                 # print(model_preds['HBV']['flow_sim'].squeeze().shape)
-                # print(wts_nn_preds['HBV'].shape)
-                # print(self.dataset_dict['obs'][self.config['warm_up']:, :, :].shape)
 
                 # batched_preds_list.append(ensemble_pred.cpu().detach())
                 batched_preds_list.append({key: tensor.cpu().detach() for key,
                                            tensor in ensemble_pred.items()})
             else:
+                model_name = self.config['hydro_models'][0]
                 batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in hydro_preds.items()})
+                                           tensor in hydro_preds[model_name].items()})
 
         # Get observation data.
         y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]
 
         save_outputs(self.config, batched_preds_list, y_obs)
+
         self.calc_metrics(batched_preds_list, y_obs)
         torch.cuda.empty_cache()
 
-    def calc_metrics(self, preds_list, y_obs):
+    def calc_metrics(self, batched_preds_list, y_obs):
         """
         Calculate and save model test metrics to csv.
         """
-        pred_list = list()
+        preds_list = list()
         obs_list = list()
         name_list = []
         
-        flow_sim = torch.cat([d['flow_sim'] for d in preds_list], dim=1)
+        flow_sim = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
         flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
-        pred_list.append(flow_sim.numpy())
+        preds_list.append(flow_sim.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
         name_list.append('flow')
     
         # we need to swap axes here to have [basin, days]
         statDictLst = [
             statError(np.swapaxes(x.squeeze(), 1, 0), np.swapaxes(y.squeeze(), 1, 0))
-            for (x, y) in zip(pred_list, obs_list)
+            for (x, y) in zip(preds_list, obs_list)
         ]
         ### save this file
         # median and STD calculation
-        for st, name in zip(statDictLst, name_list):
+        for stat, name in zip(statDictLst, name_list):
             count = 0
-            mdstd = np.zeros([len(st), 3])
-            for key in st.keys():
-                median = np.nanmedian(st[key])  # abs(i)
-                STD = np.nanstd(st[key])  # abs(i)
-                mean = np.nanmean(st[key])  # abs(i)
+            mdstd = np.zeros([len(stat), 3])
+            for key in stat.keys():
+                median = np.nanmedian(stat[key])  # abs(i)
+                STD = np.nanstd(stat[key])  # abs(i)
+                mean = np.nanmean(stat[key])  # abs(i)
                 k = np.array([[median, STD, mean]])
                 mdstd[count] = k
                 count = count + 1
             mdstd = pd.DataFrame(
-                mdstd, index=st.keys(), columns=['median', 'STD', 'mean']
+                mdstd, index=stat.keys(), columns=['median', 'STD', 'mean']
             )
 
             mdstd.to_csv((os.path.join(self.config['testing_dir'], 'mdstd_' + name + '.csv')))

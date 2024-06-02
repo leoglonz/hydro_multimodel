@@ -115,15 +115,9 @@ def create_dict_from_keys(keyList, mtd=0, dims=None, dat=None):
 def save_outputs(config, preds_list, y_obs):
     for key in preds_list[0].keys():
         if len(preds_list[0][key].shape) == 3:
-            dim = 0
-        else:
             dim = 1
-        # print(key)
-
-        # for d in preds_list:
-        #     print(d[key])
-        #     print(d[key].shape)
-
+        else:
+            dim = 0
 
         concatenated_tensor = torch.cat([d[key] for d in preds_list], dim=dim)
         file_name = key + ".npy"        

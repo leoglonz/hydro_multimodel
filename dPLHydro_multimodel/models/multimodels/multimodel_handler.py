@@ -1,4 +1,5 @@
 import torch.nn
+import os
 from models.differentiable_model import dPLHydroModel
 from models.loss_functions.get_loss_function import get_loss_func
 
@@ -19,12 +20,12 @@ class MultimodelHandler(torch.nn.Module):
         the multimodel.
         """
         self.model_dict = dict()
-        if self.config['mode'] == 'train_wts_only':
-            # Reinitialize trained model(s).
-            for mod in self.config['hydro_models']:
-                load_path = self.config[mod]
-                self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
-        elif self.config['use_checkpoint']:
+        # if self.config['mode'] == 'train_wts_only':
+        #     # Reinitialize trained model(s).
+        #     for mod in self.config['hydro_models']:
+        #         load_path = self.config[mod]
+        #         self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
+        if self.config['use_checkpoint']:
             # Reinitialize trained model(s).
             self.all_model_params = []
             for mod in self.config['hydro_models']:
@@ -35,6 +36,12 @@ class MultimodelHandler(torch.nn.Module):
                 self.model_dict[mod].zero_grad()
                 self.model_dict[mod].train()
             self.init_optimizer()
+        elif self.config['mode'] == 'test':
+            for mod in self.config['hydro_models']:
+                # TODO: Get load model save path code in here!
+                # load_path = os.path.join(self.config['output_dir'], self.config['forcings'], 'saved_models', '/debugging_may5_final/frozen_pnn/LSTM_E5_R365_B100_H256_n16_0/static_para/', mod + '_model_Ep' + str(self.config['epochs']) + '.pt')
+                load_path = '/data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/debugging_may5_final/frozen_pnn/LSTM_E5_R365_B100_H256_n16_0/static_para/marrmot_PRMS_model_Ep5.pt'
+                self.model_dict[mod] = torch.load(load_path).to(self.config['device']) 
         else:
             # Initializing differentiable hydrology model(s) and bulk optimizer.
             self.all_model_params = []
@@ -53,7 +60,7 @@ class MultimodelHandler(torch.nn.Module):
     def init_optimizer(self) -> None:
         self.optim = torch.optim.Adadelta(self.all_model_params)
 
-    def forward(self, dataset_dict_sample, eval=False) -> None:        
+    def forward(self, dataset_dict_sample, eval=False):        
         # Batch running of the differentiable models in parallel
         self.flow_out_dict = dict()
         self.dataset_dict_sample = dataset_dict_sample
@@ -63,6 +70,9 @@ class MultimodelHandler(torch.nn.Module):
 
             # Forward each diff hydro model.
             self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
+
+        # print(self.flow_out_dict['HBV']['BFI_sim'])
+        # exit()
 
         return self.flow_out_dict
 

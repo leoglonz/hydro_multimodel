@@ -8,7 +8,7 @@ defaults:
 ## Config -------------------------------#
 mode: test #train_wts_only
 nn_model: LSTM
-hydro_models: ['HBV']
+hydro_models: ['marrmot_PRMS']
 ensemble_type: None
 freeze_para_nn: True
 use_checkpoint: False
@@ -23,7 +23,7 @@ dyn_hydro_params:
 ## Config for all differentiable hydrology models ------#
 random_seed: 0
 device: cuda
-gpu_id: 1
+gpu_id: 0
 
 routing_hydro_model: True
 forcings: gages2_50

@@ -118,7 +118,7 @@ def transNorm(args, x, varLst, *, toNorm):
     
     for k in range(len(varLst)):
         var = varLst[k]
-
+        
         stat = statDict[var]
         if toNorm is True:
             if len(x.shape) == 3:

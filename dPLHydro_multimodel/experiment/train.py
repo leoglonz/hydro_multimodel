@@ -33,7 +33,7 @@ class TrainModel:
         # Training this object will parallel train all hydro models specified for ensemble.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
         # Initialize the weighting LSTM.
-        if self.config['ensemble_type'] != None:
+        if self.config['ensemble_type'] != 'None':
             self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def _get_data_dict(self) -> None:
@@ -65,12 +65,12 @@ class TrainModel:
         ngrid_train, minibatch_iter, nt, batch_size = No_iter_nt_ngrid(self.train_trange,
                                                                self.config,
                                                                self.dataset_dict['inputs_nn_scaled'])
-    
+
         # Initialize loss function(s) and optimizer.
         self.dplh_model_handler.init_loss_func(self.dataset_dict['obs'])
         optim = self.dplh_model_handler.optim
 
-        if self.config['ensemble_type'] != None:
+        if self.config['ensemble_type'] != 'None':
             self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
             optim.add_param_group({'params': self.ensemble_lstm.model_params})
 
@@ -80,10 +80,11 @@ class TrainModel:
             start_epoch = 1
 
         for epoch in range(start_epoch, self.config['epochs'] + 1):
-            print('running epoch 1')
+            print(f"Starting epoch {epoch}")
+            
             # Store loss across epochs, init to 0.
             ep_loss_dict = dict.fromkeys(self.config['hydro_models'], 0)
-            if self.config['ensemble_type'] != None:
+            if self.config['ensemble_type'] != 'None':
                 ep_loss_dict['wtNN'] = 0
 
             start_time = time.perf_counter()
@@ -106,7 +107,7 @@ class TrainModel:
                 # Epoch loss for all diff hydro models.
                 hydro_loss, ep_loss_dict = self.dplh_model_handler.calc_loss(ep_loss_dict)
 
-                if (self.config['ensemble_type'] != None) and (self.config['freeze_para_nn'] == False):
+                if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
                     # Train weighting network in parallel w/ diff hydro models.
                     self.ensemble_lstm(dataset_dict_sample)
 
@@ -120,8 +121,7 @@ class TrainModel:
                 total_loss.backward()
                 optim.step()
                 optim.zero_grad(set_to_none=True)  # set none avoids costly read-writes. Could be problematic.
-
-
+            
             # Log epoch stats.
             ep_loss_dict = {key: value / minibatch_iter for key, value in ep_loss_dict.items()}
             loss_formated = ", ".join(f"{key}: {value:.6f}" for key, value in ep_loss_dict.items())
@@ -136,11 +136,11 @@ class TrainModel:
                     save_dir = os.path.join(self.config['output_dir'], mod+ '_model_Ep' + str(epoch) + '.pt')
                     torch.save(self.dplh_model_handler.model_dict[mod], save_dir)
 
-                if (self.config['ensemble_type'] != None) and (self.config['freeze_para_nn'] == False):
+                if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
                     save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
                     torch.save(self.ensemble_lstm.lstm, save_dir)
 
-        if (self.config['ensemble_type'] != None) and (self.config['freeze_para_nn'] == True):
+        if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == True):
             # Train weighting network after hydro models have been trained
             # and their parameterization networks have been frozen.
             self.minibatch_iter = minibatch_iter
