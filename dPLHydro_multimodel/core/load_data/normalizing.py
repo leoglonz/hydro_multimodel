@@ -1,8 +1,10 @@
-import json
 import os
-
 import numpy as np
-from core.load_data.dataFrame_loading import loadData
+import json
+from core.load_data.dataFrame_loading import (
+    loadData
+)
+
 
 
 def calStatbasinnorm(
@@ -17,17 +19,17 @@ def calStatbasinnorm(
     """
     y[y == (-999)] = np.nan
     y[y < 0] = 0
-    attr_list = args["varC_NN"]
+    attr_list = args['observations']['var_c_nn']
     # attr_data = read_attr_data(args, idLst=idLst)
-    if "DRAIN_SQKM" in attr_list:
-        area_name = "DRAIN_SQKM"
-    elif "area_gages2" in attr_list:
-        area_name = "area_gages2"
+    if 'DRAIN_SQKM' in attr_list:
+        area_name = 'DRAIN_SQKM'
+    elif 'area_gages2' in attr_list:
+        area_name = 'area_gages2'
     basinarea = c[:, attr_list.index(area_name)]  #  'DRAIN_SQKM'
-    if "PPTAVG_BASIN" in attr_list:
-        p_mean_name = "PPTAVG_BASIN"
-    elif "p_mean" in attr_list:
-        p_mean_name = "p_mean"
+    if 'PPTAVG_BASIN' in attr_list:
+        p_mean_name = 'PPTAVG_BASIN'
+    elif 'p_mean' in attr_list:
+        p_mean_name = 'p_mean'
     meanprep = c[:, attr_list.index(p_mean_name)]  #   'PPTAVG_BASIN'
     temparea = np.repeat(np.expand_dims(basinarea, axis=(1,2)), y.shape[0]).reshape(y.shape)
     tempprep = np.repeat(np.expand_dims(meanprep, axis=(1, 2)), y.shape[0]).reshape(y.shape)
@@ -47,6 +49,7 @@ def calStatbasinnorm(
         std = 1
     return [p10, p90, mean, std]
 
+
 def calStatgamma(x):  # for daily streamflow and precipitation
     a = x.flatten()
     bb = a[~np.isnan(a)]  # kick out Nan
@@ -62,6 +65,7 @@ def calStatgamma(x):  # for daily streamflow and precipitation
         std = 1
     return [p10, p90, mean, std]
 
+
 def calStat(x):
     a = x.flatten()
     bb = a[~np.isnan(a)]  # kick out Nan
@@ -73,44 +77,47 @@ def calStat(x):
     if std < 0.001:
         std = 1
     return [p10, p90, mean, std]
+
+
 def calStatAll(args, x, c, y):
     statDict = dict()
     # target
-    for i, target_name in enumerate(args["target"]):
+    for i, target_name in enumerate(args['target']):
         # calculating especialized statistics for streamflow
-        if target_name == "00060_Mean":
-            statDict[args["target"][i]] = calStatbasinnorm(y[:, :, i: i+1], c, args)
+        if target_name == '00060_Mean':
+            statDict[args['target'][i]] = calStatbasinnorm(y[:, :, i: i+1], c, args)
         else:
-            statDict[args["target"][i]] = calStat(y[:, :, i: i+1])
+            statDict[args['target'][i]] = calStat(y[:, :, i: i+1])
 
     # forcing
-    varList = args["varT_NN"]
+    varList = args['observations']['var_t_nn']
     for k in range(len(varList)):
         var = varList[k]
-        if var == "prcp(mm/day)":
+        if var == 'prcp(mm/day)':
             statDict[var] = calStatgamma(x[:, :, k])
-        elif (var == "00060_Mean") or (var == "combine_discharge"):
+        elif (var == '00060_Mean') or (var == 'combine_discharge'):
             statDict[var] = calStatbasinnorm(x[:, :, k: k + 1], x, args)
         else:
             statDict[var] = calStat(x[:, :, k])
     # attributes
-    varList = args["varC_NN"]
+    varList = args['observations']['var_c_nn']
     for k, var in enumerate(varList):
         statDict[var] = calStat(c[:, k])
 
-    statFile = os.path.join(args["out_dir"], "Statistics_basinnorm.json")
-    with open(statFile, "w") as fp:
+    statFile = os.path.join(args['output_dir'], 'Statistics_basinnorm.json')
+    with open(statFile, 'w') as fp:
         json.dump(statDict, fp, indent=4)
 
 
 def transNorm(args, x, varLst, *, toNorm):
-    statFile = os.path.join(args["out_dir"], "Statistics_basinnorm.json")
-    with open(statFile, "r") as fp:
+    statFile = os.path.join(args['output_dir'], 'Statistics_basinnorm.json')
+    with open(statFile, 'r') as fp:
         statDict = json.load(fp)
     if type(varLst) is str:
         varLst = [varLst]
     out = np.zeros(x.shape)
     x_temp = x.copy()
+    
     for k in range(len(varLst)):
         var = varLst[k]
 
@@ -118,18 +125,18 @@ def transNorm(args, x, varLst, *, toNorm):
         if toNorm is True:
             if len(x.shape) == 3:
                 if (
-                    var == "prcp(mm/day)"
-                    or var == "00060_Mean"
-                    or var == "combine_discharge"
+                    var == 'prcp(mm/day)'
+                    or var == '00060_Mean'
+                    or var == 'combine_discharge'
                 ):
                     x_temp[:, :, k] = np.log10(np.sqrt(x_temp[:, :, k]) + 0.1)
 
                 out[:, :, k] = (x_temp[:, :, k] - stat[2]) / stat[3]
             elif len(x.shape) == 2:
                 if (
-                    var == "prcp(mm/day)"
-                    or var == "00060_Mean"
-                    or var == "combine_discharge"
+                    var == 'prcp(mm/day)'
+                    or var == '00060_Mean'
+                    or var == 'combine_discharge'
                 ):
                     x_temp[:, k] = np.log10(np.sqrt(x_temp[:, k]) + 0.1)
                 out[:, k] = (x_temp[:, k] - stat[2]) / stat[3]
@@ -137,30 +144,29 @@ def transNorm(args, x, varLst, *, toNorm):
             if len(x.shape) == 3:
                 out[:, :, k] = x_temp[:, :, k] * stat[3] + stat[2]
                 if (
-                    var == "prcp(mm/day)"
-                    or var == "00060_Mean"
-                    or var == "combine_discharge"
+                    var == 'prcp(mm/day)'
+                    or var == '00060_Mean'
+                    or var == 'combine_discharge'
                 ):
                     out[:, :, k] = (np.power(10, out[:, :, k]) - 0.1) ** 2
 
             elif len(x.shape) == 2:
                 out[:, k] = x_temp[:, k] * stat[3] + stat[2]
                 if (
-                    var == "prcp(mm/day)"
-                    or var == "00060_Mean"
-                    or var == "combine_discharge"
+                    var == 'prcp(mm/day)'
+                    or var == '00060_Mean'
+                    or var == 'combine_discharge'
                 ):
                     out[:, k] = (np.power(10, out[:, k]) - 0.1) ** 2
 
     return out
 def init_norm_stats(args, x_NN, c_NN, y):
-    stats_directory = args["out_dir"]
-    statFile = os.path.join(stats_directory, "Statistics_basinnorm.json")
+    stats_directory = args['output_dir']
+    statFile = os.path.join(stats_directory, 'Statistics_basinnorm.json')
 
     if not os.path.isfile(statFile):
         # read all data in training for just the inputs used in NN
-        # x_NN, c_NN, y = loadData(args, trange=args["t_train"], data=["x_NN", "c_NN", "y"])
         # calculate the stats
         calStatAll(args, x_NN, c_NN, y)
-    # with open(statFile, "r") as fp:
+    # with open(statFile, 'r') as fp:
     #     statDict = json.load(fp)

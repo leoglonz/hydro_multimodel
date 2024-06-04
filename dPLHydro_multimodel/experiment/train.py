@@ -11,10 +11,11 @@ from conf.config import Config
 from data.load_data.data_prep import No_iter_nt_ngrid, take_sample_train
 from data.load_data.dataFrame_loading import loadData
 from data.load_data.normalizing import init_norm_stats, transNorm
-from data.utils.Dates import Dates
+from dPLHydro_multimodel.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
 from utils.utils import set_globals
+from utils.master import save_model
 
 log = logging.getLogger(__name__)
 
@@ -132,13 +133,7 @@ class TrainModel:
             
             # Save models:
             if epoch % self.config['save_epoch'] == 0:
-                for mod in self.config['hydro_models']:
-                    save_dir = os.path.join(self.config['output_dir'], mod+ '_model_Ep' + str(epoch) + '.pt')
-                    torch.save(self.dplh_model_handler.model_dict[mod], save_dir)
-
-                if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
-                    save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
-                    torch.save(self.ensemble_lstm.lstm, save_dir)
+                self.save_models(epoch)
 
         if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == True):
             # Train weighting network after hydro models have been trained
@@ -149,7 +144,7 @@ class TrainModel:
             self.nt = nt
             self.batch_size = batch_size
             self.run_ensemble_train()            
-    
+
     def run_ensemble_train(self) -> None:
         """
         Only used when training parameterization and weighting networks in series
@@ -195,6 +190,19 @@ class TrainModel:
 
             # Save models:
             if epoch % self.config['save_epoch'] == 0:
-                save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
-                torch.save(self.ensemble_lstm.lstm, save_dir)
+                self.save_models(epoch)
+
+    def save_models(self, epoch, frozen_para=False) -> None:
+        """
+        Save hydrology and/or weighting models.
+        Use `frozen_para` flag to only save weighting model.
+        """
+        if frozen_para:
+            save_model(self.config, self.ensemble_lstm.lstm, epoch, model_name='wtNN_model')
+        else:
+            for mod in self.config['hydro_models']:
+                save_model(self.config, self.dplh_model_handler.model_dict[mod], mod, epoch)
+
+            if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
+                save_model(self.config, self.ensemble_lstm.lstm, epoch, model_name='wtNN_model')
                 

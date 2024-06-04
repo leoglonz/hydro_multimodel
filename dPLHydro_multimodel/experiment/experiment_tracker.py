@@ -11,7 +11,7 @@ import scipy.stats as stats
 import torch
 import torch.nn as nn
 from conf.config import Config
-from experiment.metrics import Metrics
+from dPLHydro_multimodel.utils.metrics import Metrics
 from torch.utils.tensorboard.writer import SummaryWriter
 
 log = logging.getLogger(__name__)

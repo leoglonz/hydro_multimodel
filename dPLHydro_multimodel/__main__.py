@@ -52,11 +52,12 @@ def main(cfg: DictConfig) -> None:
 
             # Test: (first transfer weights)
             config.mode = ModeEnum.test
-            test_experiment_handler = build_handler(config)
-            test_experiment_handler.neural_networks = (
-                train_experiment_handler.neural_networks
-            )
-            test_experiment_handler.run(config, experiment_tracker)
+            test_experiment_handler = build_handler(config, config_dict)            
+            test_experiment_handler.dplh_model_handler = train_experiment_handler.dplh_model_handler
+            if config_dict['ensemble_type'] != 'None':
+                test_experiment_handler.ensemble_lstm = train_experiment_handler.dplh_model_handler
+
+            test_experiment_handler.run(experiment_tracker=experiment_tracker)
 
         else:
             # Run either training or testing. 

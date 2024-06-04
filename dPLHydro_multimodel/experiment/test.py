@@ -10,7 +10,7 @@ from data.load_data.data_prep import (No_iter_nt_ngrid, take_sample_test,
                                       take_sample_train)
 from data.load_data.dataFrame_loading import loadData
 from data.load_data.normalizing import init_norm_stats, transNorm
-from data.utils.Dates import Dates
+from dPLHydro_multimodel.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
 from utils.master import save_outputs
@@ -102,6 +102,7 @@ class TestModel:
         # Get observation data.
         y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]
 
+        print('saving model')
         save_outputs(self.config, batched_preds_list, y_obs)
 
         self.calc_metrics(batched_preds_list, y_obs)

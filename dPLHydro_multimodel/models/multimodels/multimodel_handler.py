@@ -41,7 +41,7 @@ class MultimodelHandler(torch.nn.Module):
             for mod in self.config['hydro_models']:
                 # TODO: Get load model save path code in here!
                 # load_path = os.path.join(self.config['output_dir'], self.config['forcings'], 'saved_models', '/debugging_may5_final/frozen_pnn/LSTM_E5_R365_B100_H256_n16_0/static_para/', mod + '_model_Ep' + str(self.config['epochs']) + '.pt')
-                load_path = '/data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/debugging_may5_final/frozen_pnn/LSTM_E5_R365_B100_H256_n16_0/static_para/marrmot_PRMS_model_Ep5.pt'
+                load_path = '/data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/debugging/HBV/frozen_pnn/LSTM_E1_R365_B200_H256_n16_0/static_para/HBV_model_Ep1.pt'
                 self.model_dict[mod] = torch.load(load_path).to(self.config['device']) 
         else:
             # Initializing differentiable hydrology model(s) and bulk optimizer.

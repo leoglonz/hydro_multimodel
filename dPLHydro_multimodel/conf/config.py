@@ -216,14 +216,14 @@ class Checkpoint(BaseModel):
 class ObservationConfig:
     name: str = "not_defined"
     gage_info: str = "not_defined"
+    forcing_path: str = "not_defined"
     attr_path: str = "not_defined"
-    observations_path: str = "not_defined"
     var_t_NN: list = "not_defined"
     var_c_NN: list = "not_defined"
     var_t_hydro_model: list = "not_defined"
     var_c_hydro_model: list = "not_defined"
 
-    @field_validator("gage_info", "observations_path")
+    @field_validator('forcing_path', 'attr_path')
     @classmethod
     def validate_dir(cls, v: str) -> Union[Path, str]:
         if v == "not_defined":

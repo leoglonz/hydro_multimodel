@@ -1,10 +1,9 @@
 name: gages2_50
-gage_info: /scratch/fzr5082/PGML_STemp_results/inputs/dataset_20240331/forcing_50_20240331.feather # temporary until we find out if this gage list is needed.
+gage_info: None
 # forcing_path: ${data_dir}\PGML_STemp_Data\50_sites\forcing_50_20231113.feather
 # attr_path: ${data_dir}\PGML_STemp_Data\50_sites\attr50.feather
 forcing_path: /scratch/fzr5082/PGML_STemp_results/inputs/dataset_20240331/forcing_50_20240331.feather
 attr_path: /scratch/fzr5082/PGML_STemp_results/inputs/dataset_20240331/attr50.feather
-# observations_path: ${data_dir}\
 
 var_t_nn: [
   'prcp(mm/day)',

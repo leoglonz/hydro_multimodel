@@ -1,64 +1,172 @@
-"""All functions related to loading the data"""
+"""
+General scripts for running multimodel interface.
+
+May decide to organize these later, but for now this file includes
+everything not in functional.py, and not in existing files.
+"""
+import json
+from multiprocessing.spawn import prepare
+import os
+import platform
+import random
+from pathlib import Path
+
+import numpy as np
+import torch
 import numpy as np
 import torch
 from data.load_data.normalizing import transNorm
 from data.load_data.time import tRange2Array
-
-# def load_df(args):
-#     """
-#     A function that loads the data into a
-#     :return:
-#     """
-#     df, x, y, c, c_hydro_model, x_hydro_model, c_SNTEMP, x_SNTEMP = master.loadData(args)
-#     nx = x.shape[-1] + c.shape[-1]
-#     x_total = np.zeros((x.shape[0], x.shape[1], nx))
-#     nx_SNTEMP = x_SNTEMP.shape[-1] + c_SNTEMP.shape[-1]
-#     x_tot_SNTEMP = np.zeros((x.shape[0], x.shape[1], nx_SNTEMP))
-#     ct = np.repeat(c, repeats=x.shape[1], axis=0)
-#     for k in range(x.shape[0]):
-#         x_total[k, :, :] = np.concatenate(
-#             (x[k, :, :], np.tile(c[k], (x.shape[1], 1))), axis=1
-#         )
-#         x_tot_SNTEMP[k, :, :] = np.concatenate(
-#             (x_SNTEMP[k, :, :], np.tile(c_SNTEMP[k], (x_SNTEMP.shape[1], 1))), axis=1
-#         )
-#
-#
-#     # streamflow values should not be negative
-#     # vars = args['optData']['varT'] + args['optData']['varC']
-#     # x_total[x_total[:, :, vars.index("00060_Mean")] < 0] = 0
-#     return np.float32(x_total), np.float32(y), np.float32(c), np.float32(c_hydro_model), \
-#         np.float32(x_hydro_model), np.float32(c_SNTEMP), np.float32(x_tot_SNTEMP)
+from utils.stat import statError
 
 
-def scaling(args, x, y, c):
+
+# utils > master
+
+def save_outputs(config, preds_list, y_obs) -> None:
     """
-    creates our datasets
-    :param set_name:
-    :param args:
-    :param time1:
-    :param x_total_raw:
-    :param y_total_raw:
-    :return:  x, y, ngrid, nIterEp, nt
+    Save outputs from a model.
     """
-    # initcamels(args, x, y)
-    # Normalization
-    x_total_scaled = transNorm(
-        x, args['var_t_nn'] + args['var_c_nn'], toNorm=True
-    )
-    y_scaled = transNorm(y, args['target'], toNorm=True)
-    c_scaled = transNorm(c, args['var_c_nn'], toNorm=True)
-    return x_total_scaled, y_scaled, c_scaled
+    for key in preds_list[0].keys():
+        if len(preds_list[0][key].shape) == 3:
+            # May need to flip 1 and 0 to save multimodels.
+            dim = 1
+        else:
+            dim = 0
+
+        concatenated_tensor = torch.cat([d[key] for d in preds_list], dim=dim)
+        file_name = key + ".npy"        
+
+        np.save(os.path.join(config['testing_dir'], file_name), concatenated_tensor.numpy())
+
+    # Reading flow observation
+    for var in config['target']:
+        item_obs = y_obs[:, :, config['target'].index(var)]
+        file_name = var + '.npy'
+        np.save(os.path.join(config['testing_dir'], file_name), item_obs)
 
 
-def train_val_test_split(set_name, args, time1, x_total, y_total):
-    t = tRange2Array(args[set_name])
-    c, ind1, ind2 = np.intersect1d(time1, t, return_indices=True)
-    x = x_total[:, ind1, :]
-    y = y_total[:, ind1, :]
 
 
-    return x, y
+
+
+
+
+
+
+
+
+
+
+
+# utils > utils.py
+
+def set_globals():
+    """
+    Select torch device and dtype global vars per user system.
+    """ 
+    global device, dtype
+
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+    elif torch.backends.mps.is_available():
+        # Use Mac M-series ARM architecture.
+        device = torch.device('mps')
+    else:
+        device = torch.device('cpu')
+    dtype = torch.float32
+
+    return device, dtype
+
+
+def set_platform_dir(path=None) -> str:
+    """
+    Set output directory path to for systems with directory structures
+    and locations.
+    Currently supports: windows, mac os, and linux colab.
+
+    outputs: directory where model results will be stored.
+    """
+    if path != (None or ""):
+        # if save path is already given in config, do nothing.
+        return path
+    elif platform.system() == 'Windows':
+        # Windows
+        return os.path.join('D:\\','code_repos','water','data','model_runs','hydro_multimodel_results')
+    elif platform.system() == 'Darwin':
+        # MacOs
+        return os.path.join('Users','leoglonz','Desktop','water','data','model_runs','hydro_multimodel_results')
+    elif platform.system() == 'Linux':
+        # For Colab
+        return os.path.join('content','drive','MyDrive','Colab','data','model_runs','hydro_multimodel_results')
+    else:
+        raise ValueError('Unsupported operating system.')
+    
+
+def randomseed_config(seed=0) -> None:
+    """
+    Fix the random seeds for reproducibility.
+    seed = None -> random.
+    """
+    if seed == None:
+        randomseed = int(np.random.uniform(low=0, high=1e6))
+        pass
+
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    try:
+        import torch
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        # torch.use_deterministic_algorithms(True)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    except:
+        pass
+
+
+
+def print_args(args):
+    print("\033[1m" + "Basic Config Info" + "\033[0m")
+    print(f'  {"Experiment Mode:":<20}{args.mode:<20}')
+    print(f'  {"Ensemble Mode:":<20}{args.ensemble_type:<20}')
+
+    for i, mod in enumerate(args.hydro_models):
+        print(f'  {f"Model {i+1}:":<20}{mod:<20}')
+    print()
+
+    print("\033[1m" + "Data Loader" + "\033[0m")
+    print(f'  {"Data:":<20}{args.forcings:<20}')
+    print(f'  {"Data Source:":<20}{Path(args.forcings).name:<20}')
+    # print(f'  {"Checkpoints:":<20}{args.checkpoints:<20}')
+    print()
+
+    print("\033[1m" + "Run Parameters" + "\033[0m")
+    print(f'  {"Train Epochs:":<20}{args.epochs:<20}{"Batch Size:":<20}{args.batch_size:<20}')
+    print(f'  {"Dropout:":<20}{args.dropout:<20}{"Hidden Size:":<20}{args.hidden_size:<20}')
+    print(f'  {"Warmup:":<20}{args.warm_up:<20}{"Number of Models:":<20}{args.nmul:<20}')
+    print(f'  {"Optimizer:":<20}{args.loss_function:<20}')
+    print()
+
+    print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
+    print(f'  {"Dropout:":<20}{args.weighting_nn.dropout:<20}{"Hidden Size:":<20}{args.weighting_nn.hidden_size:<20}')
+    print(f'  {"Optimizer:":<20}{args.weighting_nn.loss_function:<20}{"Loss Factor:":<20}{args.weighting_nn.loss_factor:<20}')
+    print()
+
+    print("\033[1m" + "GPU" + "\033[0m")
+    print(f'  {"Use GPU:":<20}{args.device:<20}{"GPU:":<20}{args.gpu_id:<20}')
+    print()
+
+    print("\033[1m" + "De-stationary Projector Params" + "\033[0m")
+    print()
+
+
+
+
+
+# data > load data> data prep
 
 def No_iter_nt_ngrid(time_range, args, x):
     nt, ngrid, nx = x.shape
@@ -74,20 +182,6 @@ def No_iter_nt_ngrid(time_range, args, x):
         )
     )
     return ngrid, nIterEp, nt, args['batch_size']
-
-def train_val_test_split_action1(set_name, args, time1, x_total, y_total):
-    t = tRange2Array(args[set_name])
-    c, ind1, ind2 = np.intersect1d(time1, t, return_indices=True)
-    x = x_total[:, ind1, :]
-    y = y_total[:, ind1, :]
-    ngrid, nt, nx = x.shape
-    if t.shape[0] < args['rho']:
-        rho = t.shape[0]
-    else:
-        rho = args['rho']
-
-
-    return x, y, ngrid, nt, args['batch_size']
 
 
 def selectSubset(args, x, iGrid, iT, rho, *, c=None, tupleOut=False, has_grad=False, warm_up=0):
@@ -141,55 +235,6 @@ def randomIndex(ngrid, nt, dimSubset, warm_up=0):
     return iGrid, iT
 
 
-def create_tensor(rho, mini_batch, x, y):
-    """
-    Creates a data tensor of the input variables and incorporates a sliding window of rho
-    :param mini_batch: min batch length
-    :param rho: the seq len
-    :param x: the x data
-    :param y: the y data
-    :return:
-    """
-    j = 0
-    k = rho
-    _sample_data_x = []
-    _sample_data_y = []
-    for i in range(x.shape[0]):
-        _list_x = []
-        _list_y = []
-        while k < x[0].shape[0]:
-            """In the format: [total basins, basin, days, attributes]"""
-            _list_x.append(x[1, j:k, :])
-            _list_y.append(y[1, j:k, 0])
-            j += mini_batch
-            k += mini_batch
-        _sample_data_x.append(_list_x)
-        _sample_data_y.append(_list_y)
-        j = 0
-        k = rho
-    sample_data_x = torch.tensor(_sample_data_x).float()
-    sample_data_y = torch.tensor(_sample_data_y).float()
-    return sample_data_x, sample_data_y
-
-
-def create_tensor_list(x, y):
-    """
-    we want to return the :
-    x_list = [[[basin_1, num_samples_x, num_attr_x], [basin_1, num_samples_y, num_attr_y]]
-        .
-        .
-        .
-        [[basin_20, num_samples_x, num_attr_x], [basin_20, num_samples_y, num_attr_y]]]
-    :param data:
-    :return:
-    """
-    tensor_list = []
-    for i in range(x.shape[0]):
-        for j in range(x.shape[1]):
-            _var = (torch.tensor(x[i][j][:, :]), y[i, j])
-            tensor_list.append(_var)
-    return tensor_list
-
 def take_sample_train(args, dataset_dictionary, ngrid_train, nt, batchSize):
     dimSubset = [batchSize, args['rho']]
     iGrid, iT = randomIndex(ngrid_train, nt, dimSubset, warm_up=args['warm_up'])
@@ -219,7 +264,6 @@ def take_sample_train(args, dataset_dictionary, ngrid_train, nt, batchSize):
     )
 
     return dataset_dictionary_sample
-
 
 
 def take_sample_test(args, dataset_dictionary, iS, iE):
@@ -256,6 +300,3 @@ def breakdown_params(self, params_all):
         else:
             params_dict['conv_params_hydro'] = None
         return params_dict
-
-
-# TODO add batch size into calculations here

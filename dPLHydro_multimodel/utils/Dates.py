@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 log = logging.getLogger(__name__)
 
 
+
 class Dates(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     daily_format: str = "%Y/%m/%d"
