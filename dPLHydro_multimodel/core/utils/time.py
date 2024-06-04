@@ -1,9 +1,10 @@
+# Adapted from dPL_Hydro_SNTEMP.
 import datetime as dt
-
 import numpy as np
 
 
-def t2dt(t, hr=False):
+
+def time_to_date(t, hr=False):
     tOut = None
     if type(t) is int:
         if t < 30000000 and t > 10000000:
@@ -21,9 +22,9 @@ def t2dt(t, hr=False):
     return tOut
 
 
-def tRange2Array(tRange, *, step=np.timedelta64(1, "D")):
-    sd = t2dt(tRange[0])
-    ed = t2dt(tRange[1])
+def trange_to_array(tRange, *, step=np.timedelta64(1, "D")):
+    sd = time_to_date(tRange[0])
+    ed = time_to_date(tRange[1])
     tArray = np.arange(sd, ed, step)
     return tArray
 

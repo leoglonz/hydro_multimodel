@@ -14,7 +14,7 @@ from dPLHydro_multimodel.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
 from utils.master import save_outputs
-from utils.stat import statError
+from utils.stat import stat_error
 from utils.utils import set_globals
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ class TestModel:
     """
     def __init__(self, config: Config):
         self.config = config
-        self.config['device'], self.config['dtype'] = set_globals()
 
         # Initializing collection of differentiable hydrology models and their optimizers.
         # Training this object will parallel train all hydro models specified for ensemble.
@@ -124,7 +123,7 @@ class TestModel:
     
         # we need to swap axes here to have [basin, days]
         statDictLst = [
-            statError(np.swapaxes(x.squeeze(), 1, 0), np.swapaxes(y.squeeze(), 1, 0))
+            stat_error(np.swapaxes(x.squeeze(), 1, 0), np.swapaxes(y.squeeze(), 1, 0))
             for (x, y) in zip(preds_list, obs_list)
         ]
         ### save this file

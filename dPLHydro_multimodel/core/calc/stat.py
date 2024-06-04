@@ -1,10 +1,16 @@
+# TODO: Depreciate and replace with `metrics.py` from Tadd Bindas.
 import warnings
-
 import numpy as np
 import scipy.stats
 
 keyLst = ["Bias", "RMSE", "ubRMSE", "Corr", "MSE"]
-def statError(pred, target):
+
+
+
+def stat_error(pred, target):
+    """
+    Taken from statError function of hydroDL.
+    """
     ngrid, nt = pred.shape
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -19,8 +25,8 @@ def statError(pred, target):
         # targetAnom = target - targetMean
         # ubRMSE = np.sqrt(np.nanmean((predAnom - targetAnom)**2, axis=1))
         # FDC metric
-        predFDC = calFDC(pred)
-        targetFDC = calFDC(target)
+        predFDC = calculate_fdc(pred)
+        targetFDC = calculate_fdc(target)
         FDCRMSE = np.sqrt(np.nanmean((predFDC - targetFDC) ** 2, axis=1))
         # rho R2 NSE
         ubRMSE = np.full(ngrid, np.nan)
@@ -94,7 +100,11 @@ def statError(pred, target):
                    fdcRMSE=FDCRMSE, lowRMSE=RMSElow, highRMSE=RMSEhigh, midRMSE=RMSEother)
     return outDict
 
-def calFDC(data):
+
+def calculate_fdc(data):
+    """
+    Taken from calFDC function of hydroDL.
+    """
     # data = Ngrid * Nday
     Ngrid, Nday = data.shape
     FDC100 = np.full([Ngrid, 100], np.nan)
@@ -117,7 +127,8 @@ def calFDC(data):
 
     return FDC100
 
-def statError_res(pred, target, pred_res, target_res):
+
+def stat_error_res(pred, target, pred_res, target_res):
     ngrid, nt = pred.shape  # I changed it
 
     #############################################

@@ -1,3 +1,4 @@
+# TODO: Replace stat.py with this updated and more maintanable version from dMCdev @Tadd Bindas.
 import logging
 from typing import Any, Optional, Tuple
 
@@ -7,6 +8,7 @@ import scipy.stats as stats
 from pydantic import BaseModel, ConfigDict, model_validator
 
 log = logging.getLogger()
+
 
 
 class Metrics(BaseModel):

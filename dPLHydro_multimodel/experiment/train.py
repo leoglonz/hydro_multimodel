@@ -14,7 +14,6 @@ from data.load_data.normalizing import init_norm_stats, transNorm
 from dPLHydro_multimodel.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
-from utils.utils import set_globals
 from utils.master import save_model
 
 log = logging.getLogger(__name__)
@@ -28,7 +27,6 @@ class TrainModel:
     """
     def __init__(self, config: Config) -> None:
         self.config = config
-        self.config['device'], self.config['dtype'] = set_globals()
 
         # Initializing collection of differentiable hydrology models and their optimizers.
         # Training this object will parallel train all hydro models specified for ensemble.

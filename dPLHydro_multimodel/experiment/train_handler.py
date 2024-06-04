@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from conf.config import Config
-from data.general_dataset import GeneralDataset
+from dPLHydro_multimodel.data.general_dataset import GeneralDataset
 from experiment.experiment_tracker import Tracker
 from injector import inject
 from models.neural_networks import NeuralNetwork

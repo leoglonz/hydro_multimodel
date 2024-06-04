@@ -1,18 +1,18 @@
+# TODO: Implement dataset batching from dMCdev @ Tadd Bindas.
 import logging
 
-import torch
-import xarray as xr
-from data import BaseDataset
-from data.utils import create_hydrofabric_attributes, scale
 from data.utils.Hydrofabric import Hydrofabric
-from data.utils.Mapping import MeritMap
-from data.utils.Network import FullZoneNetwork
+from dMC.dataset_modules import BaseDataset
+from dMC.dataset_modules.utils import (create_hydrofabric_attributes,
+                                       create_hydrofabric_observations, scale)
+from dMC.dataset_modules.utils.Mapping import MeritMap
+from dMC.dataset_modules.utils.Network import Network
 
 log = logging.getLogger(__name__)
 
 
-class AllEdgesDataset(BaseDataset):
-    def __init__(self, **kwargs):
+class TemporallyBatchedDataset(BaseDataset):
+    def __init__(self, **kwargs) -> None:
         self.attributes = kwargs["attributes"]
         self.attribute_statistics = kwargs["attribute_statistics"]
         self.cfg = kwargs["cfg"]
@@ -23,9 +23,13 @@ class AllEdgesDataset(BaseDataset):
         self.observations = kwargs["observations"]
         self.zone_to_global_mapping = kwargs["zone_to_global_mapping"]
 
-        network = FullZoneNetwork(
+        data = kwargs["data"]
+        network = Network(
             attributes=self.attributes,
             cfg=self.cfg,
+            data=data,
+            dropout=self.dropout,
+            gage_dict=self.gage_dict,
             global_to_zone_mapping=self.global_to_zone_mapping,
             zone_to_global_mapping=self.zone_to_global_mapping,
         )
@@ -55,14 +59,19 @@ class AllEdgesDataset(BaseDataset):
                 "uparea",
             ],
         )
-        hydrofabric_obs = self._mock_obs(network=network)
+        hydrofabric_observations = create_hydrofabric_observations(
+            dates=self.dates,
+            gage_dict=self.gage_dict,
+            network=network,
+            observations=self.observations,
+        )
         self.hydrofabric = Hydrofabric(
             attributes=hydrofabric_attributes,
             dates=self.dates,
             mapping=mapping,
             network=network,
             normalized_attributes=normalized_hydrofabric_attributes,
-            observations=hydrofabric_obs,
+            observations=hydrofabric_observations,
         )
 
     def __len__(self):
@@ -80,28 +89,11 @@ class AllEdgesDataset(BaseDataset):
         return idx
 
     def collate_fn(self, *args, **kwargs) -> Hydrofabric:
+        indices = args[0]
+        if 0 not in indices:
+            # interpolation requires the previous day's value in order to correctly run
+            prev_day = indices[0] - 1
+            indices.insert(0, prev_day)
+
+        self.dates.set_date_range(indices)
         return self.hydrofabric
-
-    def _mock_obs(self, network: FullZoneNetwork) -> xr.Dataset:
-        mock_gages = torch.arange(len(network.edge_order))
-
-        # Create the mock dataset
-        mock_data = xr.Dataset(
-            data_vars={
-                "streamflow": (
-                    ("gage_id", "time"),
-                    torch.zeros(
-                        size=[
-                            mock_gages.shape[0],
-                            len(self.dates.batch_hourly_time_range),
-                        ]
-                    ),
-                ),
-            },
-            coords={
-                "gage_id": mock_gages,
-                "time": self.dates.batch_hourly_time_range,
-            },
-        )
-
-        return mock_data

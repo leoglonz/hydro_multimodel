@@ -1,11 +1,7 @@
-import models.multimodels.mm_functional as F
+from core.calc.range_bound_loss import RangeBoundLoss
 import torch
 from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
-from utils import master as m
-
-# Set global torch device and dtype.
-device, dtype = m.set_globals()
 
 
 

@@ -68,6 +68,7 @@ class prms_marrmot_gw0(torch.nn.Module):
         # ssflow = torch.clamp(ssflow, min=0.0)
         # gwflow = torch.clamp(gwflow, min=0.0)
         return srflow, ssflow, gwflow, bas_shallow
+    
     def multi_comp_semi_static_params(
         self, params, param_no, args, interval=30, method="average"
     ):
@@ -155,7 +156,6 @@ class prms_marrmot_gw0(torch.nn.Module):
             )
         return out
 
-
     def UH_gamma(self, a, b, lenF=10):
         # UH. a [time (same all time steps), batch, var]
         m = a.shape
@@ -235,7 +235,6 @@ class prms_marrmot_gw0(torch.nn.Module):
                                                             warm_up=0, init=True, routing=False,
                                                             conv_params_hydro=None)
         else:
-
             # snow storage
             snow_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
                                        device=args["device"]) + 0.001

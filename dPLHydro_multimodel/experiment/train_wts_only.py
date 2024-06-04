@@ -26,7 +26,6 @@ class TrainWeightsModel:
     """
     def __init__(self, config: Config):
         self.config = config
-        self.config['device'], self.config['dtype'] = set_globals()
 
         # Initializing collection of trained differentiable hydrology models and weighting LSTM.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])

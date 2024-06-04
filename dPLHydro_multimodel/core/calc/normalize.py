@@ -1,26 +1,27 @@
 import os
 import numpy as np
 import json
-from core.load_data.dataFrame_loading import (
-    loadData
-)
+import xarray as xr
+import torch
+from tqdm import tqdm
+from typing import Dict
 
 
 
-def calStatbasinnorm(
-    y, c, args
-):  # for daily streamflow normalized by basin area and precipitation
+def calc_stat_basinnorm(y, c, config) -> list:  
     """
+    Taken from the calStatsbasinnorm function of hydroDL.
+    For daily streamflow normalized by basin area and precipitation.
 
     :param y: streamflow data to be normalized
     :param x: x is forcing+attr numpy matrix
-    :param args: config file
+    :param config: config file
     :return: statistics to be used for flow normalization
     """
     y[y == (-999)] = np.nan
     y[y < 0] = 0
-    attr_list = args['observations']['var_c_nn']
-    # attr_data = read_attr_data(args, idLst=idLst)
+    attr_list = config['observations']['var_c_nn']
+    # attr_data = read_attr_data(config, idLst=idLst)
     if 'DRAIN_SQKM' in attr_list:
         area_name = 'DRAIN_SQKM'
     elif 'area_gages2' in attr_list:
@@ -50,7 +51,50 @@ def calStatbasinnorm(
     return [p10, p90, mean, std]
 
 
-def calStatgamma(x):  # for daily streamflow and precipitation
+def calculate_statistics(x) -> list:
+    a = x.flatten()
+    bb = a[~np.isnan(a)]  # kick out Nan
+    b = bb[bb != (-999999)]
+    p10 = np.percentile(b, 10).astype(float)
+    p90 = np.percentile(b, 90).astype(float)
+    mean = np.mean(b).astype(float)
+    std = np.std(b).astype(float)
+    if std < 0.001:
+        std = 1
+    return [p10, p90, mean, std]
+
+
+# TODO: Eventually replace calculate_statistics with the version below.
+def calculate_statistics_dmc(data: xr.Dataset, column: str = "time", row: str = "gage_id") -> Dict[str, torch.Tensor]:
+    """
+    calculating statistics for the data in a similar manner to calStat from hydroDL
+    """
+    statistics = {}
+    p_10 = data.quantile(0.1, dim=column)
+    p_90 = data.quantile(0.9, dim=column)
+    mean = data.mean(dim=column)
+    std = data.std(dim=column)
+    col_names = data[row].values.tolist()
+    for idx, col in enumerate(
+        tqdm(col_names, desc="\rCalculating statistics", ncols=140, ascii=True)
+    ):
+        col_str = str(col)
+        statistics[col_str] = torch.tensor(
+            data=[
+                p_10.streamflow.values[idx],
+                p_90.streamflow.values[idx],
+                mean.streamflow.values[idx],
+                std.streamflow.values[idx],
+            ]
+        )
+    return statistics
+
+
+def calculate_statistics_gamma(x) -> list:
+    """
+    Taken from the calStatgamma function of hydroDL.
+    For daily streamflow and precipitation.
+    """
     a = x.flatten()
     bb = a[~np.isnan(a)]  # kick out Nan
     b = bb[bb != (-999999)]
@@ -66,51 +110,44 @@ def calStatgamma(x):  # for daily streamflow and precipitation
     return [p10, p90, mean, std]
 
 
-def calStat(x):
-    a = x.flatten()
-    bb = a[~np.isnan(a)]  # kick out Nan
-    b = bb[bb != (-999999)]
-    p10 = np.percentile(b, 10).astype(float)
-    p90 = np.percentile(b, 90).astype(float)
-    mean = np.mean(b).astype(float)
-    std = np.std(b).astype(float)
-    if std < 0.001:
-        std = 1
-    return [p10, p90, mean, std]
-
-
-def calStatAll(args, x, c, y):
+def calculate_statistics_all(config, x, c, y) -> None:
+    """
+    Taken from the calStatAll function of hydroDL.
+    """
     statDict = dict()
     # target
-    for i, target_name in enumerate(args['target']):
+    for i, target_name in enumerate(config['target']):
         # calculating especialized statistics for streamflow
         if target_name == '00060_Mean':
-            statDict[args['target'][i]] = calStatbasinnorm(y[:, :, i: i+1], c, args)
+            statDict[config['target'][i]] = calc_stat_basinnorm(y[:, :, i: i+1], c, config)
         else:
-            statDict[args['target'][i]] = calStat(y[:, :, i: i+1])
+            statDict[config['target'][i]] = calculate_statistics(y[:, :, i: i+1])
 
     # forcing
-    varList = args['observations']['var_t_nn']
+    varList = config['observations']['var_t_nn']
     for k in range(len(varList)):
         var = varList[k]
         if var == 'prcp(mm/day)':
-            statDict[var] = calStatgamma(x[:, :, k])
+            statDict[var] = calculate_statistics_gamma(x[:, :, k])
         elif (var == '00060_Mean') or (var == 'combine_discharge'):
-            statDict[var] = calStatbasinnorm(x[:, :, k: k + 1], x, args)
+            statDict[var] = calc_stat_basinnorm(x[:, :, k: k + 1], x, config)
         else:
-            statDict[var] = calStat(x[:, :, k])
+            statDict[var] = calculate_statistics(x[:, :, k])
     # attributes
-    varList = args['observations']['var_c_nn']
+    varList = config['observations']['var_c_nn']
     for k, var in enumerate(varList):
-        statDict[var] = calStat(c[:, k])
+        statDict[var] = calculate_statistics(c[:, k])
 
-    statFile = os.path.join(args['output_dir'], 'Statistics_basinnorm.json')
+    statFile = os.path.join(config['output_dir'], 'Statistics_basinnorm.json')
     with open(statFile, 'w') as fp:
         json.dump(statDict, fp, indent=4)
 
 
-def transNorm(args, x, varLst, *, toNorm):
-    statFile = os.path.join(args['output_dir'], 'Statistics_basinnorm.json')
+def trans_norm(config, x, varLst, *, toNorm) -> np.array:
+    """
+    Taken from the transNorm function of hydroDL.
+    """
+    statFile = os.path.join(config['output_dir'], 'Statistics_basinnorm.json')
     with open(statFile, 'r') as fp:
         statDict = json.load(fp)
     if type(varLst) is str:
@@ -158,15 +195,16 @@ def transNorm(args, x, varLst, *, toNorm):
                     or var == 'combine_discharge'
                 ):
                     out[:, k] = (np.power(10, out[:, k]) - 0.1) ** 2
-
     return out
-def init_norm_stats(args, x_NN, c_NN, y):
-    stats_directory = args['output_dir']
-    statFile = os.path.join(stats_directory, 'Statistics_basinnorm.json')
+
+
+def init_norm_stats(config, x_NN, c_NN, y) -> None:
+    stats_directory = config['output_dir']
+    statFile = os.path.join(stats_directory, 'statistics_basinnorm.json')
 
     if not os.path.isfile(statFile):
-        # read all data in training for just the inputs used in NN
-        # calculate the stats
-        calStatAll(args, x_NN, c_NN, y)
+        # Read all data in training for just the inputs used in NN.
+        # Calculate the stats
+        calculate_statistics_all(config, x_NN, c_NN, y)
     # with open(statFile, 'r') as fp:
     #     statDict = json.load(fp)

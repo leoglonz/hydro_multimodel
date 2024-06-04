@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 import torch
-from data.load_data.time import tRange2Array
+from data.load_data.time import trange_to_array
 
 
 class Data_Reader(ABC):
@@ -20,7 +20,7 @@ class Data_Reader(ABC):
 
 class DataFrame_dataset(Data_Reader):
     def __init__(self, args, tRange, data_path, attr_path=None):
-        self.time = tRange2Array(tRange)
+        self.time = trange_to_array(tRange)
         self.args = args
         self.inputfile = data_path
         if attr_path == None:
@@ -42,8 +42,8 @@ class DataFrame_dataset(Data_Reader):
             print("data type is not supported")
             exit()
         sites = dfMain['site_no'].unique()
-        tLst = tRange2Array(args['t_range'])
-        tLstobs = tRange2Array(args['t_range'])
+        tLst = trange_to_array(args['t_range'])
+        tLstobs = trange_to_array(args['t_range'])
         # nt = len(tLst)
         ntobs = len(tLstobs)
         nNodes = len(sites)
@@ -62,9 +62,7 @@ class DataFrame_dataset(Data_Reader):
         xtg = [xt[i.values, :] for k, i in g.groups.items()]
         x = np.array(xtg)
 
-        # TODO: Ths part is commented because I don't think we need to have it here as there ais a different
-        #  function to read static inputs
-        ## for attr
+        # Function to read static inputs for attr.
         if len(varLst_attr) > 0:
             x_attr_t = dfMain_attr.loc[:, varLst_attr].values
             x_attr_t = np.expand_dims(x_attr_t, axis=2)
@@ -107,7 +105,7 @@ class DataFrame_dataset(Data_Reader):
 
 class numpy_dataset(Data_Reader):
     def __init__(self, args, tRange, data_path, attr_path=None):
-        self.time = tRange2Array(tRange)
+        self.time = trange_to_array(tRange)
         self.args = args
         self.inputfile = data_path   # the dynamic data
         if attr_path == None:
@@ -164,7 +162,7 @@ class numpy_dataset(Data_Reader):
             x = np.concatenate((x, xattr), axis=2)
 
         data = x
-        tLst = tRange2Array(args["tRange"])
+        tLst = trange_to_array(args["tRange"])
         C, ind1, ind2 = np.intersect1d(self.time, tLst, return_indices=True)
         data = data[:, ind2, :]
         return np.swapaxes(data, 1, 0)

@@ -13,8 +13,7 @@ from experiment import build_handler
 from experiment.experiment_tracker import ExperimentTracker
 from omegaconf import DictConfig, OmegaConf
 from pydantic import ConfigDict, ValidationError
-from utils.master import create_output_dirs
-from utils.utils import print_args, randomseed_config, set_platform_dir
+from core.utils import show_args, randomseed_config, set_system_spec
 
 log = logging.getLogger(__name__)
 
@@ -34,14 +33,13 @@ def main(cfg: DictConfig) -> None:
         config, config_dict = initialize_config(cfg)
         experiment_tracker = ExperimentTracker(cfg=config)
 
-        # Set device, dtype, and model save path.
-        torch.cuda.set_device(config.gpu_id)
-        config.output_dir = set_platform_dir(config.output_dir)
+        # Set device, dtype.
+        config.device, config.dtype = set_system_spec(config.gpu_id)
         config_dict = create_output_dirs(config_dict)
 
         experiment_name = config.mode
         log.info(f"RUNNING MODE: {config.mode}")
-        # print_args(config)
+        show_args(config)
 
         if config.mode == ModeEnum.train_test:
             # Run training and testing together.

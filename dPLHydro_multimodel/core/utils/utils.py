@@ -1,8 +1,10 @@
+# TODO: Go through these functions from `__init__.py` in dMCdev to see what is needed for PMI.
 import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
+import random
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -10,11 +12,12 @@ import torch
 import xarray as xr
 import zarr
 from conf.config import Config
-from dPLHydro_multimodel.utils.Dates import Dates
+from data.utils.Dates import Dates
 from data.utils.Network import FullZoneNetwork, Network
 from tqdm import tqdm
 
 log = logging.getLogger(__name__)
+
 
 
 def pad_gage_id(number: Union[int, str]) -> str:
@@ -438,7 +441,6 @@ def scale(
         torch.Tensor: The scaled tensor.
 
     """
-
     if names == ["all_attributes"]:
         names = df["attribute"].to_list()
 
@@ -457,33 +459,6 @@ def scale(
     normalized_data = ((x - min_values) / ranges).to(torch.float32)
 
     return normalized_data
-
-
-def calculate_statistics(
-    data: xr.Dataset, column: str = "time", row: str = "gage_id"
-) -> Dict[str, torch.Tensor]:
-    """
-    calculating statistics for the data in a similar manner to calStat from hydroDL
-    """
-    statistics = {}
-    p_10 = data.quantile(0.1, dim=column)
-    p_90 = data.quantile(0.9, dim=column)
-    mean = data.mean(dim=column)
-    std = data.std(dim=column)
-    col_names = data[row].values.tolist()
-    for idx, col in enumerate(
-        tqdm(col_names, desc="\rCalculating statistics", ncols=140, ascii=True)
-    ):
-        col_str = str(col)
-        statistics[col_str] = torch.tensor(
-            data=[
-                p_10.streamflow.values[idx],
-                p_90.streamflow.values[idx],
-                mean.streamflow.values[idx],
-                std.streamflow.values[idx],
-            ]
-        )
-    return statistics
 
 
 def normalize_streamflow(
