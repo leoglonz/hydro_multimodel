@@ -21,7 +21,7 @@ from utils.stat import statError
 
 
 
-# utils > master test
+# utils > master
 
 def save_outputs(config, preds_list, y_obs) -> None:
     """
