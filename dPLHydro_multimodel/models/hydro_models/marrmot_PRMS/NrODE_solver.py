@@ -1,8 +1,6 @@
-import pandas as pd
 import torch
 # from functorch import vmap, jacrev, jacfwd, vjp
-import torch.nn.functional as F
-from models.pet_models.potet import get_potet
+
 
 
 class Farshid_NRODEsolver(torch.nn.Module):
@@ -11,7 +9,7 @@ class Farshid_NRODEsolver(torch.nn.Module):
 
     def __init__(self, settings={'TolX': 1e-12, 'TolFun': 1e-6, 'MaxIter': 1000}):
         # alpha, the gradient attenuation factor, is only for some algorithms.
-        super(NRODESolver, self).__init__()
+        super(Farshid_NRODEsolver, self).__init__()
         self.settings = settings
         # self.y0 = y0
         # self.g = g

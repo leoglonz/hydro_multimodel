@@ -12,7 +12,8 @@ from conf.config import Config, ModeEnum
 from experiment import build_handler
 from experiment.experiment_tracker import ExperimentTracker
 from omegaconf import DictConfig, OmegaConf
-from pydantic import ConfigDict, ValidationError
+from pydantic import ValidationError
+from core.utils import create_output_dirs
 from core.utils import show_args, randomseed_config, set_system_spec
 
 log = logging.getLogger(__name__)

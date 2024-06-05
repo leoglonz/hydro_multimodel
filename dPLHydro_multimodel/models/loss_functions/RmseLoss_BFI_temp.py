@@ -1,6 +1,7 @@
 import torch
 
 
+
 class RmseLoss_BFI_temp(torch.nn.Module):
     def __init__(self, w1=0.05, w2=None):
         super(RmseLoss_BFI_temp, self).__init__()

@@ -6,16 +6,14 @@ import pandas as pd
 import torch
 import tqdm
 from conf.config import Config
-from data.load_data.data_prep import (No_iter_nt_ngrid, take_sample_test,
-                                      take_sample_train)
-from data.load_data.dataFrame_loading import loadData
-from data.load_data.normalizing import init_norm_stats, transNorm
-from dPLHydro_multimodel.utils.Dates import Dates
+from core.data import take_sample_test
+from core.data.dataFrame_loading import load_data
+from core.calc.normalize import trans_norm
+from core.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
-from utils.master import save_outputs
-from utils.stat import stat_error
-from utils.utils import set_globals
+from core.utils import save_outputs
+from core.calc.stat import stat_error
 
 log = logging.getLogger(__name__)
 
@@ -45,12 +43,12 @@ class TestModel:
         self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
 
         # Read data for the test time range
-        dataset_dict = loadData(self.config, trange=self.test_trange)
+        dataset_dict = load_data(self.config, trange=self.test_trange)
 
         # Normalizatio ns
         # init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
-        x_nn_scaled = transNorm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
-        c_nn_scaled = transNorm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
+        x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
+        c_nn_scaled = trans_norm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
         c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
         dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
         del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']

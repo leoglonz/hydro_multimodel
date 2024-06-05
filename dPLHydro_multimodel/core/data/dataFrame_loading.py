@@ -1,11 +1,10 @@
 import os
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
 import torch
-from data.load_data.time import trange_to_array
+from core.utils.time import trange_to_array
 
 
 class Data_Reader(ABC):
@@ -210,7 +209,7 @@ class choose_class_to_read_dataset():
             self.read_data = numpy_dataset(args=self.args, tRange=self.trange, data_path=self.data_path)
 
 
-def loadData(args, trange):
+def load_data(args, trange):
     out_dict = dict()
     forcing_dataset_class = choose_class_to_read_dataset(args, trange, args['observations']['forcing_path'])
     # getting inputs for neural network:

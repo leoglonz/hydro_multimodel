@@ -5,9 +5,9 @@ from typing import Union
 
 import torch
 import xarray as xr
-from dMC.dataset_modules.utils.Dates import Dates
-from dMC.dataset_modules.utils.Mapping import MeritMap
-from dMC.dataset_modules.utils.Network import FullZoneNetwork, Network
+from core.utils.Dates import Dates
+from core.data.Mapping import MeritMap
+# from dMC.dataset_modules.utils.Network import FullZoneNetwork, Network
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +17,9 @@ class Hydrofabric:
     attributes: Union[torch.Tensor, None] = field(default=None)
     dates: Union[Dates, None] = field(default=None)
     mapping: Union[MeritMap, None] = field(default=None)
-    network: Union[Network, FullZoneNetwork, None] = field(default=None)
+    
+    # network: Union[Network, FullZoneNetwork, None] = field(default=None)
+
     normalized_attributes: Union[torch.Tensor, None] = field(default=None)
     # normalized_forcings: Union[torch.Tensor, None] = field(default=None)
     observations: Union[xr.Dataset, None] = field(default=None)

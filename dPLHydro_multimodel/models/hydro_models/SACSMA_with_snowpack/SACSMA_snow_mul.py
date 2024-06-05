@@ -6,10 +6,12 @@ from models.pet_models.potet import get_potet
 
 
 class SACSMA_snow_Mul(torch.nn.Module):
-    """HBV Model with multiple components and dynamic parameters PyTorch version"""
-    # Add an ET shape parameter for the original ET equation; others are the same as HBVMulTD()
-    # we suggest you read the class HBVMul() with original static parameters first
-
+    """
+    SAC-SMA with Snow Model Pytorch version (dynamic and static param capable) from dPL_Hydro_SNTEMP @ Farshid Rahmani.
+    
+    TODO: Add an ET shape parameter for the original ET equation; others are the same as HBVMulTD().
+    We suggest you read the class HBVMul() with original static parameters first.
+    """
     def __init__(self):
         """Initiate a HBV instance"""
         super(SACSMA_snow_Mul, self).__init__()
@@ -289,10 +291,11 @@ class SACSMA_snow_Mul(torch.nn.Module):
         mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(2).repeat(1, 1, nmul)
 
         if args["potet_module"] == "potet_hamon":
-            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
-            PET = get_potet(
-                args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
-            )  # mm/day
+            # # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
+            # PET = get_potet(
+            #     args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
+            # )  # mm/day
+            raise NotImplementedError
         elif args["potet_module"] == "potet_hargreaves":
             day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)

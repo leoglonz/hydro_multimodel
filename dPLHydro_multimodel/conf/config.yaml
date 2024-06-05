@@ -6,7 +6,7 @@ defaults:
 
 
 ## Config -------------------------------#
-mode: train_test #train_wts_only
+mode: train #train_wts_only
 nn_model: LSTM
 hydro_models: ['HBV']
 ensemble_type: None

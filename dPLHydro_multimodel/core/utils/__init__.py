@@ -184,7 +184,7 @@ def show_args(config) -> None:
     print()
 
     print("\033[1m" + "GPU" + "\033[0m")
-    print(f'  {"Use GPU:":<20}{config.device:<20}{"GPU:":<20}{config.gpu_id:<20}')
+    print(f'  {"Use GPU:":<20}{str(config.device):<20}{"GPU:":<20}{config.gpu_id:<20}')
     print()
 
     print("\033[1m" + "De-stationary Projector Params" + "\033[0m")

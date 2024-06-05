@@ -28,30 +28,30 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         raise NotImplementedError
 
 
-def randomIndex(ngrid, nt, dimSubset, warm_up=0):
+def randomIndex(ngrid, nt, dimSubset, warm_up=0) -> list:
     batchSize, rho = dimSubset
     iGrid = np.random.randint(0, ngrid, [batchSize])
     iT = np.random.randint(0+warm_up, nt - rho, [batchSize])
     return iGrid, iT
 
 
-def No_iter_nt_ngrid(time_range, args, x):
+def no_iter_nt_ngrid(time_range, config, x) -> list:
     nt, ngrid, nx = x.shape
     t = trange_to_array(time_range)
-    if t.shape[0] < args['rho']:
+    if t.shape[0] < config['rho']:
         rho = t.shape[0]
     else:
-        rho = args['rho']
+        rho = config['rho']
     nIterEp = int(
         np.ceil(
             np.log(0.01)
-            / np.log(1 - args['batch_size'] * rho / ngrid / (nt - args['warm_up']))
+            / np.log(1 - config['batch_size'] * rho / ngrid / (nt - config['warm_up']))
         )
     )
-    return ngrid, nIterEp, nt, args['batch_size']
+    return ngrid, nIterEp, nt, config['batch_size']
 
 
-def selectSubset(args, x, iGrid, iT, rho, *, c=None, tupleOut=False, has_grad=False, warm_up=0):
+def selectSubset(config, x, iGrid, iT, rho, *, c=None, tupleOut=False, has_grad=False, warm_up=0) -> torch.Tensor:
     nx = x.shape[-1]
     nt = x.shape[0]
     # if x.shape[0] == len(iGrid):   #hack
@@ -91,42 +91,42 @@ def selectSubset(args, x, iGrid, iT, rho, *, c=None, tupleOut=False, has_grad=Fa
 
     if torch.cuda.is_available() and type(out) is not tuple:
         # out = out.cuda()
-        out = out.to(args['device'])
+        out = out.to(config['device'])
     return out
 
 
-def take_sample_train(args, dataset_dictionary, ngrid_train, nt, batchSize):
-    dimSubset = [batchSize, args['rho']]
-    iGrid, iT = randomIndex(ngrid_train, nt, dimSubset, warm_up=args['warm_up'])
+def take_sample_train(config, dataset_dictionary, ngrid_train, nt, batchSize) -> dict:
+    dimSubset = [batchSize, config['rho']]
+    iGrid, iT = randomIndex(ngrid_train, nt, dimSubset, warm_up=config['warm_up'])
     dataset_dictionary_sample = dict()
     dataset_dictionary_sample['iGrid'] = iGrid
-    dataset_dictionary_sample['inputs_nn_scaled'] = selectSubset(args, dataset_dictionary['inputs_nn_scaled'],
-                                                                        iGrid, iT, args['rho'], has_grad=False,
-                                                                        warm_up=args['warm_up'])
+    dataset_dictionary_sample['inputs_nn_scaled'] = selectSubset(config, dataset_dictionary['inputs_nn_scaled'],
+                                                                        iGrid, iT, config['rho'], has_grad=False,
+                                                                        warm_up=config['warm_up'])
     dataset_dictionary_sample['c_nn'] = torch.tensor(
-        dataset_dictionary['c_nn'][iGrid], device=args['device'], dtype=torch.float32
+        dataset_dictionary['c_nn'][iGrid], device=config['device'], dtype=torch.float32
     )
     # collecting observation samples
     dataset_dictionary_sample['obs'] = selectSubset(
-        args, dataset_dictionary['obs'], iGrid, iT, args['rho'], has_grad=False, warm_up=args['warm_up']
-    )[args['warm_up']:, :, :]
-    # dataset_dictionary_sample['obs'] = converting_flow_from_ft3_per_sec_to_mm_per_day(args,
+        config, dataset_dictionary['obs'], iGrid, iT, config['rho'], has_grad=False, warm_up=config['warm_up']
+    )[config['warm_up']:, :, :]
+    # dataset_dictionary_sample['obs'] = converting_flow_from_ft3_per_sec_to_mm_per_day(config,
     #                                                                                          dataset_dictionary_sample[
     #                                                                                              'c_nn'],
     #                                                                                          obs_sample_v)
     # Hydro model sampling
     
     dataset_dictionary_sample['x_hydro_model'] = selectSubset(
-        args, dataset_dictionary['x_hydro_model'], iGrid, iT, args['rho'], has_grad=False, warm_up=args['warm_up']
+        config, dataset_dictionary['x_hydro_model'], iGrid, iT, config['rho'], has_grad=False, warm_up=config['warm_up']
     )
     dataset_dictionary_sample['c_hydro_model'] = torch.tensor(
-        dataset_dictionary['c_hydro_model'][iGrid], device=args['device'], dtype=torch.float32
+        dataset_dictionary['c_hydro_model'][iGrid], device=config['device'], dtype=torch.float32
     )
 
     return dataset_dictionary_sample
 
 
-def take_sample_test(args, dataset_dictionary, iS, iE) -> dict:
+def take_sample_test(config, dataset_dictionary, iS, iE) -> dict:
     dataset_dictionary_sample = dict()
     for key in dataset_dictionary.keys():
         if len(dataset_dictionary[key].shape) == 3:
@@ -135,28 +135,10 @@ def take_sample_test(args, dataset_dictionary, iS, iE) -> dict:
                     key == 'inputs_nn_scaled'):
                 warm_up = 0
             else:
-                warm_up = args['warm_up']
+                warm_up = config['warm_up']
             dataset_dictionary_sample[key] = dataset_dictionary[key][warm_up:, iS: iE, :].to(
-                args['device'])
+                config['device'])
         elif len(dataset_dictionary[key].shape) == 2:
             dataset_dictionary_sample[key] = dataset_dictionary[key][iS: iE, :].to(
-                args['device'])
+                config['device'])
     return dataset_dictionary_sample
-
-
-def breakdown_params(self, params_all):
-    params_dict = dict()
-    params_hydro_model = params_all[:, :, :self.ny]
-
-    # hydro params
-    params_dict['hydro_params_raw'] = torch.sigmoid(
-        params_hydro_model[:, :, :len(self.hydro_model.parameters_bound) * self.config['nmul']]).view(
-        params_hydro_model.shape[0], params_hydro_model.shape[1], len(self.hydro_model.parameters_bound),
-        self.config['nmul'])
-    # routing params
-    if self.config['routing_hydro_model'] == True:
-        params_dict['conv_params_hydro'] = torch.sigmoid(
-            params_hydro_model[-1, :, len(self.hydro_model.parameters_bound) * self.config['nmul']:])
-    else:
-        params_dict['conv_params_hydro'] = None
-    return params_dict

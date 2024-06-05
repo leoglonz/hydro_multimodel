@@ -1,8 +1,6 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from models.pet_models.potet import get_potet
-from torch.nn import Parameter
 
 # from .dropout import DropMask, createMask
 # from . import cnn
@@ -11,9 +9,8 @@ from torch.nn import Parameter
 
 class HBVMul(torch.nn.Module):
     """
-    HBV Model Pytorch version (dynamic and static param capable.)
+    HBV Model Pytorch version (dynamic and static param capable) from dPL_Hydro_SNTEMP @ Farshid Rahmani.
     """
-
     def __init__(self, config):
         super(HBVMul, self).__init__()
         self.parameters_bound = dict(parBETA=[1.0, 6.0],
@@ -168,9 +165,11 @@ class HBVMul(torch.nn.Module):
 
         if args['potet_module'] == 'potet_hamon':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args['nmul'])
-            PET = get_potet(
-                args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
-            )     # mm/day
+            # PET = get_potet(
+            #     args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
+            # )     # mm/day
+            raise NotImplementedError
+
         elif args['potet_module'] == 'potet_hargreaves':
             day_of_year = x_hydro_model[warm_up:, :, vars.index('dayofyear')].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index('lat')].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
@@ -185,6 +184,7 @@ class HBVMul(torch.nn.Module):
                 day_of_year=day_of_year
             )
             # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
+
         elif args['potet_module'] == 'dataset':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
             #                                 nmul=args['nmul'])

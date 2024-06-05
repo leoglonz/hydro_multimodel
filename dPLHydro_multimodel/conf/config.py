@@ -268,6 +268,7 @@ class Config(BaseModel):
     random_seed: int = 0
     device: str = 'cpu'
     gpu_id: int = 0
+    dtype: str = ''
 
     routing_hydro_model: bool = True
     forcings: str

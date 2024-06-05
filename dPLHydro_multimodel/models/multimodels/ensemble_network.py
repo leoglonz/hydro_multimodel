@@ -1,4 +1,4 @@
-from core.calc.range_bound_loss import RangeBoundLoss
+from core.calc.RangeBoundLoss import RangeBoundLoss
 import torch
 from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
@@ -15,7 +15,7 @@ class EnsembleWeights(torch.nn.Module):
         self.config = config
         self.name = 'Ensemble Weighting Network'
         self._init_model()
-        self.range_bound_loss = F.RangeBoundLoss(config)
+        self.range_bound_loss = RangeBoundLoss(config)
     
     def _init_model(self):
         """
@@ -27,7 +27,7 @@ class EnsembleWeights(torch.nn.Module):
                                       ny=self.ny,
                                       hiddenSize=self.config['weighting_nn']['hidden_size'],
                                       dr=self.config['weighting_nn']['dropout']
-                                      ).to(F.device)
+                                      ).to(self['device'])
         # self.optim = torch.optim.Adadelta(self.lstm.parameters()) 
         # Save model parameters to pass to optimizer
         self.model_params = self.lstm.parameters()
@@ -38,7 +38,7 @@ class EnsembleWeights(torch.nn.Module):
         self.loss_func = get_loss_func(self.config['weighting_nn'], obs)
         self.loss_func = self.loss_func.to(self.config['device'])
 
-    def init_optimizer(self):
+    def init_optimizer(self) -> None:
         self.optim = torch.optim.Adadelta(self.lstm.parameters())
 
     def get_nn_model_dim(self) -> None:
@@ -120,7 +120,7 @@ class EnsembleWeights(torch.nn.Module):
 
         return total_loss
     
-    def ensemble_models(self, hydro_preds_dict):
+    def ensemble_models(self, hydro_preds_dict) -> dict:
         """
         Calculate composite predictions by combining individual hydrology model results scaled by learned nn weights.
         

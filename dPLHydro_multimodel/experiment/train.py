@@ -1,20 +1,19 @@
+import time
 import logging
 import os
-import time
-from gettext import NullTranslations
-from re import I
 
 import numpy as np
+import pandas as pd
 import torch
 import tqdm
 from conf.config import Config
-from data.load_data.data_prep import No_iter_nt_ngrid, take_sample_train
-from data.load_data.dataFrame_loading import loadData
-from data.load_data.normalizing import init_norm_stats, transNorm
-from dPLHydro_multimodel.utils.Dates import Dates
+from core.data import no_iter_nt_ngrid, take_sample_train
+from core.data.dataFrame_loading import load_data
+from core.calc.normalize import init_norm_stats, trans_norm
+from core.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
-from utils.master import save_model
+from core.utils import save_model
 
 log = logging.getLogger(__name__)
 
@@ -43,14 +42,14 @@ class TrainModel:
         self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
         self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
 
-        dataset_dict = loadData(self.config, trange=self.train_trange)
+        dataset_dict = load_data(self.config, trange=self.train_trange)
 
         # Normalizations
         # Stats for normalization of nn inputs:
         init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
         
-        x_nn_scaled = transNorm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
-        c_nn_scaled = transNorm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
+        x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
+        c_nn_scaled = trans_norm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
         c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
         dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
         del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
@@ -61,7 +60,7 @@ class TrainModel:
 
         self._get_data_dict()
 
-        ngrid_train, minibatch_iter, nt, batch_size = No_iter_nt_ngrid(self.train_trange,
+        ngrid_train, minibatch_iter, nt, batch_size = no_iter_nt_ngrid(self.train_trange,
                                                                self.config,
                                                                self.dataset_dict['inputs_nn_scaled'])
 

@@ -4,8 +4,6 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from torch import index_select, tensor
-from torch.nn import functional as Fnn
 
 #device=torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 torch.cuda.set_device(0)

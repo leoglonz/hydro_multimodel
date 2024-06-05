@@ -3,9 +3,13 @@ import torch
 # from functorch import vmap, jacrev, jacfwd, vjp
 import torch.nn.functional as F
 from models.pet_models.potet import get_potet
+import math
 
 
 class prms_marrmot(torch.nn.Module):
+    """
+    MARRMOT PRMS Model Pytorch version (dynamic and static param capable) from dPL_Hydro_SNTEMP @ Farshid Rahmani.
+    """
     def __init__(self):
         super(prms_marrmot, self).__init__()
         self.sigmoid = torch.nn.Sigmoid()
@@ -268,8 +272,9 @@ class prms_marrmot(torch.nn.Module):
         Ndays, Ngrid = Precip.shape[0], Precip.shape[1]
 
         if args["potet_module"] == "potet_hamon":
-            dayl = (x_hydro_model[warm_up:, :, vars.index("dayl(s)")].unsqueeze(-1).repeat(1, 1, nmul))
-            PET = get_potet(args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef)     # mm/day
+            # dayl = (x_hydro_model[warm_up:, :, vars.index("dayl(s)")].unsqueeze(-1).repeat(1, 1, nmul))
+            # PET = get_potet(args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef)     # mm/day
+            raise NotImplementedError
         elif args["potet_module"] == "potet_hargreaves":
             day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(Precip.shape[0], 1, nmul)
