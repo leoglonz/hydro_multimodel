@@ -1,7 +1,6 @@
 import torch
 
 
-
 class RmseLoss_flow_temp_BFI(torch.nn.Module):
     def __init__(self, w1=5.0, w2=1.0, w3=0.05, alpha=0.25, beta=1e-6):
         super(RmseLoss_flow_temp_BFI, self).__init__()

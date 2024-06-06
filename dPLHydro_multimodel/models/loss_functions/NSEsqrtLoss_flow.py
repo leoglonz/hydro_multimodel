@@ -2,7 +2,6 @@ import numpy as np
 import torch
 
 
-
 class NSEsqrtLoss_flow(torch.nn.Module):
     # Similar as Fredrick 2019, batch NSE loss, use RMSE and STD instead
     # stdarray: the standard deviation of the runoff for all basins

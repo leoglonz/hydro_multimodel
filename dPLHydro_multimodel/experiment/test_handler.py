@@ -13,7 +13,7 @@ from experiment.experiment_tracker import Tracker
 from injector import inject
 from neural_networks import NeuralNetwork
 from physics_models import PhysicsModel
-from torch.nn.parallel import DistributedDataParallel as DDP                                                                                                                          
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 
 log = logging.getLogger(__name__)

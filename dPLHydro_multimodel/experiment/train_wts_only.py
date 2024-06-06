@@ -1,18 +1,18 @@
 import logging
 import os
 import time
-import logging
+
 import numpy as np
 import torch
 import tqdm
 from conf.config import Config
+from core.calc.normalize import init_norm_stats, trans_norm
 from core.data import no_iter_nt_ngrid, take_sample_train
 from core.data.dataFrame_loading import load_data
-from core.calc.normalize import init_norm_stats, trans_norm
+from core.utils import save_model
 from core.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
-from core.utils import save_model
 
 log = logging.getLogger(__name__)
 

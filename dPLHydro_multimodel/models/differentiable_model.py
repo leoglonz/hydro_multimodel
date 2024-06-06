@@ -10,7 +10,6 @@ from models.neural_networks.lstm_models import CudnnLstmModel
 from models.neural_networks.mlp_models import MLPmul
 
 
-
 class dPLHydroModel(torch.nn.Module):
     """
     Default class for instantiating a differentiable hydrology model 
@@ -24,18 +23,19 @@ class dPLHydroModel(torch.nn.Module):
 
     def _init_model(self):
         # hydro_model_initialization
-        if self.model_name == 'marrmot_PRMS':
+        if self.model_name == 'HBV':
+            self.hydro_model = HBVMul(self.config)
+        elif self.model_name == 'marrmot_PRMS':
             self.hydro_model = prms_marrmot()
         elif self.model_name == 'marrmot_PRMS_gw0':
             self.hydro_model = prms_marrmot_gw0()
-        elif self.model_name == 'HBV':
-            self.hydro_model = HBVMul(self.config)
         elif self.model_name == 'SACSMA':
             self.hydro_model = SACSMAMul()
         elif self.model_name == 'SACSMA_with_snow':
             self.hydro_model = SACSMA_snow_Mul()
         else:
-            raise ValueError(self.model_name, "is not a valid hydrology model.")
+            raise ValueError(self.model_name, "is not a valid hydrology model. \
+                             Supported models are HBV, marrmot_PRMS, marrmot_PRMS_gw0, SACSMA, SACSMA_with_snow")
 
         # Get dim of NN model based on hydro model
         self.get_nn_model_dim()

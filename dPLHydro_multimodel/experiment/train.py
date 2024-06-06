@@ -1,19 +1,19 @@
-import time
 import logging
 import os
+import time
 
 import numpy as np
 import pandas as pd
 import torch
 import tqdm
 from conf.config import Config
+from core.calc.normalize import init_norm_stats, trans_norm
 from core.data import no_iter_nt_ngrid, take_sample_train
 from core.data.dataFrame_loading import load_data
-from core.calc.normalize import init_norm_stats, trans_norm
+from core.utils import save_model
 from core.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.multimodel_handler import MultimodelHandler
-from core.utils import save_model
 
 log = logging.getLogger(__name__)
 
@@ -201,5 +201,6 @@ class TrainModel:
                 save_model(self.config, self.dplh_model_handler.model_dict[mod], mod, epoch)
 
             if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
+                # for mod in self.config['hydro_models'] + NN_model
                 save_model(self.config, self.ensemble_lstm.lstm, epoch, model_name='wtNN_model')
                 

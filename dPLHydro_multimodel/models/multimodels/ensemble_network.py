@@ -1,8 +1,7 @@
-from core.calc.RangeBoundLoss import RangeBoundLoss
 import torch
+from core.calc.RangeBoundLoss import RangeBoundLoss
 from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
-
 
 
 class EnsembleWeights(torch.nn.Module):
@@ -27,7 +26,7 @@ class EnsembleWeights(torch.nn.Module):
                                       ny=self.ny,
                                       hiddenSize=self.config['weighting_nn']['hidden_size'],
                                       dr=self.config['weighting_nn']['dropout']
-                                      ).to(self['device'])
+                                      ).to(self.config['device'])
         # self.optim = torch.optim.Adadelta(self.lstm.parameters()) 
         # Save model parameters to pass to optimizer
         self.model_params = self.lstm.parameters()

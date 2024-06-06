@@ -1,7 +1,6 @@
 import torch
 
 
-
 class RmseLoss_flow_temp(torch.nn.Module):
     def __init__(self, w1=0.5, w2=None, alpha=0.25, beta=1e-6):
         super(RmseLoss_flow_temp, self).__init__()

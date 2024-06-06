@@ -1,8 +1,8 @@
 import logging
 from abc import ABC, abstractmethod
 
-import torch
 import numpy as np
+import torch
 from core.utils.time import trange_to_array
 
 log = logging.getLogger(__name__)

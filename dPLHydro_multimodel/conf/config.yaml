@@ -8,11 +8,10 @@ defaults:
 ## Config -------------------------------#
 mode: train #train_wts_only
 nn_model: LSTM
-hydro_models: ['HBV']
-ensemble_type: None
-freeze_para_nn: True
+hydro_models: [HBV, HBV]
+ensemble_type: ensemble
+freeze_para_nn: False
 use_checkpoint: False
-
 
 dyn_hydro_params:
     HBV: []
@@ -47,7 +46,7 @@ nmul: 16
 warm_up: 365
 rho: 365
 batch_size: 100
-epochs: 5
+epochs: 1
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5
@@ -66,7 +65,7 @@ weighting_nn:
         w2: 1.0
 
 n_basins: 25
-save_epoch: 5
+save_epoch: 1
 
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data

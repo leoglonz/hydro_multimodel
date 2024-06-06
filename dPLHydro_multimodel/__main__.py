@@ -9,12 +9,12 @@ from typing import Any, Dict, Union
 import hydra
 import torch
 from conf.config import Config, ModeEnum
+from core.utils import (create_output_dirs, randomseed_config, set_system_spec,
+                        show_args)
 from experiment import build_handler
 from experiment.experiment_tracker import ExperimentTracker
 from omegaconf import DictConfig, OmegaConf
 from pydantic import ValidationError
-from core.utils import create_output_dirs
-from core.utils import show_args, randomseed_config, set_system_spec
 
 log = logging.getLogger(__name__)
 

@@ -1,7 +1,6 @@
 import torch
 
 
-
 def potet_hamon(mean_air_temp, dayl, hamon_coef=0.0055):  # hamon_coef=0.1651
     """
     :param mean_air_temp: daily mean air temperature (celecius)
