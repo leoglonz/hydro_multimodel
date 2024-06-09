@@ -76,6 +76,11 @@ def randomseed_config(seed=0) -> None:
     
 
 def create_output_dirs(config) -> dict:
+    """
+    Create a new directory for model files.
+
+    Modified from dPL_Hydro_SNTEMP @ Farshid Rahmani.
+    """
     out_folder = config['nn_model'] + \
              '_E' + str(config['epochs']) + \
              '_R' + str(config['rho'])  + \
@@ -97,7 +102,11 @@ def create_output_dirs(config) -> dict:
     else:
         para_state = 'free_pnn'
 
-    config['output_dir'] = os.path.join(config['output_dir'], para_state, out_folder, dyn_state)
+    ensemble_name = ""
+    for mod in config['hydro_models']:
+        ensemble_name += mod + "_"
+
+    config['output_dir'] = os.path.join(config['output_dir'], para_state, out_folder, dyn_state, ensemble_name)
 
     test_dir = 'test' + str(config['test']['start_time'][:4]) + '_' + str(config['test']['end_time'][:4])
     test_path = os.path.join(config['output_dir'], test_dir)
@@ -122,17 +131,19 @@ def save_model(config, model, model_name, epoch, create_dirs=False) -> None:
     # If the model folder has not been created, do it here.
     if create_dirs: create_output_dirs(config)
 
-    save_dir = str(model_name) + '_model_Ep' + str(epoch) + '.pt'
-    os.makedirs(save_dir, exist_ok=True)
+    save_name = str(model_name) + '_model_Ep' + str(epoch) + '.pt'
+    # os.makedirs(save_name, exist_ok=True)
 
-    full_path = os.path.join(config['output_dir'], save_dir)
+    full_path = os.path.join(config['output_dir'], save_name)
     torch.save(model, full_path)
 
 
-def save_outputs(config, preds_list, y_obs) -> None:
+def save_outputs(config, preds_list, y_obs, create_dirs=False) -> None:
     """
     Save outputs from a model.
     """
+    if create_dirs: create_output_dirs(config)
+
     for key in preds_list[0].keys():
         if len(preds_list[0][key].shape) == 3:
             # May need to flip 1 and 0 to save multimodels.
@@ -150,6 +161,39 @@ def save_outputs(config, preds_list, y_obs) -> None:
         item_obs = y_obs[:, :, config['target'].index(var)]
         file_name = var + '.npy'
         np.save(os.path.join(config['testing_dir'], file_name), item_obs)
+
+
+def load_model(config, model_name, epoch):
+    """
+    Load trained pytorch models.
+    
+    Args:
+        config (dict): Configuration dictionary with paths and model settings.
+        model_name (str): Name of the model to load.
+        epoch (int): Epoch number to load the specific state of the model.
+        
+    Returns:
+        model (torch.nn.Module): The loaded PyTorch model.
+    """
+    # Construct the path where the model is saved
+    model_file_name = f"{model_name}_epoch_{epoch}.pth"
+    model_path = os.path.join(config['model_dir'], model_file_name)
+    
+    # Ensure the model file exists
+    if not os.path.isfile(model_path):
+        raise FileNotFoundError(f"Model file '{model_path}' not found.")
+    
+    return torch.load(model_path)
+    
+    # Retrieve the model class from config (assuming it's stored in the config)
+    # model_class = config['model_classes'][model_name]
+    
+    # Initialize the model (assumes model classes are callable and take no arguments)
+    # model = model_class()
+    # Load the state_dict into the model
+    # model.load_state_dict(state_dict)
+    
+    # return model
 
 
 def show_args(config) -> None:

@@ -99,7 +99,7 @@ class TestModel:
         # Get observation data.
         y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]
 
-        print('saving model')
+        log.info(f"Saving model results.")
         save_outputs(self.config, batched_preds_list, y_obs)
 
         self.calc_metrics(batched_preds_list, y_obs)

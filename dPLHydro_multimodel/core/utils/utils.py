@@ -13,11 +13,34 @@ import xarray as xr
 import zarr
 from conf.config import Config
 from core.utils.Dates import Dates
-from data.utils.Network import FullZoneNetwork, Network
+# from data.utils.Network import FullZoneNetwork, Network
 from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 
+
+
+def find_shared_keys(*dicts) -> list:
+    """
+    Find keys shared between multiple dictionaries.
+
+    Args:
+        *dicts: Variable number of dictionaries.
+
+    Returns:
+        shared_keys: A list of keys shared between input dictionaries.
+    """
+    if len(dicts) == 1:
+        return list()
+
+    # Start with the keys of the first dictionary
+    shared_keys = set(dicts[0].keys())
+
+    # Intersect with the keys of all other dictionaries
+    for d in dicts[1:]:
+        shared_keys.intersection_update(d.keys())
+
+    return list(shared_keys)
 
 
 def pad_gage_id(number: Union[int, str]) -> str:
@@ -135,45 +158,45 @@ def get_attributes(attributes: zarr.Group, cfg: Config, zone: str, idx) -> torch
     return _attributes
 
 
-def create_hydrofabric_attributes(
-    cfg: Config,
-    attributes: zarr.Group,
-    network: Union[FullZoneNetwork, Network],
-    names: List[str] = ["all_attributes"],
-) -> torch.Tensor:
-    """
-    Create hydrofabric attributes.
+# def create_hydrofabric_attributes(
+#     cfg: Config,
+#     attributes: zarr.Group,
+#     network: Union[FullZoneNetwork, Network],
+#     names: List[str] = ["all_attributes"],
+# ) -> torch.Tensor:
+#     """
+#     Create hydrofabric attributes.
 
-    This function takes in a configuration object, a zarr group containing attribute data, and a network object (either a FullZoneNetwork or Network). It returns a torch tensor containing the hydrofabric attributes.
+#     This function takes in a configuration object, a zarr group containing attribute data, and a network object (either a FullZoneNetwork or Network). It returns a torch tensor containing the hydrofabric attributes.
 
-    Parameters:
-        cfg (Config): The configuration object.
-        attributes (zarr.Group): The zarr group containing attribute data.
-        network (Union[FullZoneNetwork, Network]): The network object.
-        names (List[str]): THE names of the attributes to retrieve. Defaults to ["all_attributes"].
+#     Parameters:
+#         cfg (Config): The configuration object.
+#         attributes (zarr.Group): The zarr group containing attribute data.
+#         network (Union[FullZoneNetwork, Network]): The network object.
+#         names (List[str]): THE names of the attributes to retrieve. Defaults to ["all_attributes"].
 
-    Returns:
-        torch.Tensor: The hydrofabric attributes.
+#     Returns:
+#         torch.Tensor: The hydrofabric attributes.
 
-    """
-    all_attr = []
-    global_indices = network.edge_order
-    for idx, attribute in enumerate(
-        tqdm(
-            cfg.params.attributes,
-            desc="\rReading attribute data",
-            ncols=140,
-            ascii=True,
-        )
-    ):
-        # TODO make this check clearer. A little hacky
-        if attribute in names or names == ["all_attributes"]:
-            attr = get_attribute(attributes, attribute)
-            nan_free_attr = filter_nan(attr, idx, cfg)
-            all_attr.append(nan_free_attr)
-    data = torch.stack(all_attr, dim=1)
-    subset_data = data[global_indices]
-    attributes_ = subset_data
+#     """
+#     all_attr = []
+#     global_indices = network.edge_order
+#     for idx, attribute in enumerate(
+#         tqdm(
+#             cfg.params.attributes,
+#             desc="\rReading attribute data",
+#             ncols=140,
+#             ascii=True,
+#         )
+#     ):
+#         # TODO make this check clearer. A little hacky
+#         if attribute in names or names == ["all_attributes"]:
+#             attr = get_attribute(attributes, attribute)
+#             nan_free_attr = filter_nan(attr, idx, cfg)
+#             all_attr.append(nan_free_attr)
+#     data = torch.stack(all_attr, dim=1)
+#     subset_data = data[global_indices]
+#     attributes_ = subset_data
     return attributes_
 
 
@@ -193,38 +216,38 @@ def filter_nan(attr: torch.Tensor, idx: int, cfg: Config):
     return attr
 
 
-def create_hydrofabric_observations(
-    dates: Dates,
-    gage_dict: Dict[str, Any],
-    network: Union[FullZoneNetwork, Network],
-    observations: xr.Dataset,
-) -> xr.Dataset:
-    """
-    Create hydrofabric observations.
+# def create_hydrofabric_observations(
+#     dates: Dates,
+#     gage_dict: Dict[str, Any],
+#     network: Union[FullZoneNetwork, Network],
+#     observations: xr.Dataset,
+# ) -> xr.Dataset:
+#     """
+#     Create hydrofabric observations.
 
-    Parameters:
-        dates (Dates): An instance of the Dates class containing the batch daily and hourly time ranges.
-        gage_dict (Dict[str, Any]): A dictionary containing gage information.
-        network (Union[FullZoneNetwork, Network]): An instance of the Network class.
-        observations (xr.Dataset): An xarray dataset containing the observations.
+#     Parameters:
+#         dates (Dates): An instance of the Dates class containing the batch daily and hourly time ranges.
+#         gage_dict (Dict[str, Any]): A dictionary containing gage information.
+#         network (Union[FullZoneNetwork, Network]): An instance of the Network class.
+#         observations (xr.Dataset): An xarray dataset containing the observations.
 
-    Returns:
-        xr.Dataset,: An xarray dataset containing the interpolated streamflow values.
+#     Returns:
+#         xr.Dataset,: An xarray dataset containing the interpolated streamflow values.
 
-    """
-    log.info("Reading Observations")
-    if network.cfg.observations.name != "grdc":
-        gage_ids = [
-            pad_gage_id(gage_dict["STAID"][x])
-            for x in network.gage_information["gage_dict_idx"]
-        ]
-    else:
-        gage_ids = [
-            gage_dict["STAID"][x] for x in network.gage_information["gage_dict_idx"]
-        ]
-    ds = observations.sel(time=dates.batch_daily_time_range, gage_id=gage_ids)
-    ds_interpolated = ds.interp(time=dates.batch_hourly_time_range, method="linear")
-    return ds_interpolated
+#     """
+#     log.info("Reading Observations")
+#     if network.cfg.observations.name != "grdc":
+#         gage_ids = [
+#             pad_gage_id(gage_dict["STAID"][x])
+#             for x in network.gage_information["gage_dict_idx"]
+#         ]
+#     else:
+#         gage_ids = [
+#             gage_dict["STAID"][x] for x in network.gage_information["gage_dict_idx"]
+#         ]
+#     ds = observations.sel(time=dates.batch_daily_time_range, gage_id=gage_ids)
+#     ds_interpolated = ds.interp(time=dates.batch_hourly_time_range, method="linear")
+#     return ds_interpolated
 
 
 def determine_proc_zone(cfg: Config, data: List[Tuple[int, str, str]]) -> Config:

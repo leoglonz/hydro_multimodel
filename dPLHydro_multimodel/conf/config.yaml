@@ -1,16 +1,16 @@
 defaults:
     - _self_
-    - observations: gages2_50 # gages2_50, camels_671_dp
+    - observations: camels_671_dp # gages2_50, camels_671_dp
     # - load_models: load_models_config
     - hydra: settings
 
 
-## Config -------------------------------#
-mode: train #train_wts_only
+## General Config -------------------------------#
+mode: train_test #train_wts_only
 nn_model: LSTM
-hydro_models: [HBV, HBV]
-ensemble_type: ensemble
-freeze_para_nn: False
+hydro_models: [HBV, marrmot_PRMS, SACSMA_with_snow]
+ensemble_type: "true"
+freeze_para_nn: True
 use_checkpoint: False
 
 dyn_hydro_params:
@@ -22,10 +22,9 @@ dyn_hydro_params:
 ## Config for all differentiable hydrology models ------#
 random_seed: 0
 device: cuda
-gpu_id: 0
-
+gpu_id: 2
 routing_hydro_model: True
-forcings: gages2_50
+forcings: camels_671_dp  # Remove this.
 potet_module: dataset
 potet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']
@@ -46,7 +45,7 @@ nmul: 16
 warm_up: 365
 rho: 365
 batch_size: 100
-epochs: 1
+epochs: 50
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5
@@ -65,7 +64,7 @@ weighting_nn:
         w2: 1.0
 
 n_basins: 25
-save_epoch: 1
+save_epoch: 5
 
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data

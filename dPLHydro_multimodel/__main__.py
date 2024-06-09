@@ -34,7 +34,7 @@ def main(cfg: DictConfig) -> None:
         config, config_dict = initialize_config(cfg)
         experiment_tracker = ExperimentTracker(cfg=config)
 
-        # Set device, dtype.
+        # Set device, dtype, and create output directory.
         config.device, config.dtype = set_system_spec(config.gpu_id)
         config_dict = create_output_dirs(config_dict)
 
@@ -54,15 +54,16 @@ def main(cfg: DictConfig) -> None:
             test_experiment_handler = build_handler(config, config_dict)            
             test_experiment_handler.dplh_model_handler = train_experiment_handler.dplh_model_handler
             if config_dict['ensemble_type'] != 'None':
-                test_experiment_handler.ensemble_lstm = train_experiment_handler.dplh_model_handler
+                test_experiment_handler.ensemble_lstm = train_experiment_handler.ensemble_lstm
 
             test_experiment_handler.run(experiment_tracker=experiment_tracker)
 
         else:
-            # Run either training or testing. 
+            # Run either training, testing, etc. 
             experiment_handler = build_handler(config, config_dict)
             experiment_handler.run(experiment_tracker=experiment_tracker)
 
+        torch.cuda.empty_cache()
         total_time = time.perf_counter() - start_time
         log.info(
             f"| {experiment_name} completed | "
@@ -93,5 +94,6 @@ def initialize_config(cfg: DictConfig) -> Config:
 
 if __name__ == "__main__":
     randomseed_config()
+
     main()
     print("Experiment ended.")

@@ -78,7 +78,7 @@ class TrainModel:
             start_epoch = 1
 
         for epoch in range(start_epoch, self.config['epochs'] + 1):
-            print(f"Starting epoch {epoch}")
+            log.info(f"Starting epoch {epoch}") 
             
             # Store loss across epochs, init to 0.
             ep_loss_dict = dict.fromkeys(self.config['hydro_models'], 0)
@@ -147,9 +147,8 @@ class TrainModel:
         Only used when training parameterization and weighting networks in series
         (i.e., training the weighting network with parameterization networks frozen).
         """
-
-        # raise NotImplementedError("Code currently needs to borrow from train_wts_only.py to work. Maybe just use this other experiment and call it here like TrainWeightModel.")
-
+        log.info("Hydro models finished. Training weighting NN")
+        
         # Initialize the loss function and optimizer:
         self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
         self.ensemble_lstm.init_optimizer()
@@ -195,12 +194,12 @@ class TrainModel:
         Use `frozen_para` flag to only save weighting model.
         """
         if frozen_para:
-            save_model(self.config, self.ensemble_lstm.lstm, epoch, model_name='wtNN_model')
+            save_model(self.config, self.ensemble_lstm.lstm, 'wtNN_model', epoch)
         else:
             for mod in self.config['hydro_models']:
                 save_model(self.config, self.dplh_model_handler.model_dict[mod], mod, epoch)
 
             if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
                 # for mod in self.config['hydro_models'] + NN_model
-                save_model(self.config, self.ensemble_lstm.lstm, epoch, model_name='wtNN_model')
+                save_model(self.config, self.ensemble_lstm.lstm, 'wtNN_model', epoch)
                 

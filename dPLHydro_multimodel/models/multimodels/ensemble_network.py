@@ -1,7 +1,10 @@
+from gettext import find
+from logging import config
 import torch
 from core.calc.RangeBoundLoss import RangeBoundLoss
 from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
+from core.utils.utils import find_shared_keys
 
 
 class EnsembleWeights(torch.nn.Module):
@@ -127,10 +130,17 @@ class EnsembleWeights(torch.nn.Module):
         'flow_sim', 'srflow', 'ssflow', 'gwflow', 'AET_hydro', 'PET_hydro', 'flow_sim_no_rout', 'srflow_no_rout', 'ssflow_no_rout', 'gwflow_no_rout', 'BFI_sim'
         """
         self.ensemble_pred = dict()
-        keys = list(hydro_preds_dict[self.config['hydro_models'][0]].keys())
-        keys.remove('flow_sim_no_rout')
 
-        for key in keys:
+        # Get prediction shared between all models.
+        mod_dicts = [hydro_preds_dict[mod] for mod in self.config['hydro_models']]
+        shared_keys = find_shared_keys(*mod_dicts)
+
+        # TODO: Not critical, but identify why 'flow_sim_no_rout' calculation returns shape [365,1]
+        # vs [365, 100] which breaks the ensemble loop at point of matrix mul below. (weights_dict[mod]
+        # takes shape [365, 100].) Look at `QSIM` comprout vs no comprout in HBVmul.py. For now, remove it.
+        shared_keys.remove('flow_sim_no_rout')
+
+        for key in shared_keys:
             self.ensemble_pred[key] = 0
             for mod in self.config['hydro_models']:
                 # if self.weights_dict[mod].size(0) != hydro_preds_dict[mod]['flow_sim'].squeeze().size(0):
