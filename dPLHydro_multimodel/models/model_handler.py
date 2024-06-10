@@ -5,7 +5,7 @@ from models.differentiable_model import dPLHydroModel
 from models.loss_functions.get_loss_function import get_loss_func
 
 
-class MultimodelHandler(torch.nn.Module):
+class modelHandler(torch.nn.Module):
     """
     Streamlines handling and instantiation of multiple differentiable hydrology
     models in parallel.
@@ -13,7 +13,7 @@ class MultimodelHandler(torch.nn.Module):
     Also capable of running a single hydro model.
     """
     def __init__(self, config):
-        super(MultimodelHandler, self).__init__()
+        super(modelHandler, self).__init__()
         self.config = config
         self._init_models()
         
@@ -28,7 +28,6 @@ class MultimodelHandler(torch.nn.Module):
         # if self.config['mode'] == 'train_wts_only':
         #     # Reinitialize trained model(s).
         #     for mod in self.config['hydro_models']:
-        #         load_path = self.config[mod]
         #         self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
         if (self.config['ensemble_type'] == 'none') and (len(self.config['hydro_models']) > 1):
             raise ValueError("Multiple hydro models given, but ensemble type is not specified. Check configurations.")

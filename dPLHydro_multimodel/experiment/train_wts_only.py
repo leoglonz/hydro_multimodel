@@ -12,7 +12,7 @@ from core.data.dataFrame_loading import load_data
 from core.utils import save_model
 from core.utils.Dates import Dates
 from models.multimodels.ensemble_network import EnsembleWeights
-from models.multimodels.multimodel_handler import MultimodelHandler
+from models.model_handler import modelHandler
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class TrainWeightsModel:
         self.config = config
 
         # Initializing collection of trained differentiable hydrology models and weighting LSTM.
-        self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
+        self.dplh_model_handler = modelHandler(self.config).to(self.config['device'])
         self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def _get_data_dict(self):

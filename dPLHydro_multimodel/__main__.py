@@ -30,11 +30,12 @@ def main(cfg: DictConfig) -> None:
         start_time = time.perf_counter()
 
         # Injest config yaml.
-        ## Temporarily used config dictionary until validation code is done.
+        # *For now, use config_dict for better readability.
         config, config_dict = initialize_config(cfg)
         experiment_tracker = ExperimentTracker(cfg=config)
 
-        # Set device, dtype, and create output directory.
+        # Set device, dtype, output dirs, and randomseed.
+        randomseed_config()
         config.device, config.dtype = set_system_spec(config.gpu_id)
         config_dict = create_output_dirs(config_dict)
 
@@ -53,13 +54,13 @@ def main(cfg: DictConfig) -> None:
             config.mode = ModeEnum.test
             test_experiment_handler = build_handler(config, config_dict)            
             test_experiment_handler.dplh_model_handler = train_experiment_handler.dplh_model_handler
-            if config_dict['ensemble_type'] != 'None':
+            if config_dict['ensemble_type'] != 'none':
                 test_experiment_handler.ensemble_lstm = train_experiment_handler.ensemble_lstm
 
             test_experiment_handler.run(experiment_tracker=experiment_tracker)
 
         else:
-            # Run either training, testing, etc. 
+            # Run training, testing, etc.-
             experiment_handler = build_handler(config, config_dict)
             experiment_handler.run(experiment_tracker=experiment_tracker)
 
@@ -77,7 +78,7 @@ def main(cfg: DictConfig) -> None:
 
 def initialize_config(cfg: DictConfig) -> Config:
     """
-    Convert config into a dictionary, and a Config object for validation.
+    Convert config into a dictionary and a Config object for validation.
     """
     try:
         config_dict: Union[Dict[str, Any], Any] = OmegaConf.to_container(
@@ -87,13 +88,10 @@ def initialize_config(cfg: DictConfig) -> Config:
     except ValidationError as e:
         log.exception(e)
         raise e
-   
     return config, config_dict
 
 
 
 if __name__ == "__main__":
-    randomseed_config()
-
     main()
     print("Experiment ended.")

@@ -12,7 +12,7 @@ use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 2
+gpu_id: 1
 
 train:
     start_time: 1980/10/01
@@ -34,7 +34,7 @@ output_dir: ${data_dir}/${observations.name}/saved_models/
 pnn_model: LSTM    # LSTM, MLP
 hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
-    HBV: []
+    HBV: []    # parBETA, parBETAET
     SACSMA: []
     PRMS: []
 
@@ -48,16 +48,16 @@ loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-nmul: 2
+nmul: 16
 warm_up: 365
 rho: 365
 batch_size: 100
-epochs: 4
+epochs: 50
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5
 
-save_epoch: 2
+save_epoch: 10
 
 weighting_nn:
     dropout: 0.5
@@ -75,7 +75,7 @@ weighting_nn:
 ## Model Checkpoints -------------------------------#
 checkpoint:
     start_epoch: 11
-    HBV: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/debugging/free_pnn/LSTM_E50_R365_B100_H256_n16_0/static_para/HBV_marrmot_PRMS_SACSMA_with_snow_/HBV_model_Ep10.pt
-    marrmot_PRMS: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/debugging/free_pnn/LSTM_E50_R365_B100_H256_n16_0/static_para/HBV_marrmot_PRMS_SACSMA_with_snow_/marrmot_PRMS_model_Ep10.pt
-    SACSMA_with_snow: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/debugging/free_pnn/LSTM_E50_R365_B100_H256_n16_0/static_para/HBV_marrmot_PRMS_SACSMA_with_snow_/SACSMA_with_snow_model_Ep10.pt
-    weighting_nn: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/debugging/free_pnn/LSTM_E50_R365_B100_H256_n16_0/static_para/HBV_marrmot_PRMS_SACSMA_with_snow_/wtNN_model_model_Ep10.pt
+    HBV: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/free_pnn/LSTM_E50_R365_B100_H256_n2_0/static_para/HBV_/HBV_model_Ep10.pt
+    marrmot_PRMS: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/free_pnn/LSTM_E50_R365_B100_H256_n2_0/static_para/HBV_/marrmot_PRMS_model_Ep10.pt
+    SACSMA_with_snow: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/free_pnn/LSTM_E50_R365_B100_H256_n2_0/static_para/HBV_/SACSMA_with_snow_model_Ep10.pt
+    weighting_nn: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/free_pnn/LSTM_E50_R365_B100_H256_n2_0/static_para/HBV_/wtNN_model_model_Ep10.pt
