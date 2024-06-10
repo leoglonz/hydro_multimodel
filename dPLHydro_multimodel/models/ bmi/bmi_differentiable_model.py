@@ -1,27 +1,22 @@
-"""
-Example Basic Model Interface implementation for a basic heat model pulled from
-`https://github.com/csdms/bmi-example-python.git`.
-
-Install bmipy package with `conda install bmipy -c conda-forge`.
-"""
-
 import numpy as np
 from bmipy import Bmi
+import yaml
+from models.differentiable_model import dPLHydroModel
 
-from .heat import Heat
 
 
 class BmiHeat(Bmi):
 
     """Solve the heat equation for a 2D plate."""
 
-    _name = "The 2D Heat Equation"
+    _name = "Differentiable Hydrology Model"
     _input_var_names = ("plate_surface__temperature",)
     _output_var_names = ("plate_surface__temperature",)
 
-    def __init__(self):
-        """Create a BmiHeat model that is ready for initialization."""
+    def __init__(self, cfg:None, verbose=False):
+        self.cfg = cfg
         self._model = None
+        self._initialized = False
         self._values = {}
         self._var_units = {}
         self._var_loc = {}
@@ -32,47 +27,97 @@ class BmiHeat(Bmi):
         self._end_time = np.finfo("d").max
         self._time_units = "s"
 
+        # # ________________________________________________
+        # # Required, static attributes of the model
+
+        # self._att_map = {
+        #     "model_name": "Conceptual Functional Equivalent (CFE)",
+        #     "version": "1.0",
+        #     "author_name": "Jonathan Martin Frame",
+        #     "grid_type": "scalar",
+        #     "time_step_size": 3600,
+        #     "time_units": "1 hour",
+        # }
+
+        # # ________________________________________________
+        # # Input variable names (CSDMS standard names)
+
+        # self._input_var_names = [
+        #     "atmosphere_water__time_integral_of_precipitation_mass_flux",
+        #     "water_potential_evaporation_flux",
+        # ]
+
+        # # ________________________________________________
+        # # Output variable names (CSDMS standard names)
+
+        # self._output_var_names = [
+        #     "land_surface_water__runoff_depth",
+        #     "land_surface_water__runoff_volume_flux",
+        #     "DIRECT_RUNOFF",
+        #     "GIUH_RUNOFF",
+        #     "NASH_LATERAL_RUNOFF",
+        #     "DEEP_GW_TO_CHANNEL_FLUX",
+        #     "SOIL_CONCEPTUAL_STORAGE",
+        # ]
+
+        # # ________________________________________________
+        # # Create a Python dictionary that maps CSDMS Standard
+        # # Names to the model's internal variable names.
+        # # This is going to get long,
+        # #     since the input variable names could come from any forcing...
+
+        # self._var_name_units_map = {
+        #     "land_surface_water__runoff_volume_flux": ["streamflow_cmh", "m3 h-1"],
+        #     "land_surface_water__runoff_depth": ["total_discharge", "m h-1"],
+        #     # --------------   Dynamic inputs --------------------------------
+        #     "atmosphere_water__time_integral_of_precipitation_mass_flux": [
+        #         "timestep_rainfall_input_m",
+        #         "m h-1",
+        #     ],
+        #     "water_potential_evaporation_flux": ["potential_et_m_per_s", "m s-1"],
+        #     "DIRECT_RUNOFF": ["surface_runoff_depth_m", "m"],
+        #     "GIUH_RUNOFF": ["flux_giuh_runoff_m", "m"],
+        #     "NASH_LATERAL_RUNOFF": ["flux_nash_lateral_runoff_m", "m"],
+        #     "DEEP_GW_TO_CHANNEL_FLUX": ["flux_from_deep_gw_to_chan_m", "m"],
+        #     "SOIL_CONCEPTUAL_STORAGE": ["soil_reservoir['storage_m']", "m"],
+        # }
+
     def initialize(self, filename=None):
-        """Initialize the Heat model.
+        """
+        Initialize the hydrology model.
 
         Parameters
         ----------
         filename : str, optional
             Path to name of input file.
         """
-        if filename is None:
-            self._model = Heat()
-        elif isinstance(filename, str):
-            with open(filename, "r") as file_obj:
-                self._model = Heat.from_file_like(file_obj.read())
-        else:
-            self._model = Heat.from_file_like(filename)
-
-        self._values = {"plate_surface__temperature": self._model.temperature}
-        self._var_units = {"plate_surface__temperature": "K"}
-        self._var_loc = {"plate_surface__temperature": "node"}
-        self._grids = {0: ["plate_surface__temperature"]}
-        self._grid_type = {0: "uniform_rectilinear"}
+        self._model = dPLHydroModel(self.cfg)
+        self._initialized = True
+        self._input_data = self.load_input_data(self.cfg['input_data_path'])
+        self._current_time = 0.0
 
     def update(self):
         """Advance model by one time step."""
-        self._model.advance_in_time()
+        # self._model.advance_in_time()
+        self.advance_in_time()
 
-    def update_frac(self, time_frac):
-        """Update model by a fraction of a time step.
+    # def update_frac(self, time_frac):
+    #     """
+    #     Update model by a fraction of a time step.
 
-        Parameters
-        ----------
-        time_frac : float
-            Fraction fo a time step.
-        """
-        time_step = self.get_time_step()
-        self._model.time_step = time_frac * time_step
-        self.update()
-        self._model.time_step = time_step
+    #     Parameters
+    #     ----------
+    #     time_frac : float
+    #         Fraction fo a time step.
+    #     """
+    #     time_step = self.get_time_step()
+    #     self._model.time_step = time_frac * time_step
+    #     self.update()
+    #     self._model.time_step = time_step
 
     def update_until(self, then):
-        """Update model until a particular time.
+        """
+        Update model until a particular time.
 
         Parameters
         ----------
@@ -86,11 +131,17 @@ class BmiHeat(Bmi):
         self.update_frac(n_steps - int(n_steps))
 
     def finalize(self):
-        """Finalize model."""
+        """
+        Finalize model.
+        """
+        self.finalize_mass_balance(verbose=print_mass_balance)
+        self.reset_volume_tracking()
+
         self._model = None
 
     def get_var_type(self, var_name):
-        """Data type of variable.
+        """
+        Data type of variable.
 
         Parameters
         ----------

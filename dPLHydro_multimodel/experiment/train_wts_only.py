@@ -11,8 +11,8 @@ from core.data import no_iter_nt_ngrid, take_sample_train
 from core.data.dataFrame_loading import load_data
 from core.utils import save_model
 from core.utils.Dates import Dates
-from models.multimodels.ensemble_network import EnsembleWeights
 from models.model_handler import modelHandler
+from models.multimodels.ensemble_network import EnsembleWeights
 
 log = logging.getLogger(__name__)
 

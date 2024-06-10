@@ -4,23 +4,19 @@ Example Basic Model Interface implementation for a basic heat model pulled from
 
 Install bmipy package with `conda install bmipy -c conda-forge`.
 """
-
 import numpy as np
 from bmipy import Bmi
 
-from .heat import Heat
 
-
-class BmiHeat(Bmi):
-
-    """Solve the heat equation for a 2D plate."""
-
+class BmiHydroModel(Bmi):
     _name = "The 2D Heat Equation"
     _input_var_names = ("plate_surface__temperature",)
     _output_var_names = ("plate_surface__temperature",)
 
-    def __init__(self):
-        """Create a BmiHeat model that is ready for initialization."""
+    def __init__(self, cfg=None, verbose=False):
+        """
+        Create a Bmi interface for hydro models that is ready for initialization.
+        """
         self._model = None
         self._values = {}
         self._var_units = {}
@@ -56,6 +52,15 @@ class BmiHeat(Bmi):
 
     def update(self):
         """Advance model by one time step."""
+        if not self._initialized:
+            raise RuntimeError("Model has not been initialized.")
+
+        if self._current_time >= len(self._input_data):
+            raise RuntimeError("End of input data reached.")
+
+        dataset_dict_sample = self._input_data[int(self._current_time)]
+        self._output = self._model(dataset_dict_sample)
+        self._current_time += self._time_step
         self._model.advance_in_time()
 
     def update_frac(self, time_frac):

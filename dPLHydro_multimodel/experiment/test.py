@@ -12,8 +12,8 @@ from core.data import take_sample_test
 from core.data.dataFrame_loading import load_data
 from core.utils import save_outputs
 from core.utils.Dates import Dates
-from models.multimodels.ensemble_network import EnsembleWeights
 from models.model_handler import modelHandler
+from models.multimodels.ensemble_network import EnsembleWeights
 
 log = logging.getLogger(__name__)
 

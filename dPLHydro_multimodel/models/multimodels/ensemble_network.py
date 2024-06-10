@@ -1,10 +1,11 @@
 from gettext import find
 from logging import config
+
 import torch
 from core.calc.RangeBoundLoss import RangeBoundLoss
+from core.utils.utils import find_shared_keys
 from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
-from core.utils.utils import find_shared_keys
 
 
 class EnsembleWeights(torch.nn.Module):
@@ -32,7 +33,7 @@ class EnsembleWeights(torch.nn.Module):
             self.lstm.train()
         
         elif self.config['mode'] == 'test':
-            self.load_model('wtNN')
+            self.lstm = self.load_model('wtNN')
         else:
             self.get_nn_model_dim()
             self.lstm = CudnnLstmModel(nx=self.nx,
@@ -50,6 +51,10 @@ class EnsembleWeights(torch.nn.Module):
         import os
         model_name = str(model) + '_model_Ep' + str(self.config['epochs']) + '.pt'
         model_path = os.path.join(self.config['output_dir'], model_name)
+
+        print(model_path)
+        
+        self.model_dict = dict()
         try:
             self.model_dict[model] = torch.load(model_path).to(self.config['device']) 
         except:
