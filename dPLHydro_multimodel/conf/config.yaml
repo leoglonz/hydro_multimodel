@@ -8,7 +8,7 @@ defaults:
 ## General Config -------------------------------#
 mode: train_test    # train, test, train_test, train_wts_only
 ensemble_type: none    # none, frozen_pnn, free_pnn
-use_checkpoint: True    # See bottom
+use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
@@ -23,7 +23,7 @@ test:
 
 batch_basins: 25
 
-experiment_name: hmm1.1-${observations.name}
+name: hmm1.1-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs
@@ -32,7 +32,7 @@ output_dir: ${data_dir}/${observations.name}/saved_models/
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV, marrmot_PRMS, SACSMA_with_snow]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     HBV: []
     SACSMA: []
@@ -52,7 +52,7 @@ nmul: 2
 warm_up: 365
 rho: 365
 batch_size: 100
-epochs: 5
+epochs: 4
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5

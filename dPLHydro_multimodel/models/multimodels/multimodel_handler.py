@@ -30,6 +30,9 @@ class MultimodelHandler(torch.nn.Module):
         #     for mod in self.config['hydro_models']:
         #         load_path = self.config[mod]
         #         self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
+        if (self.config['ensemble_type'] == 'none') and (len(self.config['hydro_models']) > 1):
+            raise ValueError("Multiple hydro models given, but ensemble type is not specified. Check configurations.")
+        
         if self.config['use_checkpoint']:
             # Reinitialize trained model(s).
             self.all_model_params = []
@@ -61,7 +64,7 @@ class MultimodelHandler(torch.nn.Module):
         try:
             self.model_dict[model] = torch.load(model_path).to(self.config['device']) 
         except:
-            raise FileNotFoundError(f"Model file {model_path} was not found. Check that epochs and hydro models in your config are correct.")
+            raise FileNotFoundError(f"Model file {model_path} was not found. Check configurations.")
 
     def init_loss_func(self, obs) -> None:
         self.loss_func = get_loss_func(self.config, obs)

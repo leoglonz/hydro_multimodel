@@ -31,7 +31,7 @@ class TrainModel:
         # Training this object will parallel train all hydro models specified for ensemble.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
         # Initialize the weighting LSTM.
-        if self.config['ensemble_type'] != 'None':
+        if self.config['ensemble_type'] != 'none':
             self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def _get_data_dict(self) -> None:
@@ -68,7 +68,7 @@ class TrainModel:
         self.dplh_model_handler.init_loss_func(self.dataset_dict['obs'])
         optim = self.dplh_model_handler.optim
 
-        if self.config['ensemble_type'] != 'None':
+        if self.config['ensemble_type'] != 'none':
             self.ensemble_lstm.init_loss_func(self.dataset_dict['obs'])
             optim.add_param_group({'params': self.ensemble_lstm.model_params})
 
@@ -82,7 +82,7 @@ class TrainModel:
             
             # Store loss across epochs, init to 0.
             ep_loss_dict = dict.fromkeys(self.config['hydro_models'], 0)
-            if self.config['ensemble_type'] != 'None':
+            if self.config['ensemble_type'] != 'none':
                 ep_loss_dict['wtNN'] = 0
 
             start_time = time.perf_counter()

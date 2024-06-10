@@ -259,10 +259,6 @@ class Config(BaseModel):
     ensemble_type: str
     # train_wts_only: bool
     dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
-    
-    # HBV: str
-    # marrmot_PRMS: str
-    # SACSMA_w_snow: str
 
     random_seed: int = 0
     device: str = 'cpu'
@@ -270,7 +266,6 @@ class Config(BaseModel):
     dtype: str = ''
 
     routing_hydro_model: bool = True
-    forcings: str
     pet_module: str
     pet_dataset_name: str
     target: list

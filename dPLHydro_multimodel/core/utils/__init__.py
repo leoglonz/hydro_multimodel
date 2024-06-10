@@ -112,9 +112,13 @@ def create_output_dirs(config) -> dict:
     test_dir = 'test' + str(config['test']['start_time'][:4]) + '_' + str(config['test']['end_time'][:4])
     test_path = os.path.join(config['output_dir'], test_dir)
     config['testing_dir'] = test_path
+
+    if (config['mode'] == 'test') and (os.path.exists(config['output_dir']) == False):
+        raise FileNotFoundError(f"Model directory {config['output_dir']} was not found. Check configurations.")
+    print(config['output_dir'])
     os.makedirs(test_path, exist_ok=True)
     
-    # saving the config file in output directory
+    # Saving the config file in output directory.
     config_file = json.dumps(config)
     config_path = os.path.join(config['output_dir'], 'config_file.json')
     if os.path.exists(config_path):
@@ -209,7 +213,8 @@ def show_args(config) -> None:
     From Jiangtao Liu.
     Use to display critical configuration settings in a clean format.
     """
-    print("\033[1m" + "Basic Config Info" + "\033[0m")
+    print()
+    print("\033[1m" + "Current Configuration" + "\033[0m")
     print(f'  {"Experiment Mode:":<20}{config.mode:<20}')
     print(f'  {"Ensemble Mode:":<20}{config.ensemble_type:<20}')
 
@@ -218,27 +223,30 @@ def show_args(config) -> None:
     print()
 
     print("\033[1m" + "Data Loader" + "\033[0m")
-    print(f'  {"Data:":<20}{config.observations.name:<20}')
-    print(f'  {"Data Source:":<20}{Path(config.observations.name).name:<20}')
-    # print(f'  {"Checkpoints:":<20}{config.checkpoints:<20}')
+    print(f'  {"Data Source:":<20}{config.observations.name:<20}')
+    if config.mode != 'test':
+        print(f'  {"Train Range :":<20}{config.train.start_time:<20}{config.train.end_time:<20}')
+    if config.mode != 'train':
+        print(f'  {"Test Range :":<20}{config.test.start_time:<20}{config.test.end_time:<20}')
+    if config.use_checkpoint == True:
+        print(f'  {"Resuming training from epoch:":<20}{config.checkpoint.start_epoch:<20}')
     print()
 
-    print("\033[1m" + "Run Parameters" + "\033[0m")
+    print("\033[1m" + "Model Parameters" + "\033[0m")
     print(f'  {"Train Epochs:":<20}{config.epochs:<20}{"Batch Size:":<20}{config.batch_size:<20}')
     print(f'  {"Dropout:":<20}{config.dropout:<20}{"Hidden Size:":<20}{config.hidden_size:<20}')
-    print(f'  {"Warmup:":<20}{config.warm_up:<20}{"Number of Models:":<20}{config.nmul:<20}')
+    print(f'  {"Warmup:":<20}{config.warm_up:<20}{"Concurrent Models:":<20}{config.nmul:<20}')
     print(f'  {"Optimizer:":<20}{config.loss_function:<20}')
     print()
 
     print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
     print(f'  {"Dropout:":<20}{config.weighting_nn.dropout:<20}{"Hidden Size:":<20}{config.weighting_nn.hidden_size:<20}')
-    print(f'  {"Optimizer:":<20}{config.weighting_nn.loss_function:<20}{"Loss Factor:":<20}{config.weighting_nn.loss_factor:<20}')
+    print(f'  {"Method:":<20}{config.weighting_nn.method:<20}{"Loss Factor:":<20}{config.weighting_nn.loss_factor:<20}')
+    print(f'  {"Loss Lower Bound:":<20}{config.weighting_nn.loss_lower_bound:<20}{"Loss Upper Bound:":<20}{config.weighting_nn.loss_upper_bound:<20}')
+    print(f'  {"Optimizer:":<20}{config.weighting_nn.loss_function:<20}')
     print()
 
-    print("\033[1m" + "GPU" + "\033[0m")
-    print(f'  {"Use GPU:":<20}{str(config.device):<20}{"GPU:":<20}{config.gpu_id:<20}')
-    print()
-
-    print("\033[1m" + "De-stationary Projector Params" + "\033[0m")
+    print("\033[1m" + "Machine" + "\033[0m")
+    print(f'  {"Use Device:":<20}{str(config.device):<20}')
     print()
     

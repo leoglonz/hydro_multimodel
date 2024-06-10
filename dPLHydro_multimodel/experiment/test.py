@@ -31,7 +31,7 @@ class TestModel:
         # Training this object will parallel train all hydro models specified for ensemble.
         self.dplh_model_handler = MultimodelHandler(self.config).to(self.config['device'])
         # Initialize the weighting LSTM.
-        if self.config['ensemble_type'] != 'None':
+        if self.config['ensemble_type'] != 'none':
             self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def _get_data_dict(self):
@@ -83,7 +83,7 @@ class TestModel:
             
             hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
 
-            if self.config['ensemble_type'] != 'None':
+            if self.config['ensemble_type'] != 'none':
                 # Calculate ensembled streamflow.
                 wt_nn_preds = self.ensemble_lstm(dataset_dict_sample, eval=True)
                 ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)

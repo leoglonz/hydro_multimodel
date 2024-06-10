@@ -33,9 +33,7 @@ def main(cfg: DictConfig) -> None:
         ## Temporarily used config dictionary until validation code is done.
         config, config_dict = initialize_config(cfg)
         experiment_tracker = ExperimentTracker(cfg=config)
-        
-        print(config_dict['output_dir'])
-        exit()
+
         # Set device, dtype, and create output directory.
         config.device, config.dtype = set_system_spec(config.gpu_id)
         config_dict = create_output_dirs(config_dict)
