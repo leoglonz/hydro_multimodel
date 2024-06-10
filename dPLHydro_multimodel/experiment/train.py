@@ -105,7 +105,7 @@ class TrainModel:
                 # Epoch loss for all diff hydro models.
                 hydro_loss, ep_loss_dict = self.dplh_model_handler.calc_loss(ep_loss_dict)
 
-                if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
+                if self.config['ensemble_type'] == 'free_pnn':
                     # Train weighting network in parallel w/ diff hydro models.
                     self.ensemble_lstm(dataset_dict_sample)
 
@@ -132,7 +132,7 @@ class TrainModel:
             if epoch % self.config['save_epoch'] == 0:
                 self.save_models(epoch)
 
-        if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == True):
+        if self.config['ensemble_type'] == 'frozen_pnn':
             # Train weighting network after hydro models have been trained
             # and their parameterization networks have been frozen.
             self.minibatch_iter = minibatch_iter
@@ -199,7 +199,7 @@ class TrainModel:
             for mod in self.config['hydro_models']:
                 save_model(self.config, self.dplh_model_handler.model_dict[mod], mod, epoch)
 
-            if (self.config['ensemble_type'] != 'None') and (self.config['freeze_para_nn'] == False):
+            if self.config['ensemble_type'] == 'free_pnn':
                 # for mod in self.config['hydro_models'] + NN_model
                 save_model(self.config, self.ensemble_lstm.lstm, 'wtNN_model', epoch)
                 

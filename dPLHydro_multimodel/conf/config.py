@@ -193,12 +193,11 @@ class LossFunc(BaseModel):
     w2: float = 1.0 
 
 
-class WeightingConfig(BaseModel):
+class WeightingNNConfig(BaseModel):
     dropout: float
     hidden_size: int
     loss_factor: int
     method: str
-    target: list
     loss_function: str
     loss_lower_bound: float = 0.95
     loss_upper_bound: float = 1.05
@@ -210,6 +209,7 @@ class Checkpoint(BaseModel):
     HBV: str
     marrmot_PRMS: str
     SACSMA_with_snow: str
+    weighting_nn: str
 
 
 @dataclass
@@ -254,10 +254,9 @@ class Config(BaseModel):
     observations: ObservationConfig
 
     mode: ModeEnum = Field(default=ModeEnum.train_test)
-    nn_model: str
+    pnn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
     ensemble_type: str
-    freeze_para_nn: bool
     # train_wts_only: bool
     dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
     
@@ -272,8 +271,8 @@ class Config(BaseModel):
 
     routing_hydro_model: bool = True
     forcings: str
-    potet_module: str
-    potet_dataset_name: str
+    pet_module: str
+    pet_dataset_name: str
     target: list
 
     loss_function: str
@@ -292,9 +291,9 @@ class Config(BaseModel):
     freeze: bool = True
     nearzero: float
 
-    weighting_nn: WeightingConfig
+    weighting_nn: WeightingNNConfig
 
-    n_basins: int
+    batch_basins: int
     save_epoch: int = 10
 
     name: str

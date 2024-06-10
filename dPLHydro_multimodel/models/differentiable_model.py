@@ -40,15 +40,15 @@ class dPLHydroModel(torch.nn.Module):
         # Get dim of NN model based on hydro model
         self.get_nn_model_dim()
         # NN_model_initialization
-        if self.config['nn_model'] == 'LSTM':
+        if self.config['pnn_model'] == 'LSTM':
             self.NN_model = CudnnLstmModel(nx=self.nx,
                                            ny=self.ny,
                                            hiddenSize=self.config['hidden_size'],
                                            dr=self.config['dropout'])
-        elif self.config['nn_model'] == 'MLP':
+        elif self.config['pnn_model'] == 'MLP':
             self.NN_model = MLPmul(self.args, nx=self.nx, ny=self.ny)
         else:
-            raise ValueError(self.config['nn_model'], "is not a valid neural network type.")
+            raise ValueError(self.config['pnn_model'], "is not a valid neural network type.")
 
     def get_nn_model_dim(self) -> None:
         self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])

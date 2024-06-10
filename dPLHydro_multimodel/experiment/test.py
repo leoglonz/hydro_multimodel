@@ -60,7 +60,7 @@ class TestModel:
         self.dataset_dict = dataset_dict
 
         ngrid = dataset_dict['inputs_nn_scaled'].shape[1]
-        self.iS = np.arange(0, ngrid, self.config['n_basins'])
+        self.iS = np.arange(0, ngrid, self.config['batch_basins'])
         self.iE = np.append(self.iS[1:], ngrid)
 
     def run(self, experiment_tracker) -> None:
@@ -72,7 +72,7 @@ class TestModel:
         # Get model predictions.
         batched_preds_list = []
         for i in tqdm.tqdm(range(0, len(self.iS)),
-                           desc=f"Testing on batches of {self.config['n_basins']}",
+                           desc=f"Testing on batches of {self.config['batch_basins']}",
                            leave=False,
                            dynamic_ncols=True):
             

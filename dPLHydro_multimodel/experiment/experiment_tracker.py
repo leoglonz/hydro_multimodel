@@ -314,7 +314,7 @@ class ExperimentTracker(Tracker):
                 )  # Clipping the lower bound to -1 for NSE and KGE
             metric_list.append(data)
             x_label.append(k)
-        legendlist = [self.cfg.forcings]
+        legendlist = [self.cfg.observations.name]
         # Step 3: Define optional parameters for customization
         boxPlotName = f"Model {self.cfg.mode} Performance ({self.cfg.test.start_time}) - {self.cfg.test.end_time})"
         ylabel = "Cumulative Frequency"

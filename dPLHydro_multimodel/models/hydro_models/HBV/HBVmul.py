@@ -163,14 +163,14 @@ class HBVMul(torch.nn.Module):
         mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(2).repeat(1, 1, nmul)
 
 
-        if args['potet_module'] == 'potet_hamon':
+        if args['pet_module'] == 'potet_hamon':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args['nmul'])
             # PET = get_potet(
             #     args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
             # )     # mm/day
             raise NotImplementedError
 
-        elif args['potet_module'] == 'potet_hargreaves':
+        elif args['pet_module'] == 'potet_hargreaves':
             day_of_year = x_hydro_model[warm_up:, :, vars.index('dayofyear')].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index('lat')].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
             Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)
@@ -185,11 +185,11 @@ class HBVMul(torch.nn.Module):
             )
             # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
 
-        elif args['potet_module'] == 'dataset':
+        elif args['pet_module'] == 'dataset':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
             #                                 nmul=args['nmul'])
             # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args['potet_dataset_name'])].unsqueeze(-1).repeat(1, 1, nmul)
+            PET = x_hydro_model[warm_up:, :, vars.index(args['pet_dataset_name'])].unsqueeze(-1).repeat(1, 1, nmul)
             # AET = PET_coef * PET
 
         Nstep, Ngrid = P.size()

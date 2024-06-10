@@ -81,7 +81,7 @@ def create_output_dirs(config) -> dict:
 
     Modified from dPL_Hydro_SNTEMP @ Farshid Rahmani.
     """
-    out_folder = config['nn_model'] + \
+    out_folder = config['pnn_model'] + \
              '_E' + str(config['epochs']) + \
              '_R' + str(config['rho'])  + \
              '_B' + str(config['batch_size']) + \
@@ -95,13 +95,14 @@ def create_output_dirs(config) -> dict:
         dyn_state = 'dynamic_para'
     else:
         dyn_state = 'static_para'
-    if config['ensemble_type'] == 'None':
+    if config['ensemble_type'] == 'none':
         para_state = 'no_ensemble'
-    elif config['freeze_para_nn'] == True:
+    elif config['ensemble_type'] == 'frozen_pnn':
         para_state = 'frozen_pnn'
-    else:
+    elif config['ensemble_type'] == 'free_pnn':
         para_state = 'free_pnn'
-
+    else:
+        raise ValueError("Unsupported ensemble type specified.")
     ensemble_name = ""
     for mod in config['hydro_models']:
         ensemble_name += mod + "_"
@@ -175,15 +176,22 @@ def load_model(config, model_name, epoch):
     Returns:
         model (torch.nn.Module): The loaded PyTorch model.
     """
-    # Construct the path where the model is saved
-    model_file_name = f"{model_name}_epoch_{epoch}.pth"
-    model_path = os.path.join(config['model_dir'], model_file_name)
+    model_name = str(model_name) + '_model_Ep' + str(epoch) + '.pt'
+    # model_path = os.path.join(config['output_dir'], model_name)
+    # try:
+    #     self.model_dict[model] = torch.load(model_path).to(self.config['device']) 
+    # except:
+    #     raise FileNotFoundError(f"Model file {model_path} was not found. Check that epochs and hydro models in your config are correct.")
+
+    # # Construct the path where the model is saved
+    # model_file_name = f"{model_name}_epoch_{epoch}.pth"
+    # model_path = os.path.join(config['model_dir'], model_file_name)
     
-    # Ensure the model file exists
-    if not os.path.isfile(model_path):
-        raise FileNotFoundError(f"Model file '{model_path}' not found.")
+    # # Ensure the model file exists
+    # if not os.path.isfile(model_path):
+    #     raise FileNotFoundError(f"Model file '{model_path}' not found.")
     
-    return torch.load(model_path)
+    # return torch.load(model_path)
     
     # Retrieve the model class from config (assuming it's stored in the config)
     # model_class = config['model_classes'][model_name]
@@ -210,8 +218,8 @@ def show_args(config) -> None:
     print()
 
     print("\033[1m" + "Data Loader" + "\033[0m")
-    print(f'  {"Data:":<20}{config.forcings:<20}')
-    print(f'  {"Data Source:":<20}{Path(config.forcings).name:<20}')
+    print(f'  {"Data:":<20}{config.observations.name:<20}')
+    print(f'  {"Data Source:":<20}{Path(config.observations.name).name:<20}')
     # print(f'  {"Checkpoints:":<20}{config.checkpoints:<20}')
     print()
 

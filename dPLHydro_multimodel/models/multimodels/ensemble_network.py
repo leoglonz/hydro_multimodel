@@ -18,24 +18,43 @@ class EnsembleWeights(torch.nn.Module):
         self.name = 'Ensemble Weighting Network'
         self._init_model()
         self.range_bound_loss = RangeBoundLoss(config)
-    
+
     def _init_model(self):
         """
         Initialize LSTM.
         """
-        self.get_nn_model_dim()
-
-        self.lstm = CudnnLstmModel(nx=self.nx,
-                                      ny=self.ny,
-                                      hiddenSize=self.config['weighting_nn']['hidden_size'],
-                                      dr=self.config['weighting_nn']['dropout']
-                                      ).to(self.config['device'])
-        # self.optim = torch.optim.Adadelta(self.lstm.parameters()) 
-        # Save model parameters to pass to optimizer
-        self.model_params = self.lstm.parameters()
-        self.lstm.zero_grad()
-        self.lstm.train()
+        if self.config['use_checkpoint']:
+            # Reinitialize trained model to continue training.
+            load_path = self.config['checkpoint']['weighting_nn']
+            self.lstm = torch.load(load_path).to(self.config['device'])
+            self.model_params = self.lstm.parameters()
+            self.lstm.zero_grad()
+            self.lstm.train()
+        
+        elif self.config['mode'] == 'test':
+            self.load_model('wtNN')
+        else:
+            self.get_nn_model_dim()
+            self.lstm = CudnnLstmModel(nx=self.nx,
+                                        ny=self.ny,
+                                        hiddenSize=self.config['weighting_nn']['hidden_size'],
+                                        dr=self.config['weighting_nn']['dropout']
+                                        ).to(self.config['device'])
+            # self.optim = torch.optim.Adadelta(self.lstm.parameters()) 
+            # Save model parameters to pass to optimizer
+            self.model_params = self.lstm.parameters()
+            self.lstm.zero_grad()
+            self.lstm.train()
     
+    def load_model(self, model) -> None:
+        import os
+        model_name = str(model) + '_model_Ep' + str(self.config['epochs']) + '.pt'
+        model_path = os.path.join(self.config['output_dir'], model_name)
+        try:
+            self.model_dict[model] = torch.load(model_path).to(self.config['device']) 
+        except:
+            raise FileNotFoundError(f"Model file {model_path} was not found.")
+        
     def init_loss_func(self, obs) -> None:
         self.loss_func = get_loss_func(self.config['weighting_nn'], obs)
         self.loss_func = self.loss_func.to(self.config['device'])

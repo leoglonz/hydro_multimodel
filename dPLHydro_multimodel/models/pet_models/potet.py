@@ -43,10 +43,10 @@ def potet_hargreaves(tmin, tmax, tmean, lat, day_of_year):
 
 
 def get_potet(args, **kwargs):
-    if args["potet_module"] == "potet_hamon":
+    if args["pet_module"] == "potet_hamon":
         PET = potet_hamon(kwargs["mean_air_temp"], kwargs["dayl"], kwargs["hamon_coef"])
-    elif args["potet_module"] == "potet_pm":
+    elif args["pet_module"] == "potet_pm":
         print("this PET method is not ready yet")
-    elif args["potet_module"] == "potet_hargreaves":
+    elif args["pet_module"] == "potet_hargreaves":
         PET = potet_hargreaves(kwargs["tmin"], kwargs["tmax"], kwargs["tmean"], kwargs["lat"], kwargs["day_of_year"])
     return PET

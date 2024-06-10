@@ -284,20 +284,20 @@ class prms_marrmot_gw0(torch.nn.Module):
 
         Ndays, Ngrid = Precip.shape[0], Precip.shape[1]
 
-        if args["potet_module"] == "potet_hamon":
+        if args["pet_module"] == "potet_hamon":
             # dayl = (x_hydro_model[warm_up:, :, vars.index("dayl(s)")].unsqueeze(-1).repeat(1, 1, nmul))
             # PET = get_potet(args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef)     # mm/day
             raise NotImplementedError
-        elif args["potet_module"] == "potet_hargreaves":
+        elif args["pet_module"] == "potet_hargreaves":
             day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(Precip.shape[0], 1, nmul)
             PET = get_potet(args=args, tmin=Tminf, tmax=Tmaxf,
                             tmean=mean_air_temp, lat=lat,
                             day_of_year=day_of_year)
             # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
-        elif args["potet_module"] == "dataset":
+        elif args["pet_module"] == "dataset":
             # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args["potet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
+            PET = x_hydro_model[warm_up:, :, vars.index(args["pet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
         # AET = PET_coef * PET
         # initialize the Q_sim and other fluxes
         Q_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
