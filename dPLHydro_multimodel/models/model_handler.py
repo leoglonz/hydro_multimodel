@@ -43,7 +43,7 @@ class modelHandler(torch.nn.Module):
                 self.model_dict[mod].zero_grad()
                 self.model_dict[mod].train()
             self.init_optimizer()
-        elif self.config['mode'] == 'test':
+        elif self.config['mode'] in ['test', 'test_bmi']:
             for mod in self.config['hydro_models']:
                 self.load_model(mod)
         else:

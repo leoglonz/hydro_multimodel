@@ -17,6 +17,7 @@ class dPLHydroModel(torch.nn.Module):
     """
     def __init__(self, config, model_name):
         super(dPLHydroModel, self).__init__()
+        #TODO: remove dependence on model_name and simply fix this variable using the config, or make it optional if multimodel.
         self.config = config
         self.model_name = model_name 
         self._init_model()

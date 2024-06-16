@@ -5,16 +5,20 @@ from models.differentiable_model import dPLHydroModel
 
 
 
-class BmiHeat(Bmi):
-
-    """Solve the heat equation for a 2D plate."""
+class BMIdPLHydroModel(Bmi):
+    """
+    Run forward for a trained differentiable hydrology model.
+    """
 
     _name = "Differentiable Hydrology Model"
     _input_var_names = ("plate_surface__temperature",)
     _output_var_names = ("plate_surface__temperature",)
 
-    def __init__(self, cfg:None, verbose=False):
-        self.cfg = cfg
+    def __init__(self, verbose=False):
+        """
+        Create a dPLHydro model BMI ready for initialization.
+        """
+        super(BMIdPLHydroModel, self).__init__()
         self._model = None
         self._initialized = False
         self._values = {}
@@ -26,6 +30,9 @@ class BmiHeat(Bmi):
         self._start_time = 0.0
         self._end_time = np.finfo("d").max
         self._time_units = "s"
+
+        self.verbose = verbose
+
 
         # # ________________________________________________
         # # Required, static attributes of the model
@@ -84,7 +91,7 @@ class BmiHeat(Bmi):
 
     def initialize(self, filename=None):
         """
-        Initialize the hydrology model.
+        (Control function) Initialize the dPLHydro model.
 
         Parameters
         ----------
@@ -96,8 +103,22 @@ class BmiHeat(Bmi):
         self._input_data = self.load_input_data(self.cfg['input_data_path'])
         self._current_time = 0.0
 
+        # Set configurations.
+        if filename is None:
+            raise NotImplementedError("Config file is required to initialize dPLHydro model.")
+        elif isinstance(filename, str):
+            with open(filename, 'r') as config:
+                self.self._model = dPLHydroModel(config)
+        else:
+            raise ValueError(f"{filename} must be name or path to configuration file.")
+
     def update(self):
-        """Advance model by one time step."""
+        """
+        Advance model state by one time step.
+
+        Perform all tasks that take place within one pass through the model's
+        time loop.
+        """
         # self._model.advance_in_time()
         self.advance_in_time()
 

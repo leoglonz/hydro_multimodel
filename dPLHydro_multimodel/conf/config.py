@@ -39,6 +39,8 @@ class ModeEnum(str, Enum):
     test = "test"
     train_test = "train_test"
     train_wts_only = "train_wts_only"
+    test_bmi = "test_bmi"
+
 
 
 class InitalizationEnum(str, Enum):

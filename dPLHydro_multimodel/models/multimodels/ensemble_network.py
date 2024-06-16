@@ -32,8 +32,8 @@ class EnsembleWeights(torch.nn.Module):
             self.lstm.zero_grad()
             self.lstm.train()
         
-        elif self.config['mode'] == 'test':
-            self.lstm = self.load_model('wtNN')
+        elif self.config['mode'] in ['test', 'test_bmi']:
+            self.load_model('wtNN')
         else:
             self.get_nn_model_dim()
             self.lstm = CudnnLstmModel(nx=self.nx,
@@ -51,12 +51,9 @@ class EnsembleWeights(torch.nn.Module):
         import os
         model_name = str(model) + '_model_Ep' + str(self.config['epochs']) + '.pt'
         model_path = os.path.join(self.config['output_dir'], model_name)
-
-        print(model_path)
         
-        self.model_dict = dict()
         try:
-            self.model_dict[model] = torch.load(model_path).to(self.config['device']) 
+            self.lstm = torch.load(model_path).to(self.config['device']) 
         except:
             raise FileNotFoundError(f"Model file {model_path} was not found.")
         
