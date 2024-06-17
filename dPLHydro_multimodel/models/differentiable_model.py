@@ -17,40 +17,42 @@ class dPLHydroModel(torch.nn.Module):
     """
     def __init__(self, config, model_name):
         super(dPLHydroModel, self).__init__()
+        #TODO: remove dependence on model_name and simply fix this variable using the config, or make it optional if multimodel.
         self.config = config
         self.model_name = model_name 
-        self.get_model()
+        self._init_model()
 
-    def get_model(self) -> None:
+    def _init_model(self):
         # hydro_model_initialization
-        if self.model_name == 'marrmot_PRMS':
+        if self.model_name == 'HBV':
+            self.hydro_model = HBVMul(self.config)
+        elif self.model_name == 'marrmot_PRMS':
             self.hydro_model = prms_marrmot()
         elif self.model_name == 'marrmot_PRMS_gw0':
             self.hydro_model = prms_marrmot_gw0()
-        elif self.model_name == 'HBV':
-            self.hydro_model = HBVMul(self.config)
         elif self.model_name == 'SACSMA':
             self.hydro_model = SACSMAMul()
         elif self.model_name == 'SACSMA_with_snow':
             self.hydro_model = SACSMA_snow_Mul()
         else:
-            raise ValueError(self.model_name, "is not a valid hydrology model.")
-    
+            raise ValueError(self.model_name, "is not a valid hydrology model. \
+                             Supported models are HBV, marrmot_PRMS, marrmot_PRMS_gw0, SACSMA, SACSMA_with_snow")
+
         # Get dim of NN model based on hydro model
         self.get_nn_model_dim()
         # NN_model_initialization
-        if self.config['nn_model'] == 'LSTM':
+        if self.config['pnn_model'] == 'LSTM':
             self.NN_model = CudnnLstmModel(nx=self.nx,
                                            ny=self.ny,
                                            hiddenSize=self.config['hidden_size'],
                                            dr=self.config['dropout'])
-        elif self.config['nn_model'] == 'MLP':
+        elif self.config['pnn_model'] == 'MLP':
             self.NN_model = MLPmul(self.args, nx=self.nx, ny=self.ny)
         else:
-            raise ValueError(self.config['nn_model'], "is not a valid neural network type.")
+            raise ValueError(self.config['pnn_model'], "is not a valid neural network type.")
 
     def get_nn_model_dim(self) -> None:
-        self.nx = len(self.config['var_t_nn'] + self.config['var_c_nn'])
+        self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
 
         # output size of NN
         if self.config['routing_hydro_model'] == True:
@@ -59,7 +61,7 @@ class dPLHydroModel(torch.nn.Module):
         else:
             self.ny = self.args['nmul'] * len(self.hydro_model.parameters_bound)
 
-    def breakdown_params(self, params_all):
+    def breakdown_params(self, params_all) -> None:
         params_dict = dict()
         params_hydro_model = params_all[:, :, :self.ny]
 
@@ -76,7 +78,13 @@ class dPLHydroModel(torch.nn.Module):
             params_dict['conv_params_hydro'] = None
         return params_dict
 
-    def forward(self, dataset_dict_sample):
+    def forward(self, dataset_dict_sample) -> None:
+        ### Temporary mappings to run a legacy model.
+        self.config['pet_module'] = 'dataset'
+        self.config['pet_dataset_name'] = 'PET_hargreaves(mm/day)'
+        self.config['pnn_model'] = 'LSTM'
+        ### ------- ###
+
         params_all = self.NN_model(dataset_dict_sample['inputs_nn_scaled'])
 
         # Breaking down params into different pieces for different models (PET, hydro)
@@ -102,3 +110,4 @@ class dPLHydroModel(torch.nn.Module):
                 torch.sum(flow_out['flow_sim'], dim=0) + 0.00001))[:, 0]
         
         return flow_out
+    

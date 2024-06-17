@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 
-class TestModel:
+class TestBMIModel:
     """
     High-level multimodel testing handler; retrieves and formats testing data,
     initializes all individual models, and runs testing.

@@ -1,29 +1,33 @@
+###
+# Written by Farshid Rahmani,Penn State University
 import torch
 import torch.nn.functional as F
 from models.pet_models.potet import get_potet
 
 
 class SACSMA_snow_Mul(torch.nn.Module):
-    """HBV Model with multiple components and dynamic parameters PyTorch version"""
-    # Add an ET shape parameter for the original ET equation; others are the same as HBVMulTD()
-    # we suggest you read the class HBVMul() with original static parameters first
-
+    """
+    SAC-SMA with Snow Model Pytorch version (dynamic and static param capable) from dPL_Hydro_SNTEMP @ Farshid Rahmani.
+    
+    TODO: Add an ET shape parameter for the original ET equation; others are the same as HBVMulTD().
+    We suggest you read the class HBVMul() with original static parameters first.
+    """
     def __init__(self):
         """Initiate a HBV instance"""
         super(SACSMA_snow_Mul, self).__init__()
         self.parameters_bound = dict(pctim=[0.0, 1.0],
-                                     smax=[1, 2000],
+                                     smax=[1, 3000],
                                      f1=[0.005, 0.995],
                                      f2=[0.005, 0.995],
                                      kuz=[0.0, 1],
-                                     rexp=[0.0, 7],
+                                     rexp=[0.0, 8],
                                      f3=[0.005, 0.995],
                                      f4=[0.005, 0.995],
                                      pfree=[0, 1],
                                      klzp=[0, 1],
                                      klzs=[0, 1],
-                                     parTT=[-2.5, 2.5],
-                                     parCFMAX=[0.5, 10],
+                                     parTT=[-3.0, 3.0],
+                                     parCFMAX=[0.4, 12],
                                      parCFR=[0, 0.1],
                                      parCWH=[0, 0.2]
                                      )
@@ -280,22 +284,23 @@ class SACSMA_snow_Mul(torch.nn.Module):
             params_dict_raw[param] = self.change_param_range(param=params_raw[:, :, num, :],
                                                              bounds=self.parameters_bound[param])
 
-        vars = args["var_t_hydro_model"]
-        vars_c = args["var_c_hydro_model"]
+        vars = args['observations']["var_t_hydro_model"]
+        vars_c = args['observations']["var_c_hydro_model"]
         P = x_hydro_model[warm_up:, :, vars.index("prcp(mm/day)")]
         Pm = P.unsqueeze(2).repeat(1, 1, nmul)
-        Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)
-        Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(2).repeat(1, 1, nmul)
-        mean_air_temp = (Tmaxf + Tminf) / 2
+        mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(2).repeat(1, 1, nmul)
 
-        if args["potet_module"] == "potet_hamon":
-            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
-            PET = get_potet(
-                args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
-            )  # mm/day
-        elif args["potet_module"] == "potet_hargreaves":
+        if args["pet_module"] == "potet_hamon":
+            # # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
+            # PET = get_potet(
+            #     args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
+            # )  # mm/day
+            raise NotImplementedError
+        elif args["pet_module"] == "potet_hargreaves":
             day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
+            Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)
+            Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(2).repeat(1, 1, nmul)
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
             #                                   nmul=args["nmul"])
 
@@ -305,17 +310,26 @@ class SACSMA_snow_Mul(torch.nn.Module):
                 day_of_year=day_of_year
             )
             # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
-        elif args["potet_module"] == "dataset":
+        elif args["pet_module"] == "dataset":
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
             #                                 nmul=args["nmul"])
             # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args["potet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
+            PET = x_hydro_model[warm_up:, :, vars.index(args["pet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
             # AET = PET_coef * PET
         Q_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
         srflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
         ssflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
         gwflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
         AET = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        tosoil_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        PC_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        pcfw_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        pctw_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        pcfws_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        twexls_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        twexlp_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        Rls_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
+        Rlp_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
@@ -405,6 +419,9 @@ class SACSMA_snow_Mul(torch.nn.Module):
             flux_Rlp = torch.min(flux_Rlp, LZFWP_storage)
             LZFWP_storage = torch.clamp(LZFWP_storage - flux_Rlp, min=0.0001)
             LZTW_storage = LZTW_storage + flux_Rlp
+            ## if LZTW_storage > lztwm, we add the extra to flux_twexl
+            flux_twexl = torch.clamp(LZTW_storage - lztwm, min=0.0)
+            LZTW_storage = torch.clamp(LZTW_storage - flux_twexl, min=0.0001)
 
             flux_Rls = torch.where((LZTW_storage / lztwm) < ((LZFWP_storage + LZFWS_storage) / (lzfwpm + lzfwsm)),
                                    lzfwsm * (Rl_nominator / Rl_denominator),
@@ -417,8 +434,8 @@ class SACSMA_snow_Mul(torch.nn.Module):
             flux_Pctw = (1 - params_dict["pfree"]) * flux_Pc
             flux_Pcfw = params_dict["pfree"] * flux_Pc
             LZTW_storage = LZTW_storage + flux_Pctw
-
-            flux_twexl = torch.clamp(LZTW_storage - lztwm, min=0.0)
+            ## this is the second time I added the extra water to flux_twexl
+            flux_twexl = flux_twexl + torch.clamp(LZTW_storage - lztwm, min=0.0)
             LZTW_storage = torch.clamp(LZTW_storage - flux_twexl, min=0.0001)
             flux_Elztw = torch.where((LZTW_storage > 0.0) & (Ep > flux_Euztw + flux_Euzfw),
                                      (Ep - flux_Euztw - flux_Euzfw) * (LZTW_storage / (uztwm + lztwm)),
@@ -426,17 +443,17 @@ class SACSMA_snow_Mul(torch.nn.Module):
             flux_Elztw = torch.min(flux_Elztw, LZTW_storage)
             LZTW_storage = torch.clamp(LZTW_storage - flux_Elztw, min=0.0001)
 
-            flux_Pcfwp = ((lzfwpm - LZFWP_storage) / (lzfwpm * (((lzfwpm - LZFWP_storage) / lzfwpm) + (
-                        (lzfwsm - LZFWS_storage) / lzfwsm) + 0.0001))) * flux_Pcfw
-            flux_twexlp = ((lzfwpm - LZFWP_storage) / (lzfwpm * (((lzfwpm - LZFWP_storage) / lzfwpm) + (
-                        (lzfwsm - LZFWS_storage) / lzfwsm) + 0.0001))) * flux_twexl
+            flux_Pcfwp = torch.clamp(((lzfwpm - LZFWP_storage) / (lzfwpm * (((lzfwpm - LZFWP_storage) / lzfwpm) + (
+                        (lzfwsm - LZFWS_storage) / lzfwsm) + 0.0001))) * flux_Pcfw, min=0.0)
+            flux_twexlp = torch.clamp(((lzfwpm - LZFWP_storage) / (lzfwpm * (((lzfwpm - LZFWP_storage) / lzfwpm) + (
+                        (lzfwsm - LZFWS_storage) / lzfwsm) + 0.0001))) * flux_twexl, min=0.0)
             LZFWP_storage = LZFWP_storage + flux_Pcfwp + flux_twexlp
             flux_Qbfp = params_dict["klzp"] * LZFWP_storage
             LZFWP_storage = torch.clamp(LZFWP_storage - flux_Qbfp, min=0.0001)
             extra_LZFWP = torch.clamp(LZFWP_storage - lzfwpm, min=0.0)
             LZFWP_storage = torch.clamp(LZFWP_storage - extra_LZFWP,
                                         min=0.0001)  # I added this to make the storage not to exceed the max
-            # just to make sure LZFWP_storage is always smaller than lzfwpm
+            # just to make sure LZFWP_storage is always smaller than lzfwpm. we need it to calculate flux_twexls
             LZFWP_storage = torch.where(LZFWP_storage >= lzfwpm,
                                         lzfwpm - 0.0001,
                                         LZFWP_storage)
@@ -464,6 +481,15 @@ class SACSMA_snow_Mul(torch.nn.Module):
             ssflow_sim[t, :, :] = flux_Qint
             gwflow_sim[t, :, :] = flux_Qbfp + flux_Qbfs
             AET[t, :, :] = flux_Euztw + flux_Euzfw + flux_Elztw
+            tosoil_sim[t, :, :] = tosoil
+            PC_sim[t, :, :] = flux_Pc
+            pcfw_sim[t, :, :] = flux_Pcfw
+            pctw_sim[t, :, :] = flux_Pctw
+            pcfws_sim[t, :, :] = flux_Pcfws
+            twexls_sim[t, :, :] = flux_twexls
+            twexlp_sim[t, :, :] = flux_twexlp
+            Rlp_sim[t, :, :] = flux_Rlp
+            Rls_sim[t, :, :] = flux_Rls
 
         if routing == True:
             tempa = self.change_param_range(param=conv_params_hydro[:, 0],
@@ -507,4 +533,13 @@ class SACSMA_snow_Mul(torch.nn.Module):
                         srflow_no_rout=srflow_sim.mean(-1, keepdim=True),
                         ssflow_no_rout=ssflow_sim.mean(-1, keepdim=True),
                         gwflow_no_rout=gwflow_sim.mean(-1, keepdim=True),
+                        tosoil=tosoil_sim.mean(-1, keepdim=True),
+                        flux_pc=PC_sim.mean(-1, keepdim=True),
+                        flux_pcfw=pcfw_sim.mean(-1, keepdim=True),
+                        flux_pctw=pctw_sim.mean(-1, keepdim=True),
+                        flux_pcfws=pcfws_sim.mean(-1, keepdim=True),
+                        flux_twexlp=twexlp_sim.mean(-1, keepdim=True),
+                        flux_twexls=twexls_sim.mean(-1, keepdim=True),
+                        flux_Rlp=Rlp_sim.mean(-1, keepdim=True),
+                        flux_Rls=Rls_sim.mean(-1, keepdim=True),
                         )

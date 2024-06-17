@@ -4,10 +4,12 @@ from models.pet_models.potet import get_potet
 
 
 class SACSMAMul(torch.nn.Module):
-    """HBV Model with multiple components and dynamic parameters PyTorch version"""
-    # Add an ET shape parameter for the original ET equation; others are the same as HBVMulTD()
-    # we suggest you read the class HBVMul() with original static parameters first
-
+    """
+    SAC-SMA Model Pytorch version (dynamic and static param capable) from dPL_Hydro_SNTEMP @ Farshid Rahmani.
+    
+    TODO: Add an ET shape parameter for the original ET equation; others are the same as HBVMulTD().
+    We suggest you read the class HBVMul() with original static parameters first.
+    """
     def __init__(self):
         """Initiate a HBV instance"""
         super(SACSMAMul, self).__init__()
@@ -26,6 +28,7 @@ class SACSMAMul(torch.nn.Module):
             [0, 2.9],  # routing parameter a
             [0, 6.5]  # routing parameter b
         ]
+
     def split_1(self, p1, In):
         """
         Split flow (returns flux [mm/d])
@@ -277,12 +280,13 @@ class SACSMAMul(torch.nn.Module):
         Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(2).repeat(1, 1, nmul)
         mean_air_temp = (Tmaxf + Tminf) / 2
 
-        if args["potet_module"] == "potet_hamon":
-            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
-            PET = get_potet(
-                args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
-            )  # mm/day
-        elif args["potet_module"] == "potet_hargreaves":
+        if args["pet_module"] == "potet_hamon":
+            # # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
+            # PET = get_potet(
+            #     args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
+            # )  # mm/day
+            raise NotImplementedError
+        elif args["pet_module"] == "potet_hargreaves":
             day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
@@ -294,11 +298,11 @@ class SACSMAMul(torch.nn.Module):
                 day_of_year=day_of_year
             )
             # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
-        elif args["potet_module"] == "dataset":
+        elif args["pet_module"] == "dataset":
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
             #                                 nmul=args["nmul"])
             # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args["potet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
+            PET = x_hydro_model[warm_up:, :, vars.index(args["pet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
             # AET = PET_coef * PET
         Q_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
         srflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])

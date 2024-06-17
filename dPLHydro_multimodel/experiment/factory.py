@@ -3,15 +3,16 @@ from pathlib import Path
 from typing import Dict
 
 from conf.config import Config
-# from data.all_edges_dataset import AllEdgesDataset
-from data.general_dataset import GeneralDataset
 from data.temporally_batched_dataset import TemporallyBatchedDataset
 from data.utils import determine_proc_zone, format_gage_data
-from data.utils.Dates import Dates
 from data.utils.Dropout import Dropout
 from injector import Module, multiprovider, provider
 from models.hydro_models import PhysicsModel
 from models.neural_networks import NeuralNetwork
+
+# from data.all_edges_dataset import AllEdgesDataset
+from dPLHydro_multimodel.data.general_dataset import GeneralDataset
+from dPLHydro_multimodel.utils.Dates import Dates
 
 log = logging.getLogger(__name__)
 
@@ -68,14 +69,14 @@ class Factory(Module):
         data = TemporallyBatchedDataset(**self.dataset_inputs)
         return data
 
-    @provider
-    def provide_simulation_dataset(self, cfg: Config) -> AllEdgesDataset:
-        self.dataset_inputs["cfg"] = cfg
-        self.dataset_inputs["dates"] = Dates(**cfg.simulation.model_dump())
-        self.dataset_inputs["observations"] = None
-        self.dataset_inputs["dropout"] = None
-        data = AllEdgesDataset(**self.dataset_inputs)
-        return data
+    # @provider
+    # def provide_simulation_dataset(self, cfg: Config) -> AllEdgesDataset:
+    #     self.dataset_inputs["cfg"] = cfg
+    #     self.dataset_inputs["dates"] = Dates(**cfg.simulation.model_dump())
+    #     self.dataset_inputs["observations"] = None
+    #     self.dataset_inputs["dropout"] = None
+    #     data = AllEdgesDataset(**self.dataset_inputs)
+    #     return data
 
     @multiprovider
     def provide_network(self, cfg: Config) -> Dict[str, NeuralNetwork]:

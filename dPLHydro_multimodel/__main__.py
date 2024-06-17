@@ -1,5 +1,5 @@
 """
-Use this script to run multimodel training/testing.
+Use this script interfaces with experiment (train/test) scripts.
 """
 
 import logging
@@ -9,12 +9,12 @@ from typing import Any, Dict, Union
 import hydra
 import torch
 from conf.config import Config, ModeEnum
+from core.utils import (create_output_dirs, randomseed_config, set_system_spec,
+                        show_args)
 from experiment import build_handler
 from experiment.experiment_tracker import ExperimentTracker
 from omegaconf import DictConfig, OmegaConf
-from pydantic import ConfigDict, ValidationError
-from utils.master import create_output_dirs
-from utils.utils import set_globals, set_platform_dir
+from pydantic import ValidationError
 
 log = logging.getLogger(__name__)
 
@@ -30,48 +30,47 @@ def main(cfg: DictConfig) -> None:
         start_time = time.perf_counter()
 
         # Injest config yaml.
-        ## Temporarily used config dictionary until validation code is done.
+        # *For now, use config_dict for better readability.
         config, config_dict = initialize_config(cfg)
         experiment_tracker = ExperimentTracker(cfg=config)
 
-        # Set device, dtype, and model save path.
-        set_globals()
-        config.output_dir = set_platform_dir(config.output_dir)
+        # Set device, dtype, output dirs, and randomseed.
+        randomseed_config()
+        config.device, config.dtype = set_system_spec(config.gpu_id)
         config_dict = create_output_dirs(config_dict)
 
         experiment_name = config.mode
         log.info(f"RUNNING MODE: {config.mode}")
+        show_args(config)
 
-        # if config.mode == ModeEnum.train_test:
-        #     # Run training and testing together.
-        #     # Train:
-        #     config.mode = ModeEnum.train
-        #     train_experiment_handler = build_handler(config)
-        #     train_experiment_handler.run(config, experiment_tracker)
+        if config.mode == ModeEnum.train_test:
+            # Run training and testing together.
+            # Train:
+            config.mode = ModeEnum.train
+            train_experiment_handler = build_handler(config, config_dict)
+            train_experiment_handler.run(experiment_tracker=experiment_tracker)
 
-        #     # Test: (first transfer weights)
-        #     config.mode = ModeEnum.test
-        #     test_experiment_handler = build_handler(config)
-        #     test_experiment_handler.neural_networks = (
-        #         train_experiment_handler.neural_networks
-        #     )
-        #     test_experiment_handler.run(config, experiment_tracker)
+            # Test: (first transfer weights)
+            config.mode = ModeEnum.test
+            test_experiment_handler = build_handler(config, config_dict)            
+            test_experiment_handler.dplh_model_handler = train_experiment_handler.dplh_model_handler
+            if config_dict['ensemble_type'] != 'none':
+                test_experiment_handler.ensemble_lstm = train_experiment_handler.ensemble_lstm
 
-        # else:
-        #     # Run either training or testing. 
-        #     experiment_handler = build_handler(config, config_dict)
-        #     experiment_handler.run(experiment_tracker=experiment_tracker)
+            test_experiment_handler.run(experiment_tracker=experiment_tracker)
 
-        # print(config_dict)
-        from utils.utils import print_args
-        print_args(config)
+        else:
+            # Run training, testing, etc.-
+            experiment_handler = build_handler(config, config_dict)
+            experiment_handler.run(experiment_tracker=experiment_tracker)
 
-
+        torch.cuda.empty_cache()
         total_time = time.perf_counter() - start_time
         log.info(
             f"| {experiment_name} completed | "
             f"Time Elapsed : {(total_time / 60):.6f} minutes"
         ) 
+
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Cleaning up...")
         torch.cuda.empty_cache()
@@ -79,7 +78,7 @@ def main(cfg: DictConfig) -> None:
 
 def initialize_config(cfg: DictConfig) -> Config:
     """
-    Convert config into a dictionary, and a Config object for validation.
+    Convert config into a dictionary and a Config object for validation.
     """
     try:
         config_dict: Union[Dict[str, Any], Any] = OmegaConf.to_container(
@@ -89,7 +88,6 @@ def initialize_config(cfg: DictConfig) -> Config:
     except ValidationError as e:
         log.exception(e)
         raise e
-   
     return config, config_dict
 
 

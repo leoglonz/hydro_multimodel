@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import torch
 # from functorch import vmap, jacrev, jacfwd, vjp
@@ -6,6 +8,9 @@ from models.pet_models.potet import get_potet
 
 
 class prms_marrmot_gw0(torch.nn.Module):
+    """
+    HBV Model Pytorch version (dynamic and static param capable) from dPL_Hydro_SNTEMP @ Farshid Rahmani.
+    """
     def __init__(self):
         super(prms_marrmot_gw0, self).__init__()
         self.sigmoid = torch.nn.Sigmoid()
@@ -68,6 +73,7 @@ class prms_marrmot_gw0(torch.nn.Module):
         # ssflow = torch.clamp(ssflow, min=0.0)
         # gwflow = torch.clamp(gwflow, min=0.0)
         return srflow, ssflow, gwflow, bas_shallow
+    
     def multi_comp_semi_static_params(
         self, params, param_no, args, interval=30, method="average"
     ):
@@ -155,7 +161,6 @@ class prms_marrmot_gw0(torch.nn.Module):
             )
         return out
 
-
     def UH_gamma(self, a, b, lenF=10):
         # UH. a [time (same all time steps), batch, var]
         m = a.shape
@@ -235,7 +240,6 @@ class prms_marrmot_gw0(torch.nn.Module):
                                                             warm_up=0, init=True, routing=False,
                                                             conv_params_hydro=None)
         else:
-
             # snow storage
             snow_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
                                        device=args["device"]) + 0.001
@@ -280,19 +284,20 @@ class prms_marrmot_gw0(torch.nn.Module):
 
         Ndays, Ngrid = Precip.shape[0], Precip.shape[1]
 
-        if args["potet_module"] == "potet_hamon":
-            dayl = (x_hydro_model[warm_up:, :, vars.index("dayl(s)")].unsqueeze(-1).repeat(1, 1, nmul))
-            PET = get_potet(args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef)     # mm/day
-        elif args["potet_module"] == "potet_hargreaves":
+        if args["pet_module"] == "potet_hamon":
+            # dayl = (x_hydro_model[warm_up:, :, vars.index("dayl(s)")].unsqueeze(-1).repeat(1, 1, nmul))
+            # PET = get_potet(args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef)     # mm/day
+            raise NotImplementedError
+        elif args["pet_module"] == "potet_hargreaves":
             day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(Precip.shape[0], 1, nmul)
             PET = get_potet(args=args, tmin=Tminf, tmax=Tmaxf,
                             tmean=mean_air_temp, lat=lat,
                             day_of_year=day_of_year)
             # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
-        elif args["potet_module"] == "dataset":
+        elif args["pet_module"] == "dataset":
             # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args["potet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
+            PET = x_hydro_model[warm_up:, :, vars.index(args["pet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
         # AET = PET_coef * PET
         # initialize the Q_sim and other fluxes
         Q_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])

@@ -38,6 +38,9 @@ class ModeEnum(str, Enum):
     train = "train"
     test = "test"
     train_test = "train_test"
+    train_wts_only = "train_wts_only"
+    test_bmi = "test_bmi"
+
 
 
 class InitalizationEnum(str, Enum):
@@ -191,28 +194,38 @@ class LossFunc(BaseModel):
     w1: float = 11.0
     w2: float = 1.0 
 
-class WeightingConfig(BaseModel):
-    wdropout: float
+
+class WeightingNNConfig(BaseModel):
+    dropout: float
     hidden_size: int
     loss_factor: int
     method: str
-    target: list
     loss_function: str
+    loss_lower_bound: float = 0.95
+    loss_upper_bound: float = 1.05
     loss_function_weights: LossFunc
+
+
+class Checkpoint(BaseModel):
+    start_epoch: int
+    HBV: str
+    marrmot_PRMS: str
+    SACSMA_with_snow: str
+    weighting_nn: str
 
 
 @dataclass
 class ObservationConfig:
     name: str = "not_defined"
     gage_info: str = "not_defined"
+    forcing_path: str = "not_defined"
     attr_path: str = "not_defined"
-    observations_path: str = "not_defined"
     var_t_NN: list = "not_defined"
     var_c_NN: list = "not_defined"
     var_t_hydro_model: list = "not_defined"
     var_c_hydro_model: list = "not_defined"
 
-    @field_validator("gage_info", "observations_path")
+    @field_validator('forcing_path', 'attr_path')
     @classmethod
     def validate_dir(cls, v: str) -> Union[Path, str]:
         if v == "not_defined":
@@ -220,21 +233,43 @@ class ObservationConfig:
         return check_path(v)
 
 
+# @dataclass
+# class LoadModelConfig:
+#     name: str = "not_defined"
+#     gage_info: str = "not_defined"
+#     attr_path: str = "not_defined"
+#     observations_path: str = "not_defined"
+#     var_t_NN: list = "not_defined"
+#     var_c_NN: list = "not_defined"
+#     var_t_hydro_model: list = "not_defined"
+#     var_c_hydro_model: list = "not_defined"
+
+#     @field_validator("gage_info", "observations_path")
+#     @classmethod
+#     def validate_dir(cls, v: str) -> Union[Path, str]:
+#         if v == "not_defined":
+#             return v
+#         return check_path(v)
+
+
 class Config(BaseModel):
+    observations: ObservationConfig
+
     mode: ModeEnum = Field(default=ModeEnum.train_test)
-    nn_model: str
+    pnn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
     ensemble_type: str
+    # train_wts_only: bool
     dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
-    
+
     random_seed: int = 0
     device: str = 'cpu'
     gpu_id: int = 0
+    dtype: str = ''
 
     routing_hydro_model: bool = True
-    forcings: str
-    potet_module: str
-    potet_dataset_name: str
+    pet_module: str
+    pet_dataset_name: str
     target: list
 
     loss_function: str
@@ -253,22 +288,24 @@ class Config(BaseModel):
     freeze: bool = True
     nearzero: float
 
-    weighting_nn: WeightingConfig
+    weighting_nn: WeightingNNConfig
 
-    n_basins: int
+    batch_basins: int
     save_epoch: int = 10
 
     name: str
     data_dir: str
     output_dir: str
+    use_checkpoint: bool
+    checkpoint: Checkpoint
 
-    gage_info: str = "not_defined"
-    attr_path: str = "not_defined"
-    observations_path: str = "not_defined"
-    var_t_NN: list = "not_defined"
-    var_c_NN: list = "not_defined"
-    var_t_hydro_model: list = "not_defined"
-    var_c_hydro_model: list = "not_defined"
+    # gage_info: str = "not_defined"
+    # attr_path: str = "not_defined"
+    # observations_path: str = "not_defined"
+    # var_t_NN: list = "not_defined"
+    # var_c_NN: list = "not_defined"
+    # var_t_hydro_model: list = "not_defined"
+    # var_c_hydro_model: list = "not_defined"
 
     def __init__(self, **data):
         super(Config, self).__init__(**data)
