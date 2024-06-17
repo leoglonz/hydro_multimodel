@@ -7,7 +7,7 @@ from models.differentiable_model import dPLHydroModel
 
 class BMIdPLHydroModel(Bmi):
     """
-    Run forward for a trained differentiable hydrology model.
+    Run forward with BMI for a trained differentiable hydrology model.
     """
 
     _name = "Differentiable Hydrology Model"
@@ -21,73 +21,12 @@ class BMIdPLHydroModel(Bmi):
         super(BMIdPLHydroModel, self).__init__()
         self._model = None
         self._initialized = False
-        self._values = {}
-        self._var_units = {}
-        self._var_loc = {}
-        self._grids = {}
-        self._grid_type = {}
 
         self._start_time = 0.0
         self._end_time = np.finfo("d").max
         self._time_units = "s"
 
         self.verbose = verbose
-
-
-        # # ________________________________________________
-        # # Required, static attributes of the model
-
-        # self._att_map = {
-        #     "model_name": "Conceptual Functional Equivalent (CFE)",
-        #     "version": "1.0",
-        #     "author_name": "Jonathan Martin Frame",
-        #     "grid_type": "scalar",
-        #     "time_step_size": 3600,
-        #     "time_units": "1 hour",
-        # }
-
-        # # ________________________________________________
-        # # Input variable names (CSDMS standard names)
-
-        # self._input_var_names = [
-        #     "atmosphere_water__time_integral_of_precipitation_mass_flux",
-        #     "water_potential_evaporation_flux",
-        # ]
-
-        # # ________________________________________________
-        # # Output variable names (CSDMS standard names)
-
-        # self._output_var_names = [
-        #     "land_surface_water__runoff_depth",
-        #     "land_surface_water__runoff_volume_flux",
-        #     "DIRECT_RUNOFF",
-        #     "GIUH_RUNOFF",
-        #     "NASH_LATERAL_RUNOFF",
-        #     "DEEP_GW_TO_CHANNEL_FLUX",
-        #     "SOIL_CONCEPTUAL_STORAGE",
-        # ]
-
-        # # ________________________________________________
-        # # Create a Python dictionary that maps CSDMS Standard
-        # # Names to the model's internal variable names.
-        # # This is going to get long,
-        # #     since the input variable names could come from any forcing...
-
-        # self._var_name_units_map = {
-        #     "land_surface_water__runoff_volume_flux": ["streamflow_cmh", "m3 h-1"],
-        #     "land_surface_water__runoff_depth": ["total_discharge", "m h-1"],
-        #     # --------------   Dynamic inputs --------------------------------
-        #     "atmosphere_water__time_integral_of_precipitation_mass_flux": [
-        #         "timestep_rainfall_input_m",
-        #         "m h-1",
-        #     ],
-        #     "water_potential_evaporation_flux": ["potential_et_m_per_s", "m s-1"],
-        #     "DIRECT_RUNOFF": ["surface_runoff_depth_m", "m"],
-        #     "GIUH_RUNOFF": ["flux_giuh_runoff_m", "m"],
-        #     "NASH_LATERAL_RUNOFF": ["flux_nash_lateral_runoff_m", "m"],
-        #     "DEEP_GW_TO_CHANNEL_FLUX": ["flux_from_deep_gw_to_chan_m", "m"],
-        #     "SOIL_CONCEPTUAL_STORAGE": ["soil_reservoir['storage_m']", "m"],
-        # }
 
     def initialize(self, filename=None):
         """
