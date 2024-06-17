@@ -10,6 +10,8 @@ class BMIdPLHydroModel(Bmi):
     Run forward with BMI for a trained differentiable hydrology model.
     """
 
+    "test"
+
     _name = "Differentiable Hydrology Model"
     _input_var_names = ("plate_surface__temperature",)
     _output_var_names = ("plate_surface__temperature",)
