@@ -1,22 +1,25 @@
-import numpy as np
-from bmipy import Bmi
-import yaml
-from models.differentiable_model import dPLHydroModel
+import logging
+from pathlib import Path
+from typing import Any, Dict, Union
 
+import numpy as np
+import yaml
+from bmipy import Bmi
+from conf.config import Config
+from models.model_handler import ModelHandler
+from omegaconf import DictConfig, OmegaConf
+from pydantic import ValidationError
+from core.data import take_sample_test
+
+import torch
+log = logging.getLogger(__name__)
 
 
 class BMIdPLHydroModel(Bmi):
     """
     Run forward with BMI for a trained differentiable hydrology model.
     """
-
-    "test"
-
-    _name = "Differentiable Hydrology Model"
-    _input_var_names = ("plate_surface__temperature",)
-    _output_var_names = ("plate_surface__temperature",)
-
-    def __init__(self, verbose=False):
+    def __init__(self):
         """
         Create a dPLHydro model BMI ready for initialization.
         """
@@ -25,61 +28,154 @@ class BMIdPLHydroModel(Bmi):
         self._initialized = False
 
         self._start_time = 0.0
-        self._end_time = np.finfo("d").max
-        self._time_units = "s"
+        self._values = {}
+        self._end_time = np.finfo(float).max
+        self.var_array_lengths = 1
 
-        self.verbose = verbose
+        # TODO: check how to implement gridding if necessary. see grid_type.
+        # Required, static attributes of the model
+        _att_map = {
+        'model_name':         "Hydrologic Differentiable Parameter Learning BMI",
+        'version':            '1.0',
+        'author_name':        'MHPI, Leo Lonzarich',
+        'grid_type':          'unstructured&uniform_rectilinear',
+        'time_units':         'days',
+               }
+        
+        # TODO: Assign variables and attributes + create map (maybe in initialize with config file.)
+        # Input variable names (CSDMS standard names)
+        _input_var_names = []
 
-    def initialize(self, filename=None):
+        # Output variable names (CSDMS standard names)
+        _output_var_names = []
+
+        # Map CSDMS Standard Names to the model's internal variable names.
+        _var_name_units_map = {
+            'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1'],
+            'land_surface_water__runoff_depth':['streamflow_m','m'],
+            #--------------   Dynamic inputs --------------------------------
+            #NJF Let the model assume equivalence of `kg m-2` == `mm h-1` since we can't convert
+            #mass flux automatically from the ngen framework
+            #'atmosphere_water__time_integral_of_precipitation_mass_flux':['total_precipitation','kg m-2'],
+            'atmosphere_water__liquid_equivalent_precipitation_rate':['total_precipitation','mm h-1'],
+            ## 'atmosphere_water__liquid_equivalent_precipitation_rate':['precip', 'mm h-1'], ##### SDP
+            ## 'atmosphere_water__time_integral_of_precipitation_mass_flux':['total_precipitation','mm h-1'],
+            'land_surface_radiation~incoming~longwave__energy_flux':['longwave_radiation','W m-2'],
+            'land_surface_radiation~incoming~shortwave__energy_flux':['shortwave_radiation','W m-2'],
+            'atmosphere_air_water~vapor__relative_saturation':['specific_humidity','kg kg-1'],
+            'land_surface_air__pressure':['pressure','Pa'],
+            'land_surface_air__temperature':['temperature','degC'],
+            'land_surface_wind__x_component_of_velocity':['wind_u','m s-1'],
+            'land_surface_wind__y_component_of_velocity':['wind_v','m s-1'],
+            #--------------   STATIC Attributes -----------------------------
+            'basin__area':['area_gages2','km2'],
+            'ratio__mean_potential_evapotranspiration__mean_precipitation':['aridity','-'],
+            'basin__carbonate_rocks_area_fraction':['carbonate_rocks_frac','-'],
+            'soil_clay__volume_fraction':['clay_frac','percent'],
+            'basin__mean_of_elevation':['elev_mean','m'],
+            'land_vegetation__forest_area_fraction':['frac_forest','-'],
+            'atmosphere_water__precipitation_falling_as_snow_fraction':['frac_snow','-'],
+            'bedrock__permeability':['geol_permeability','m2'],
+            'land_vegetation__max_monthly_mean_of_green_vegetation_fraction':['gvf_max','-'],
+            'land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction':['gvf_diff','-'],
+            'atmosphere_water__mean_duration_of_high_precipitation_events':['high_prec_dur','d'],
+            'atmosphere_water__frequency_of_high_precipitation_events':['high_prec_freq','d yr-1'],
+            'land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index':['lai_diff','-'],
+            'land_vegetation__max_monthly_mean_of_leaf-area_index':['lai_max','-'],
+            'atmosphere_water__low_precipitation_duration':['low_prec_dur','d'],
+            'atmosphere_water__precipitation_frequency':['low_prec_freq','d yr-1'],
+            'maximum_water_content':['max_water_content','m'],
+            'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate':['p_mean','mm d-1'],
+            'land_surface_water__daily_mean_of_potential_evaporation_flux':['pet_mean','mm d-1'],
+            'basin__mean_of_slope':['slope_mean','m km-1'],
+            'soil__saturated_hydraulic_conductivity':['soil_conductivity','cm hr-1'],
+            'soil_bedrock_top__depth__pelletier':['soil_depth_pelletier','m'],
+            'soil_bedrock_top__depth__statsgo':['soil_depth_statsgo','m'],
+            'soil__porosity':['soil_porosity','-'],
+            'soil_sand__volume_fraction':['sand_frac','percent'],
+            'soil_silt__volume_fraction':['silt_frac','percent'], 
+            'basin_centroid__latitude':['gauge_lat', 'degrees'],
+            'basin_centroid__longitude':['gauge_lon', 'degrees']
+            }
+
+        # A list of static attributes. Not all these need to be used.
+        _static_attributes_list = []
+
+    def initialize(self, config_name=None):
         """
-        (Control function) Initialize the dPLHydro model.
+        (BMI Control function) Initialize the dPLHydro model.
 
         Parameters
         ----------
-        filename : str, optional
-            Path to name of input file.
+        config_name : str, optional
+            Name of BMI configuration file.
         """
-        self._model = dPLHydroModel(self.cfg)
-        self._initialized = True
-        self._input_data = self.load_input_data(self.cfg['input_data_path'])
-        self._current_time = 0.0
+        # Read in BMI configurations.
+        if not isinstance(config_name, str) or len(config_name) == 0:
+            raise RuntimeError("No valid BMI configuration provided.")
 
-        # Set configurations.
-        if filename is None:
-            raise NotImplementedError("Config file is required to initialize dPLHydro model.")
-        elif isinstance(filename, str):
-            with open(filename, 'r') as config:
-                self.self._model = dPLHydroModel(config)
-        else:
-            raise ValueError(f"{filename} must be name or path to configuration file.")
+        bmi_config_file = Path(config_name).resolve()
+        if not bmi_config_file.is_file():
+            raise RuntimeError("No valid configuration provided.")
+
+        with bmi_config_file.open('r') as f:
+            config = yaml.safe_load(f)
+
+        # Initialize a configuration object.
+        self.bmi_config, self.bmi_config_dict = self.initialize_config(config)
+
+        # TODO: write up maps for these.
+        self._values = {}
+        self._var_units = {}
+        self._var_loc = {}
+        self._grids = {}
+        self._grid_type = {}
+
+        # Set a simulation start time.
+        self._current_time = self._start_time
+
+        # Set a timstep size.
+        self._time_step_size = self.bmi_config.time_step_delta
+
+        # Initialize a trained model.
+        self._model = ModelHandler(self.self.bmi_config).to(self.bmi_config.device)
+        self._initialized = True
+
+        # Intialize dataset.
+        self._get_data_dict()
 
     def update(self):
         """
-        Advance model state by one time step.
+        (BMI Control function) Advance model state by one time step.
+        *Note* Models should be trained standalone with dPLHydro_PMI first before forward predictions with this BMI.
 
         Perform all tasks that take place within one pass through the model's
         time loop.
         """
-        # self._model.advance_in_time()
-        self.advance_in_time()
+        self._current_time += self._time_step_size 
+        
+        self.get_tensor_slice()
 
-    # def update_frac(self, time_frac):
-    #     """
-    #     Update model by a fraction of a time step.
+        self.output = self._model.forward(self.input_tensor)
 
-    #     Parameters
-    #     ----------
-    #     time_frac : float
-    #         Fraction fo a time step.
-    #     """
-    #     time_step = self.get_time_step()
-    #     self._model.time_step = time_frac * time_step
-    #     self.update()
-    #     self._model.time_step = time_step
+    def update_frac(self, time_frac):
+        """Update model by a fraction of a time step.
+        Parameters
+        ----------
+        time_frac : float
+            Fraction fo a time step.
+        """
+        if self.verbose:
+            print("Warning: This model is trained to make predictions on one day timesteps.")
+        time_step = self.get_time_step()
+        self._time_step_size = time_frac * self._time_step_size
+        self.update()
+        self._time_step_size = time_step
 
     def update_until(self, then):
         """
-        Update model until a particular time.
+        (BMI Control function) Update model until a particular time.
+        *Note* Models should be trained standalone with dPLHydro_PMI first before forward predictions with this BMI.
 
         Parameters
         ----------
@@ -94,13 +190,58 @@ class BMIdPLHydroModel(Bmi):
 
     def finalize(self):
         """
-        Finalize model.
+        (BMI Control function) Finalize model.
         """
-        self.finalize_mass_balance(verbose=print_mass_balance)
-        self.reset_volume_tracking()
+        # TODO: Force destruction of ESMF and other objects when testing is done
+        # to save space.
 
         self._model = None
 
+    def get_tensor_slice(self):
+        """
+        Get tensor of input data for a single timestep.
+        """
+        sample_dict = take_sample_test(self.bmi_config, self.dataset_dict)
+        self.input_tensor = torch.Tensor()
+
+    def _get_data_dict(self):
+        from core.calc.normalize import trans_norm
+        from core.utils.Dates import Dates
+        from core.data.dataFrame_loading import load_data
+
+        log.info(f"Collecting testing data")
+
+        # Prepare training data.
+        self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
+        self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
+        self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
+
+        # Read data for the test time range
+        dataset_dict = load_data(self.config, trange=self.test_trange)
+
+        # Normalizatio ns
+        # init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
+        x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
+        c_nn_scaled = trans_norm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
+        c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
+        dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
+        del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
+        
+        # Convert numpy arrays to torch tensors
+        for key in dataset_dict.keys():
+            if type(dataset_dict[key]) == np.ndarray:
+                dataset_dict[key] = torch.from_numpy(dataset_dict[key]).float()
+        self.dataset_dict = dataset_dict
+
+        ngrid = dataset_dict['inputs_nn_scaled'].shape[1]
+        self.iS = np.arange(0, ngrid, self.config['batch_basins'])
+        self.iE = np.append(self.iS[1:], ngrid)
+
+
+
+
+    # ------------------ Finished up to here ------------------
+    # ---------------------------------------------------------
     def get_var_type(self, var_name):
         """
         Data type of variable.
@@ -330,10 +471,10 @@ class BMIdPLHydroModel(Bmi):
         return self._end_time
 
     def get_current_time(self):
-        return self._model.time
+        return self._current_time
 
     def get_time_step(self):
-        return self._model.time_step
+        return self._time_step_size
 
     def get_time_units(self):
         return self._time_units
@@ -379,3 +520,17 @@ class BMIdPLHydroModel(Bmi):
 
     def get_grid_z(self, grid, z):
         raise NotImplementedError("get_grid_z")
+
+    def initialize_config(cfg: DictConfig) -> Config:
+        """
+        Convert config into a dictionary and a Config object for validation.
+        """
+        try:
+            config_dict: Union[Dict[str, Any], Any] = OmegaConf.to_container(
+                cfg, resolve=True
+            )
+            config = Config(**config_dict)
+        except ValidationError as e:
+            log.exception(e)
+            raise e
+        return config, config_dict

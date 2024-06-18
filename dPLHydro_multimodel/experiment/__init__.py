@@ -2,10 +2,9 @@ import logging
 
 from conf.config import Config, ModeEnum
 from experiment.test import TestModel
+from experiment.test_bmi import TestBMIModel
 from experiment.train import TrainModel
 from experiment.train_wts_only import TrainWeightsModel
-from experiment.test_bmi import TestBMIModel
-
 
 # from experiment.factory import Factory
 # from experiment.test_handler import TestHandler

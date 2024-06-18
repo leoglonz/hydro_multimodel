@@ -5,7 +5,7 @@ from models.differentiable_model import dPLHydroModel
 from models.loss_functions.get_loss_function import get_loss_func
 
 
-class modelHandler(torch.nn.Module):
+class ModelHandler(torch.nn.Module):
     """
     Streamlines handling and instantiation of multiple differentiable hydrology
     models in parallel.
@@ -13,7 +13,7 @@ class modelHandler(torch.nn.Module):
     Also capable of running a single hydro model.
     """
     def __init__(self, config):
-        super(modelHandler, self).__init__()
+        super(ModelHandler, self).__init__()
         self.config = config
         self._init_models()
         

@@ -12,7 +12,7 @@ from core.data import no_iter_nt_ngrid, take_sample_train
 from core.data.dataFrame_loading import load_data
 from core.utils import save_model
 from core.utils.Dates import Dates
-from models.model_handler import modelHandler
+from models.model_handler import ModelHandler
 from models.multimodels.ensemble_network import EnsembleWeights
 
 log = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class TrainModel:
 
         # Initializing collection of differentiable hydrology models and their optimizers.
         # Training this object will parallel train all hydro models specified for ensemble.
-        self.dplh_model_handler = modelHandler(self.config).to(self.config['device'])
+        self.dplh_model_handler = ModelHandler(self.config).to(self.config['device'])
         # Initialize the weighting LSTM.
         if self.config['ensemble_type'] != 'none':
             self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
