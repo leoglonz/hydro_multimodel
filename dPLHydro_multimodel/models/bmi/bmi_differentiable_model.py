@@ -101,7 +101,7 @@ class BMIdPLHydroModel(Bmi):
         # A list of static attributes. Not all these need to be used.
         _static_attributes_list = []
 
-    def initialize(self, config_name=None):
+    def initialize(self, bmi_cfg_filepath=None):
         """
         (BMI Control function) Initialize the dPLHydro model.
 
@@ -111,10 +111,10 @@ class BMIdPLHydroModel(Bmi):
             Name of BMI configuration file.
         """
         # Read in BMI configurations.
-        if not isinstance(config_name, str) or len(config_name) == 0:
+        if not isinstance(bmi_cfg_filepath, str) or len(bmi_cfg_filepath) == 0:
             raise RuntimeError("No valid BMI configuration provided.")
 
-        bmi_config_file = Path(config_name).resolve()
+        bmi_config_file = Path(bmi_cfg_filepath).resolve()
         if not bmi_config_file.is_file():
             raise RuntimeError("No valid configuration provided.")
 
@@ -125,6 +125,7 @@ class BMIdPLHydroModel(Bmi):
         self.bmi_config, self.bmi_config_dict = self.initialize_config(config)
 
         # TODO: write up maps for these.
+        # These will be all the forcings and basin attributes, yeah.
         self._values = {}
         self._var_units = {}
         self._var_loc = {}
