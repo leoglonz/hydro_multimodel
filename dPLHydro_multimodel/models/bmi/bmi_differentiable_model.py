@@ -132,7 +132,7 @@ class BMIdPLHydroModel(Bmi):
         self._grid_type = {}
 
         # Set a simulation start time.
-        self._current_time = self._start_time
+        self.current_time = self._start_time
 
         # Set a timstep size.
         self._time_step_size = self.bmi_config.time_step_delta
@@ -152,7 +152,7 @@ class BMIdPLHydroModel(Bmi):
         Perform all tasks that take place within one pass through the model's
         time loop.
         """
-        self._current_time += self._time_step_size 
+        self.current_time += self._time_step_size 
         
         self.get_tensor_slice()
 
