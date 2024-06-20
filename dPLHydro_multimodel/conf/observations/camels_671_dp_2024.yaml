@@ -55,4 +55,3 @@ var_t_hydro_model: [
 var_c_hydro_model: [
   'DRAIN_SQKM',
   'lat'
-]

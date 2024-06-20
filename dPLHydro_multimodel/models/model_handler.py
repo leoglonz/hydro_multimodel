@@ -83,9 +83,6 @@ class ModelHandler(torch.nn.Module):
             # Forward each diff hydro model.
             self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
 
-        # print(self.flow_out_dict['HBV']['BFI_sim'])
-        # exit()
-
         return self.flow_out_dict
 
     def calc_loss(self, loss_dict) -> None:

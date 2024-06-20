@@ -1,18 +1,18 @@
 defaults:
     - _self_
     - hydra: settings
-    - observations: camels_671_dp_2024    # gages2_50, camels_671_dp_2024, camels_671_dp_2023
+    - observations: gages2_50    # gages2_50, camels_671_dp_2024, camels_671_dp_2023
 
 
 
 ## General Config -------------------------------#
-mode: train_test    # train, test, train_test, train_wts_only
+mode: test   # train, test, train_test, train_wts_only
 ensemble_type: none    # none, frozen_pnn, free_pnn
 use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 4
+gpu_id: 1
 
 train:
     start_time: 1980/10/01
@@ -32,7 +32,7 @@ output_dir: ${data_dir}/${observations.name}/saved_models/ #debug_2
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [SACSMA_with_snow]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     HBV: []    # parBETA, parBETAET
     SACSMA: []

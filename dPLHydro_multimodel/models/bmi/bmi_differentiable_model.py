@@ -49,24 +49,23 @@ class BMIdPLHydroModel(Bmi):
         # Output variable names (CSDMS standard names)
         _output_var_names = []
 
-        # Map CSDMS Standard Names to the model's internal variable names.
+        # TODO: will need to have this done for all desired datasets.
+        # Map CSDMS Standard Names to the model's internal variable names (For GAGES-II).
         _var_name_units_map = {
-            'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1'],
-            'land_surface_water__runoff_depth':['streamflow_m','m'],
+            # 'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1'],
+            # 'land_surface_water__runoff_depth':['streamflow_m','m'],
             #--------------   Dynamic inputs --------------------------------
-            #NJF Let the model assume equivalence of `kg m-2` == `mm h-1` since we can't convert
-            #mass flux automatically from the ngen framework
-            #'atmosphere_water__time_integral_of_precipitation_mass_flux':['total_precipitation','kg m-2'],
-            'atmosphere_water__liquid_equivalent_precipitation_rate':['total_precipitation','mm h-1'],
+
+            # 'atmosphere_water__liquid_equivalent_precipitation_rate':['total_precipitation','mm h-1'],
             ## 'atmosphere_water__liquid_equivalent_precipitation_rate':['precip', 'mm h-1'], ##### SDP
             ## 'atmosphere_water__time_integral_of_precipitation_mass_flux':['total_precipitation','mm h-1'],
-            'land_surface_radiation~incoming~longwave__energy_flux':['longwave_radiation','W m-2'],
-            'land_surface_radiation~incoming~shortwave__energy_flux':['shortwave_radiation','W m-2'],
-            'atmosphere_air_water~vapor__relative_saturation':['specific_humidity','kg kg-1'],
-            'land_surface_air__pressure':['pressure','Pa'],
-            'land_surface_air__temperature':['temperature','degC'],
-            'land_surface_wind__x_component_of_velocity':['wind_u','m s-1'],
-            'land_surface_wind__y_component_of_velocity':['wind_v','m s-1'],
+            # 'land_surface_radiation~incoming~longwave__energy_flux':['longwave_radiation','W m-2'],
+            # 'land_surface_radiation~incoming~shortwave__energy_flux':['shortwave_radiation','W m-2'],
+            # 'atmosphere_air_water~vapor__relative_saturation':['specific_humidity','kg kg-1'],
+            # 'land_surface_air__pressure':['pressure','Pa'],
+            # 'land_surface_air__temperature':['temperature','degC'],
+            # 'land_surface_wind__x_component_of_velocity':['wind_u','m s-1'],
+            # 'land_surface_wind__y_component_of_velocity':['wind_v','m s-1'],
             #--------------   STATIC Attributes -----------------------------
             'basin__area':['area_gages2','km2'],
             'ratio__mean_potential_evapotranspiration__mean_precipitation':['aridity','-'],

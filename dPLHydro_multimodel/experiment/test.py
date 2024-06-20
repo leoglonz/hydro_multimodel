@@ -35,6 +35,12 @@ class TestModel:
             self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def _get_data_dict(self):
+        """
+        Create dict of datasets used by the models.
+
+        creates self.[dict] with the following keys:
+        ['c_nn', 'obs', 'x_hydro_model', 'c_hydro_model', 'inputs_nn_scaled']
+        """
         log.info(f"Collecting testing data")
 
         # Prepare training data.
@@ -67,7 +73,6 @@ class TestModel:
         log.info(f"Testing model: {self.config['name']}")
 
         self._get_data_dict()
-        # self.dplh_model_handler.eval()
         
         # Get model predictions.
         batched_preds_list = []
@@ -80,7 +85,7 @@ class TestModel:
                                                    self.dataset_dict,
                                                    self.iS[i],
                                                    self.iE[i])
-            
+
             hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
 
             if self.config['ensemble_type'] != 'none':
