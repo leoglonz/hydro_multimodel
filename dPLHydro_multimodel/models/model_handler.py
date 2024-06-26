@@ -23,15 +23,15 @@ class ModelHandler(torch.nn.Module):
         the multimodel.
         """
         self.model_dict = dict()
-        # TODO: maybe bring this experiment up to spec so that if we can train
-        # weighting network with pre-trained hydro models.
-        # if self.config['mode'] == 'train_wts_only':
-        #     # Reinitialize trained model(s).
-        #     for mod in self.config['hydro_models']:
-        #         self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
+
+        ### TODO: Modularize these experiment modes so that people can more easily insert their own custom experiments
+        ### (unless they just decide to edit the train.py file)
         if (self.config['ensemble_type'] == 'none') and (len(self.config['hydro_models']) > 1):
             raise ValueError("Multiple hydro models given, but ensemble type is not specified. Check configurations.")
-        
+        elif self.config['mode'] == 'train_wtnn_only':
+            # Reinitialize trained model(s).
+            for mod in self.config['hydro_models']:
+                self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
         if self.config['use_checkpoint']:
             # Reinitialize trained model(s).
             self.all_model_params = []
@@ -42,6 +42,8 @@ class ModelHandler(torch.nn.Module):
 
                 self.model_dict[mod].zero_grad()
                 self.model_dict[mod].train()
+            # Note: optimizer init must be within this handler, and not called
+            # externally, so that it can be wrapped by a CSDMS BMI (NextGen comp.)
             self.init_optimizer()
         elif self.config['mode'] in ['test', 'test_bmi']:
             for mod in self.config['hydro_models']:

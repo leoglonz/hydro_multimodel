@@ -4,7 +4,7 @@ from conf.config import Config, ModeEnum
 from experiment.test import TestModel
 from experiment.test_bmi import TestBMIModel
 from experiment.train import TrainModel
-from experiment.train_wts_only import TrainWeightsModel
+from experiment.train_wtnn_only import TrainWNNModel
 
 # from experiment.factory import Factory
 # from experiment.test_handler import TestHandler
@@ -27,8 +27,8 @@ def build_handler(cfg: Config, config_dict: dict): #-> Union[TrainHandler, TestH
     elif cfg.mode == ModeEnum.test:
         # return injector.get(TestHandler)
         return TestModel(config_dict)
-    elif cfg.mode == ModeEnum.train_wts_only:
-        return TrainWeightsModel(config_dict)
+    elif cfg.mode == ModeEnum.train_wtnn_only:
+        return TrainWNNModel(config_dict)
     elif cfg.mode == ModeEnum.test_bmi:
         return TestBMIModel(config_dict)
     else:

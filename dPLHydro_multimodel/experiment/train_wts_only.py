@@ -18,10 +18,10 @@ log = logging.getLogger(__name__)
 
 
 
-class TrainWeightsModel:
+class TrainWNNModel:
     """
     High-level multimodel training handler; injests pretrained differentiable hydrology models and trains a weighting
-    LSTM to dynamically join their oututs.
+    LSTM (wNN) to dynamically join their outputs.
     """
     def __init__(self, config: Config):
         self.config = config

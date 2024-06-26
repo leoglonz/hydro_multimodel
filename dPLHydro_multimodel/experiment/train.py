@@ -54,7 +54,7 @@ class TrainModel:
         dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
         del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
         self.dataset_dict = dataset_dict
-
+    
     def run(self, experiment_tracker) -> None:
         log.info(f"Training model: {self.config['name']}")
 

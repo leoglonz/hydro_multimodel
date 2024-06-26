@@ -1,5 +1,5 @@
 ## General Config -------------------------------#
-mode: test_bmi    # train, test, train_test, train_wts_only
+mode: test_bmi    # train, test, train_test, train_wtnn_only
 ensemble_type: none    # none, frozen_pnn, free_pnn
 use_checkpoint: False    # See bottom
 

@@ -6,8 +6,8 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: test   # train, test, train_test, train_wts_only
-ensemble_type: none    # none, frozen_pnn, free_pnn
+mode: train_wtnn_only   # train, test, train_test, train_wtnn_only
+ensemble_type: free_pnn    # none, frozen_pnn, free_pnn
 use_checkpoint: False    # See bottom
 
 random_seed: 0
@@ -32,7 +32,7 @@ output_dir: ${data_dir}/${observations.name}/saved_models/ #debug_2
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV, marrmot_PRMS]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     HBV: []    # parBETA, parBETAET
     SACSMA: []
@@ -48,16 +48,16 @@ loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-nmul: 16
+nmul: 2
 warm_up: 365
 rho: 365
-batch_size: 100
-epochs: 50
+batch_size: 200
+epochs: 10
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5
 
-save_epoch: 5
+save_epoch: 1
 
 weighting_nn:
     dropout: 0.5
