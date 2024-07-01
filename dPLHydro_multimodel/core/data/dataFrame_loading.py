@@ -209,9 +209,12 @@ class choose_class_to_read_dataset():
             self.read_data = numpy_dataset(args=self.args, tRange=self.trange, data_path=self.data_path)
 
 
-def load_data(args, trange):
+def load_data(args, t_range=None):
+    if t_range == None:
+        t_range = args['t_range']
+
     out_dict = dict()
-    forcing_dataset_class = choose_class_to_read_dataset(args, trange, args['observations']['forcing_path'])
+    forcing_dataset_class = choose_class_to_read_dataset(args, t_range, args['observations']['forcing_path'])
     # getting inputs for neural network:
     out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(args, varLst=args['observations']['var_t_nn'])
     out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(args, varLst=args['observations']['var_c_nn'])

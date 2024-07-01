@@ -32,7 +32,6 @@ class BMIdPLHydroModel(Bmi):
         self._end_time = np.finfo(float).max
         self.var_array_lengths = 1
 
-        # TODO: check how to implement gridding if necessary. see grid_type.
         # Required, static attributes of the model
         _att_map = {
         'model_name':         "Hydrologic Differentiable Parameter Learning BMI",
@@ -44,7 +43,14 @@ class BMIdPLHydroModel(Bmi):
         
         # TODO: Assign variables and attributes + create map (maybe in initialize with config file.)
         # Input variable names (CSDMS standard names)
-        _input_var_names = []
+        # _input_var_names = []
+        self._input_forc_list = [
+            'earth_surface__average_temperature'
+        ]
+
+        self._input_attr_list = [
+            'basin__area'
+        ]
 
         # Output variable names (CSDMS standard names)
         _output_var_names = []

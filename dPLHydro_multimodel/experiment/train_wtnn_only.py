@@ -30,17 +30,18 @@ class TrainWNNModel:
         self.dplh_model_handler = ModelHandler(self.config).to(self.config['device'])
         self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
-    def _get_data_dict(self):
+    def _get_data_dict(self) -> None:
         log.info(f"Collecting training data")
 
-        # Prepare training data,format date ranges:
+        # Prepare training data.
         self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
-        # self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
-        # self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
+        self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
+        self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
 
         dataset_dict = load_data(self.config, trange=self.train_trange)
 
-        # Normalization + stats for nn input normalization:
+        # Normalizations
+        # Stats for normalization of nn inputs:
         init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
         
         x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
@@ -64,10 +65,14 @@ class TrainWNNModel:
         self.ensemble_lstm.init_optimizer()
         optim = self.ensemble_lstm.optim
 
-        if self.config['use_checkpoint'] == True:
-            start_epoch = self.config['checkpoint']['start_epoch']
-        else:
-            start_epoch = 1
+
+        # optim = torch.optim.Adadelta(self.ensemble_lstm.lstm.parameters(), lr=1)
+
+
+        # if self.config['use_checkpoint'] == True:
+        #     start_epoch = self.config['checkpoint']['start_epoch']
+        # else:
+        start_epoch = 1
 
         for epoch in range(start_epoch, self.config['epochs'] + 1):
             ep_loss = 0
@@ -75,7 +80,7 @@ class TrainWNNModel:
             start_time = time.perf_counter()
             prog_str = 'Epoch ' + str(epoch) + '/' + str(self.config['epochs'])
 
-            for i_iter in tqdm.tqdm(range(1, minibatch_iter + 1), desc=prog_str, leave=False, dynamic_ncols=True):
+            for i in tqdm.tqdm(range(1, minibatch_iter + 1), desc=prog_str, leave=False, dynamic_ncols=True):
                 dataset_dict_sample = take_sample_train(self.config,
                                                         self.dataset_dict,
                                                         ngrid_train,
@@ -83,15 +88,19 @@ class TrainWNNModel:
                                                         batch_size)
 
                 # Forward diff hydro models and weighting network.
-                self.model_preds = self.dplh_model_handler(dataset_dict_sample)
+                self.model_preds = self.dplh_model_handler(dataset_dict_sample, eval=False)
                 self.ensemble_lstm(dataset_dict_sample)
 
                 # Loss calculation + step optimizer.
                 loss = self.ensemble_lstm.calc_loss(self.model_preds)
-                ep_loss += loss.item()
                 loss.backward()
                 optim.step()
-                optim.zero_grad(set_to_none=True)  # Set none avoids costly read-writes, but could actually increase run times
+                optim.zero_grad()  # set_to_none=True avoids costly read-writes, but actually increases run times.
+                ep_loss += loss.item()
+
+                # print(f"current epoch loss {ep_loss} and batch loss {loss.item()}")
+
+            ep_loss = ep_loss/ minibatch_iter
 
             # Log epoch stats.
             elapsed = time.perf_counter() - start_time
@@ -101,5 +110,24 @@ class TrainWNNModel:
             
             # Save models:
             if epoch % self.config['save_epoch'] == 0:
-                save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
-                torch.save(self.ensemble_lstm.lstm, save_dir)
+                self.save_models(epoch)
+                
+            # if epoch % self.config['save_epoch'] == 0:
+            #     save_dir = os.path.join(self.config['output_dir'], 'wtNN_model_Ep' + str(epoch) + '.pt')
+            #     torch.save(self.ensemble_lstm.lstm, save_dir)
+            
+    def save_models(self, epoch, frozen_para=False) -> None:
+        """
+        Save hydrology and/or weighting models.
+        Use `frozen_para` flag to only save weighting model.
+        """
+        if frozen_para:
+            save_model(self.config, self.ensemble_lstm.lstm, 'wtNN_model', epoch)
+        else:
+            for mod in self.config['hydro_models']:
+                save_model(self.config, self.dplh_model_handler.model_dict[mod], mod, epoch)
+
+            if self.config['ensemble_type'] == 'free_pnn':
+                # for mod in self.config['hydro_models'] + NN_model
+                save_model(self.config, self.ensemble_lstm.lstm, 'wtNN_model', epoch)
+                

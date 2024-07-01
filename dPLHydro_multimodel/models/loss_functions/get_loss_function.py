@@ -4,6 +4,7 @@ import numpy as np
 
 
 def get_loss_func(args, obs):
+    # args['target'] = ['00060_Mean']
     # module = importlib.import_module(args['loss_function'])
     spec = importlib.util.spec_from_file_location(args['loss_function'], './models/loss_functions/' + args['loss_function'] + '.py')
     module = spec.loader.load_module()

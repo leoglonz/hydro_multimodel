@@ -6,9 +6,18 @@ from models.neural_networks.dropout import DropMask, createMask
 from torch.nn import Parameter
 
 
+
+
+
+
+
+
+
+
 class CudnnLstm(torch.nn.Module):
     def __init__(self, *, inputSize, hiddenSize, dr=0.5, drMethod="drW"):
         super(CudnnLstm, self).__init__()
+        self.name = 'CudnnLstm'
         self.inputSize = inputSize
         self.hiddenSize = hiddenSize
         self.dr = dr
@@ -129,6 +138,7 @@ class CudnnLstm(torch.nn.Module):
 class CudnnLstmModel(torch.nn.Module):
     def __init__(self, *, nx, ny, hiddenSize, dr=0.5):
         super(CudnnLstmModel, self).__init__()
+        self.name = 'CudnnLstmModel'
         self.nx = nx
         self.ny = ny
         self.hiddenSize = hiddenSize
@@ -144,7 +154,4 @@ class CudnnLstmModel(torch.nn.Module):
         x0 = F.relu(self.linearIn(x))
         outLSTM, (hn, cn) = self.lstm(x0, doDropMC=doDropMC, dropoutFalse=dropoutFalse)
         out = self.linearOut(outLSTM)
-        ### Farshid added this line:
-        # out = self.activation_sigmoid(out)
         return out
-

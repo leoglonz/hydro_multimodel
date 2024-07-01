@@ -31,8 +31,11 @@ class ModelHandler(torch.nn.Module):
         elif self.config['mode'] == 'train_wtnn_only':
             # Reinitialize trained model(s).
             for mod in self.config['hydro_models']:
+                load_path = self.config['checkpoint'][mod]
                 self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
-        if self.config['use_checkpoint']:
+                self.model_dict[mod].zero_grad()
+                self.model_dict[mod].train()
+        elif self.config['use_checkpoint']:
             # Reinitialize trained model(s).
             self.all_model_params = []
             for mod in self.config['hydro_models']:
@@ -42,6 +45,7 @@ class ModelHandler(torch.nn.Module):
 
                 self.model_dict[mod].zero_grad()
                 self.model_dict[mod].train()
+                
             # Note: optimizer init must be within this handler, and not called
             # externally, so that it can be wrapped by a CSDMS BMI (NextGen comp.)
             self.init_optimizer()

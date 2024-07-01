@@ -1,4 +1,4 @@
-"""
+
 class BMIdPLHydroModel(Bmi):
     def __init__(self):
         # Do we even need all of this? why cant it all be packaged in array?
@@ -45,4 +45,3 @@ model.setvalue('basin__area', attributes['area_gages2'])
 model.update()
 
 # etc.
-"""
