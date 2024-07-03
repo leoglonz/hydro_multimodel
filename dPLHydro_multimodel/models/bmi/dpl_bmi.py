@@ -36,75 +36,106 @@ class BMIdPLHydroModel(Bmi):
         _att_map = {
         'model_name':         "Hydrologic Differentiable Parameter Learning BMI",
         'version':            '1.0',
-        'author_name':        'MHPI, Leo Lonzarich',
-        'grid_type':          'unstructured&uniform_rectilinear',
+        'author_name':        'MHPI',
+        # 'grid_type':          'unstructured&uniform_rectilinear',
         'time_units':         'days',
                }
         
-        # TODO: Assign variables and attributes + create map (maybe in initialize with config file.)
-        # Input variable names (CSDMS standard names)
+        # TODO: Finish finding and assigning CSDMS standard names to the lists below.
+        # Input forcing/attribute CSDMS Standard Names.
         # _input_var_names = []
-        self._input_forc_list = [
-            'earth_surface__average_temperature'
+        self._input_forcings_list = [
+            'atmosphere_water__liquid_equivalent_precipitation_rate',
+            'land_surface_air__temperature',
+            '_______'
         ]
 
-        self._input_attr_list = [
-            'basin__area'
+        self._input_attributes_list = [
+            'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate',
+            'land_surface_water__daily_mean_of_potential_evaporation_flux',
+            '_______',
+            'atmosphere_water__precipitation_falling_as_snow_fraction',
+            'ratio__mean_potential_evapotranspiration__mean_precipitation',
+            'atmosphere_water__frequency_of_high_precipitation_events',
+            'atmosphere_water__mean_duration_of_high_precipitation_events',
+            'atmosphere_water__precipitation_frequency',
+            'atmosphere_water__low_precipitation_duration',
+            'basin__mean_of_elevation',
+            'basin__mean_of_slope',
+            'basin__area',
+            'land_vegetation__forest_area_fraction',
+            'land_vegetation__max_monthly_mean_of_leaf-area_index',
+            'land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index',
+            'land_vegetation__max_monthly_mean_of_green_vegetation_fraction',
+            'land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction',
+            '_______',
+            '_______',
+            '_______',
+            'soil_bedrock_top__depth__pelletier',
+            'soil_bedrock_top__depth__statsgo',
+            'soil__porosity',
+            'soil__saturated_hydraulic_conductivity',
+            'maximum_water_content',
+            'soil_sand__volume_fraction',
+            'soil_silt__volume_fraction', 
+            'soil_clay__volume_fraction',
+            '_______',
+            '_______',
+            '_______',
+            '_______',
+            'basin__carbonate_rocks_area_fraction',
+            '_______',
+            'bedrock__permeability'
         ]
 
         # Output variable names (CSDMS standard names)
-        _output_var_names = []
+        self._output_variable_names = ['land_surface_water__runoff_volume_flux']
 
-        # TODO: will need to have this done for all desired datasets.
-        # Map CSDMS Standard Names to the model's internal variable names (For GAGES-II).
-        _var_name_units_map = {
-            # 'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1'],
-            # 'land_surface_water__runoff_depth':['streamflow_m','m'],
-            #--------------   Dynamic inputs --------------------------------
-
-            # 'atmosphere_water__liquid_equivalent_precipitation_rate':['total_precipitation','mm h-1'],
-            ## 'atmosphere_water__liquid_equivalent_precipitation_rate':['precip', 'mm h-1'], ##### SDP
-            ## 'atmosphere_water__time_integral_of_precipitation_mass_flux':['total_precipitation','mm h-1'],
-            # 'land_surface_radiation~incoming~longwave__energy_flux':['longwave_radiation','W m-2'],
-            # 'land_surface_radiation~incoming~shortwave__energy_flux':['shortwave_radiation','W m-2'],
-            # 'atmosphere_air_water~vapor__relative_saturation':['specific_humidity','kg kg-1'],
-            # 'land_surface_air__pressure':['pressure','Pa'],
-            # 'land_surface_air__temperature':['temperature','degC'],
-            # 'land_surface_wind__x_component_of_velocity':['wind_u','m s-1'],
-            # 'land_surface_wind__y_component_of_velocity':['wind_v','m s-1'],
-            #--------------   STATIC Attributes -----------------------------
-            'basin__area':['area_gages2','km2'],
-            'ratio__mean_potential_evapotranspiration__mean_precipitation':['aridity','-'],
-            'basin__carbonate_rocks_area_fraction':['carbonate_rocks_frac','-'],
-            'soil_clay__volume_fraction':['clay_frac','percent'],
-            'basin__mean_of_elevation':['elev_mean','m'],
-            'land_vegetation__forest_area_fraction':['frac_forest','-'],
-            'atmosphere_water__precipitation_falling_as_snow_fraction':['frac_snow','-'],
-            'bedrock__permeability':['geol_permeability','m2'],
-            'land_vegetation__max_monthly_mean_of_green_vegetation_fraction':['gvf_max','-'],
-            'land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction':['gvf_diff','-'],
-            'atmosphere_water__mean_duration_of_high_precipitation_events':['high_prec_dur','d'],
-            'atmosphere_water__frequency_of_high_precipitation_events':['high_prec_freq','d yr-1'],
-            'land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index':['lai_diff','-'],
-            'land_vegetation__max_monthly_mean_of_leaf-area_index':['lai_max','-'],
-            'atmosphere_water__low_precipitation_duration':['low_prec_dur','d'],
-            'atmosphere_water__precipitation_frequency':['low_prec_freq','d yr-1'],
-            'maximum_water_content':['max_water_content','m'],
+        # NOTE: will we need this done for all desired datasets?? (starting with camels).
+        # Map CSDMS Standard Names to the model's internal variable names (For CAMELS).
+        self._variable_name_units_map = {
+            'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1'],
+            ############## Forcings ##############
+            'atmosphere_water__liquid_equivalent_precipitation_rate':['prcp(mm/day)', 'mm d-1'],
+            'land_surface_air__temperature':['tmean(C)','degC'],
+            '_______':['PET_hargreaves(mm/day)', 'mm d-1'],
+            ############## Attributes ##############
             'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate':['p_mean','mm d-1'],
             'land_surface_water__daily_mean_of_potential_evaporation_flux':['pet_mean','mm d-1'],
+            '_______':['p_seasonality', '-'],
+            'atmosphere_water__precipitation_falling_as_snow_fraction':['frac_snow','-'],
+            'ratio__mean_potential_evapotranspiration__mean_precipitation':['aridity','-'],
+            'atmosphere_water__frequency_of_high_precipitation_events':['high_prec_freq','d yr-1'],
+            'atmosphere_water__mean_duration_of_high_precipitation_events':['high_prec_dur','d'],
+            'atmosphere_water__precipitation_frequency':['low_prec_freq','d yr-1'],
+            'atmosphere_water__low_precipitation_duration':['low_prec_dur','d'],
+            'basin__mean_of_elevation':['elev_mean','m'],
             'basin__mean_of_slope':['slope_mean','m km-1'],
-            'soil__saturated_hydraulic_conductivity':['soil_conductivity','cm hr-1'],
+            'basin__area':['area_gages2','km2'],
+            'land_vegetation__forest_area_fraction':['frac_forest','-'],
+            'land_vegetation__max_monthly_mean_of_leaf-area_index':['lai_max','-'],
+            'land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index':['lai_diff','-'],
+            'land_vegetation__max_monthly_mean_of_green_vegetation_fraction':['gvf_max','-'],
+            'land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction':['gvf_diff','-'],
+            '_______':['dom_land_cover_frac', 'percent'],
+            '_______':['dom_land_cover', '-'],
+            '_______':['root_depth_50', '-'],
             'soil_bedrock_top__depth__pelletier':['soil_depth_pelletier','m'],
             'soil_bedrock_top__depth__statsgo':['soil_depth_statsgo','m'],
             'soil__porosity':['soil_porosity','-'],
+            'soil__saturated_hydraulic_conductivity':['soil_conductivity','cm hr-1'],
+            'maximum_water_content':['max_water_content','m'],
             'soil_sand__volume_fraction':['sand_frac','percent'],
             'soil_silt__volume_fraction':['silt_frac','percent'], 
-            'basin_centroid__latitude':['gauge_lat', 'degrees'],
-            'basin_centroid__longitude':['gauge_lon', 'degrees']
+            'soil_clay__volume_fraction':['clay_frac','percent'],
+            '_______':['geol_1st_class', '-'],
+            '_______':['glim_1st_class_frac', '-'],
+            '_______':['geol_2nd_class', '-'],
+            '_______':['glim_2nd_class_frac', '-'],
+            'basin__carbonate_rocks_area_fraction':['carbonate_rocks_frac','-'],
+            '_______':['geol_porosity', '-'],
+            'bedrock__permeability':['geol_permeability','m2']
             }
-
-        # A list of static attributes. Not all these need to be used.
-        _static_attributes_list = []
 
     def initialize(self, bmi_cfg_filepath=None):
         """
@@ -130,12 +161,10 @@ class BMIdPLHydroModel(Bmi):
         self.bmi_config, self.bmi_config_dict = self.initialize_config(config)
 
         # TODO: write up maps for these.
-        # These will be all the forcings and basin attributes, yeah.
+        # Values are fed into the enclosed model.
         self._values = {}
         self._var_units = {}
         self._var_loc = {}
-        self._grids = {}
-        self._grid_type = {}
 
         # Set a simulation start time.
         self.current_time = self._start_time
@@ -213,7 +242,7 @@ class BMIdPLHydroModel(Bmi):
     def _get_data_dict(self):
         from core.calc.normalize import trans_norm
         from core.utils.Dates import Dates
-        from core.data.dataFrame_loading import load_data
+        from dPLHydro_multimodel.core.data.dataset_loading import load_data
 
         log.info(f"Collecting testing data")
 
@@ -225,7 +254,7 @@ class BMIdPLHydroModel(Bmi):
         # Read data for the test time range
         dataset_dict = load_data(self.config, trange=self.test_trange)
 
-        # Normalizatio ns
+        # Normalizations
         # init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
         x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
         c_nn_scaled = trans_norm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
@@ -313,9 +342,10 @@ class BMIdPLHydroModel(Bmi):
         int
             Grid id.
         """
-        for grid_id, var_name_list in self._grids.items():
-            if var_name in var_name_list:
-                return grid_id
+        # for grid_id, var_name_list in self._grids.items():
+        #     if var_name in var_name_list:
+        #         return grid_id
+        raise NotImplementedError("get_var_grid")
 
     def get_grid_rank(self, grid_id):
         """Rank of grid.
@@ -330,7 +360,9 @@ class BMIdPLHydroModel(Bmi):
         int
             Rank of grid.
         """
-        return len(self._model.shape)
+        # return len(self._model.shape)
+        raise NotImplementedError("get_grid_rank")
+
 
     def get_grid_size(self, grid_id):
         """Size of grid.
@@ -345,7 +377,9 @@ class BMIdPLHydroModel(Bmi):
         int
             Size of grid.
         """
-        return int(np.prod(self._model.shape))
+        # return int(np.prod(self._model.shape))
+        raise NotImplementedError("get_grid_size")
+
 
     def get_value_ptr(self, var_name):
         """Reference to values.
@@ -450,23 +484,29 @@ class BMIdPLHydroModel(Bmi):
 
     def get_grid_shape(self, grid_id, shape):
         """Number of rows and columns of uniform rectilinear grid."""
-        var_name = self._grids[grid_id][0]
-        shape[:] = self.get_value_ptr(var_name).shape
-        return shape
+        # var_name = self._grids[grid_id][0]
+        # shape[:] = self.get_value_ptr(var_name).shape
+        # return shape
+        raise NotImplementedError("get_grid_shape")
 
     def get_grid_spacing(self, grid_id, spacing):
         """Spacing of rows and columns of uniform rectilinear grid."""
-        spacing[:] = self._model.spacing
-        return spacing
+        # spacing[:] = self._model.spacing
+        # return spacing
+        raise NotImplementedError("get_grid_spacing")
 
     def get_grid_origin(self, grid_id, origin):
         """Origin of uniform rectilinear grid."""
-        origin[:] = self._model.origin
-        return origin
+        # origin[:] = self._model.origin
+        # return origin
+        raise NotImplementedError("get_grid_origin")
+
 
     def get_grid_type(self, grid_id):
         """Type of grid."""
-        return self._grid_type[grid_id]
+        # return self._grid_type[grid_id]
+        raise NotImplementedError("get_grid_type")
+
 
     def get_start_time(self):
         """Start time of model."""
@@ -510,7 +550,10 @@ class BMIdPLHydroModel(Bmi):
         int
             Size of grid.
         """
-        return self.get_grid_size(grid)
+        # return self.get_grid_size(grid)
+        raise NotImplementedError("get_grid_node_count")
+
+        
 
     def get_grid_nodes_per_face(self, grid, nodes_per_face):
         raise NotImplementedError("get_grid_nodes_per_face")

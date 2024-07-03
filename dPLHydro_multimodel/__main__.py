@@ -51,12 +51,12 @@ def main(cfg: DictConfig) -> None:
             run_experiment(config, config_dict, experiment_tracker)
 
         # Clean up and log elapsed time.
-        torch.cuda.empty_cache()
         total_time = time.perf_counter() - start_time
         log.info(
             f"| {experiment_name} completed | "
             f"Time Elapsed: {(total_time / 60):.6f} minutes"
         ) 
+        torch.cuda.empty_cache()
 
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Cleaning up...")

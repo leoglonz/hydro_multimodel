@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 #         self.lb = torch.tensor([self.config['weighting_nn']['loss_lower_bound']], device=config['device'])
 #         self.ub = torch.tensor([self.config['weighting_nn']['loss_upper_bound']],device=config['device'])
 #         self.factor = torch.tensor(self.config['weighting_nn']['loss_factor'])
-#         log.info(f"wtNN Loss Factor: {self.factor}")
+#         log.info(f"wNN Loss Factor: {self.factor}")
 
 #     def forward(self, inputs):
 #         loss = 0
@@ -47,7 +47,7 @@ class RangeBoundLoss(nn.Module):
         self.lb = torch.tensor([self.config['weighting_nn']['loss_lower_bound']], device=config['device'])
         self.ub = torch.tensor([self.config['weighting_nn']['loss_upper_bound']],device=config['device'])
         self.factor = torch.tensor(self.config['weighting_nn']['loss_factor'])
-        log.info(f"wtNN Loss Factor: {self.factor}")
+        log.info(f"wNN Loss Factor: {self.factor}")
 
     def forward(self, inputs):
         loss = 0

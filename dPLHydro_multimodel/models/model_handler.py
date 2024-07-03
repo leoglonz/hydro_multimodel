@@ -28,13 +28,12 @@ class ModelHandler(torch.nn.Module):
         ### (unless they just decide to edit the train.py file)
         if (self.config['ensemble_type'] == 'none') and (len(self.config['hydro_models']) > 1):
             raise ValueError("Multiple hydro models given, but ensemble type is not specified. Check configurations.")
-        elif self.config['mode'] == 'train_wtnn_only':
+        elif self.config['mode'] == 'train_wnn_only':
             # Reinitialize trained model(s).
             for mod in self.config['hydro_models']:
                 load_path = self.config['checkpoint'][mod]
                 self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
                 self.model_dict[mod].zero_grad()
-                self.model_dict[mod].train()
         elif self.config['use_checkpoint']:
             # Reinitialize trained model(s).
             self.all_model_params = []
@@ -45,7 +44,7 @@ class ModelHandler(torch.nn.Module):
 
                 self.model_dict[mod].zero_grad()
                 self.model_dict[mod].train()
-                
+
             # Note: optimizer init must be within this handler, and not called
             # externally, so that it can be wrapped by a CSDMS BMI (NextGen comp.)
             self.init_optimizer()
@@ -83,11 +82,15 @@ class ModelHandler(torch.nn.Module):
         self.flow_out_dict = dict()
         self.dataset_dict_sample = dataset_dict_sample
 
+        # Forward each diff hydro model.
         for mod in self.model_dict:
-            if eval: self.model_dict[mod].eval()  # For testing.
-
-            # Forward each diff hydro model.
-            self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
+            if eval:
+                # self.model_dict[mod].eval()  # For testing.
+                torch.set_grad_enabled(False)
+                self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
+                torch.set_grad_enabled(True)
+            else:
+                self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
 
         return self.flow_out_dict
 

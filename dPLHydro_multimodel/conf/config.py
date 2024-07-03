@@ -38,7 +38,7 @@ class ModeEnum(str, Enum):
     train = "train"
     test = "test"
     train_test = "train_test"
-    train_wtnn_only = "train_wtnn_only"
+    train_wnn_only = "train_wnn_only"
     test_bmi = "test_bmi"
 
 
@@ -259,7 +259,6 @@ class Config(BaseModel):
     pnn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
     ensemble_type: str
-    # train_wtnn_only: bool
     dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
 
     random_seed: int = 0

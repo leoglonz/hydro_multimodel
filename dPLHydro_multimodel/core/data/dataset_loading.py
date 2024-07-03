@@ -4,7 +4,11 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import torch
+
+from core.utils.Dates import Dates
 from core.utils.time import trange_to_array
+from core.calc.normalize import init_norm_stats, trans_norm
+
 
 
 class Data_Reader(ABC):
@@ -101,6 +105,7 @@ class DataFrame_dataset(Data_Reader):
         # if rmNan is True:
         #     data[np.where(np.isnan(data))] = 0
         return data
+
 
 class numpy_dataset(Data_Reader):
     def __init__(self, args, tRange, data_path, attr_path=None):
@@ -209,35 +214,35 @@ class choose_class_to_read_dataset():
             self.read_data = numpy_dataset(args=self.args, tRange=self.trange, data_path=self.data_path)
 
 
-def load_data(args, t_range=None):
+def load_data(config, t_range=None):
     if t_range == None:
-        t_range = args['t_range']
+        t_range = config['t_range']
 
     out_dict = dict()
-    forcing_dataset_class = choose_class_to_read_dataset(args, t_range, args['observations']['forcing_path'])
+    forcing_dataset_class = choose_class_to_read_dataset(config, t_range, config['observations']['forcing_path'])
     # getting inputs for neural network:
-    out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(args, varLst=args['observations']['var_t_nn'])
-    out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(args, varLst=args['observations']['var_c_nn'])
-    obs_raw = forcing_dataset_class.read_data.getDataTs(args, varLst=args['target'])
+    out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_nn'])
+    out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_nn'])
+    obs_raw = forcing_dataset_class.read_data.getDataTs(config, varLst=config['target'])
     # Streamflow unit conversion.
-    if '00060_Mean' in args['target']:
-        out_dict['obs'] = converting_flow_from_ft3_per_sec_to_mm_per_day(args,
+    if '00060_Mean' in config['target']:
+        out_dict['obs'] = converting_flow_from_ft3_per_sec_to_mm_per_day(config,
                                                                          out_dict['c_nn'],
                                                                          obs_raw)
     else:
         out_dict['obs'] = obs_raw
     
-    out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(args, varLst=args['observations']['var_t_hydro_model'])
-    out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(args, varLst=args['observations']['var_c_hydro_model'])
+    out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_hydro_model'])
+    out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_hydro_model'])
 
     return out_dict
 
 
-def converting_flow_from_ft3_per_sec_to_mm_per_day(args, c_NN_sample, obs_sample):
-    varTar_NN = args['target']
+def converting_flow_from_ft3_per_sec_to_mm_per_day(config, c_NN_sample, obs_sample):
+    varTar_NN = config['target']
     if '00060_Mean' in varTar_NN:
         obs_flow_v = obs_sample[:, :, varTar_NN.index('00060_Mean')]
-        varC_NN = args['observations']['var_c_nn']
+        varC_NN = config['observations']['var_c_nn']
         if 'DRAIN_SQKM' in varC_NN:
             area_name = 'DRAIN_SQKM'
         elif 'area_gages2' in varC_NN:
@@ -246,3 +251,36 @@ def converting_flow_from_ft3_per_sec_to_mm_per_day(args, c_NN_sample, obs_sample
         area = np.expand_dims(c_NN_sample[:, varC_NN.index(area_name)], axis=0).repeat(obs_flow_v.shape[0], 0)  # np ver
         obs_sample[:, :, varTar_NN.index('00060_Mean')] = (10 ** 3) * obs_flow_v * 0.0283168 * 3600 * 24 / (area * (10 ** 6)) # convert ft3/s to mm/day
     return obs_sample
+
+
+def get_data_dict(config, train=False):
+    """
+    Create dictionary of datasets used by the models.
+    Contains 'c_nn', 'obs', 'x_hydro_model', 'c_hydro_model', 'inputs_nn_scaled'.
+
+    train: bool, specifies whether data is for training.
+    """
+    # Get date range.
+    config['train_t_range'] = Dates(config['train'], config['rho']).date_to_int()
+    config['test_t_range'] = Dates(config['test'], config['rho']).date_to_int()
+    config['t_range'] = [config['train_t_range'][0], config['test_t_range'][1]]
+
+    # Create stats for NN input normalizations.
+    if train: 
+        dataset_dict = load_data(config, config['train_t_range'])
+        init_norm_stats(config, dataset_dict['x_nn'], dataset_dict['c_nn'],
+                              dataset_dict['obs'])
+    else:
+        dataset_dict = load_data(config, config['test_t_range'])
+
+    # Normalization
+    x_nn_scaled = trans_norm(config, dataset_dict['x_nn'],
+                             varLst=config['observations']['var_t_nn'], toNorm=True)
+    c_nn_scaled = trans_norm(config, dataset_dict['c_nn'],
+                             varLst=config['observations']['var_c_nn'], toNorm=True)
+    c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
+
+    dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
+    del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
+
+    return dataset_dict, config

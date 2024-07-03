@@ -42,7 +42,7 @@ var_c_nn: [
   'geol_2nd_class',
   'glim_2nd_class_frac',
   'carbonate_rocks_frac',
-  'geol_porostiy',
+  'geol_porosity',
   'geol_permeability'
 ]
 var_t_hydro_model: [

@@ -35,9 +35,9 @@ def randomIndex(ngrid, nt, dimSubset, warm_up=0) -> list:
     return iGrid, iT
 
 
-def no_iter_nt_ngrid(time_range, config, x) -> list:
+def n_iter_nt_ngrid(t_range, config, x) -> list:
     nt, ngrid, nx = x.shape
-    t = trange_to_array(time_range)
+    t = trange_to_array(t_range)
     if t.shape[0] < config['rho']:
         rho = t.shape[0]
     else:

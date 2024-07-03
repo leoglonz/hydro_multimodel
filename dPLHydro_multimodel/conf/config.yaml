@@ -6,8 +6,8 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: train   # train, test, train_test, train_wtnn_only
-ensemble_type: none    # none, frozen_pnn, free_pnn
+mode: train_wnn_only   # train, test, train_test, train_wnn_only
+ensemble_type: frozen_pnn    # none, frozen_pnn, free_pnn
 use_checkpoint: False    # See bottom
 
 random_seed: 0
@@ -32,7 +32,7 @@ output_dir: ${data_dir}/${observations.name}/saved_models/ #debug_3
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV, marrmot_PRMS]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     HBV: []    # parBETA, parBETAET
     SACSMA: []
@@ -48,11 +48,11 @@ loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-nmul: 16
+nmul: 2
 warm_up: 365
 rho: 365
-batch_size: 100
-epochs: 50
+batch_size: 30
+epochs: 30
 hidden_size: 256
 dropout: 0.5
 nearzero: 1e-5
@@ -67,15 +67,15 @@ weighting_nn:
     loss_function_weights:
         w1: 11.0
         w2: 1.0
-    loss_factor: 15
-    loss_lower_bound: 0.95
-    loss_upper_bound: 1.05
+    loss_factor: 1
+    loss_lower_bound: 0.9
+    loss_upper_bound: 1.1
 
 
 ## Model Checkpoints -------------------------------#
 checkpoint:
     start_epoch: 11
-    HBV: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/frozen_pnn/LSTM_E50_R365_B100_H256_n16_0/static_para/HBV_marrmot_PRMS_/HBV_model_Ep50.pt
-    marrmot_PRMS: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/frozen_pnn/LSTM_E50_R365_B100_H256_n16_0/static_para/HBV_marrmot_PRMS_/marrmot_PRMS_model_Ep50.pt
+    HBV: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/frozen_pnn/LSTM_E30_R365_B200_H256_n2_0/static_para/HBV_marrmot_PRMS_/HBV_model_Ep30.pt
+    marrmot_PRMS: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/frozen_pnn/LSTM_E30_R365_B200_H256_n2_0/static_para/HBV_marrmot_PRMS_/marrmot_PRMS_model_Ep30.pt
     SACSMA_with_snow: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/free_pnn/LSTM_E50_R365_B100_H256_n2_0/static_para/HBV_/SACSMA_with_snow_model_Ep10.pt
     weighting_nn: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/free_pnn/LSTM_E50_R365_B100_H256_n2_0/static_para/HBV_/wtNN_model_model_Ep10.pt
