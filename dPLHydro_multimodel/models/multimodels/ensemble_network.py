@@ -9,7 +9,7 @@ from core.utils.utils import find_shared_keys
 from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
 
-LR = 0.01
+
 
 class EnsembleWeights(torch.nn.Module):
     """
@@ -61,7 +61,7 @@ class EnsembleWeights(torch.nn.Module):
                                        obs).to(self.config['device'])
 
     def init_optimizer(self) -> None:
-        self.optim = torch.optim.Adadelta(self.model_params, lr=LR)
+        self.optim = torch.optim.Adadelta(self.model_params, lr=self.config['weighting_nn']['learning_rate'])
 
     def get_nn_model_dim(self) -> None:
         self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])

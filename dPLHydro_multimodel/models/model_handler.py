@@ -75,7 +75,7 @@ class ModelHandler(torch.nn.Module):
         self.loss_func = self.loss_func.to(self.config['device'])
 
     def init_optimizer(self) -> None:
-        self.optim = torch.optim.Adadelta(self.all_model_params)
+        self.optim = torch.optim.Adadelta(self.all_model_params, lr=self.config['learning_rate'])
 
     def forward(self, dataset_dict_sample, eval=False):        
         # Batch running of the differentiable models in parallel

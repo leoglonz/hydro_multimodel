@@ -113,11 +113,11 @@ class TrainWNNModel:
         parameterization networks (pNNs) have been frozen.
         """
         if frozen_pnn:
-            save_model(self.config, self.ensemble_lstm.lstm, 'wNN_model', epoch)
+            save_model(self.config, self.ensemble_lstm.lstm, 'wNN', epoch)
         else:
             for mod in self.config['hydro_models']:
                 save_model(self.config, self.dplh_model_handler.model_dict[mod], mod, epoch)
 
             if self.config['ensemble_type'] == 'free_pnn':
-                save_model(self.config, self.ensemble_lstm.lstm, 'wNN_model', epoch)
+                save_model(self.config, self.ensemble_lstm.lstm, 'wNN', epoch)
                 

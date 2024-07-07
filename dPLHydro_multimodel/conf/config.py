@@ -199,6 +199,7 @@ class WeightingNNConfig(BaseModel):
     dropout: float
     hidden_size: int
     loss_factor: int
+    learning_rate: float = 0.1
     method: str
     loss_function: str
     loss_lower_bound: float = 0.95
@@ -284,7 +285,7 @@ class Config(BaseModel):
     epochs: int
     hidden_size: int
     dropout: float
-    freeze: bool = True
+    learning_rate: float = 0.1
     nearzero: float
 
     weighting_nn: WeightingNNConfig
