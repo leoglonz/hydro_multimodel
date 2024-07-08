@@ -275,9 +275,9 @@ def get_data_dict(config, train=False):
 
     # Normalization
     x_nn_scaled = trans_norm(config, dataset_dict['x_nn'],
-                             varLst=config['observations']['var_t_nn'], toNorm=True)
+                             var_lst=config['observations']['var_t_nn'], to_norm=True)
     c_nn_scaled = trans_norm(config, dataset_dict['c_nn'],
-                             varLst=config['observations']['var_c_nn'], toNorm=True)
+                             var_lst=config['observations']['var_c_nn'], to_norm=True)
     c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
 
     dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)

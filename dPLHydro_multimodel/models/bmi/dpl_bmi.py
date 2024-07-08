@@ -1,9 +1,15 @@
+"""
+BMI wrapper for interfacing dPL hydrology models with NOAA OWP NextGen framework.
+"""
 import logging
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Optional, Any, Dict, Union
 
 import numpy as np
 import yaml
+import torch
+import time
+
 from bmipy import Bmi
 from conf.config import Config
 from models.model_handler import ModelHandler
@@ -11,8 +17,8 @@ from omegaconf import DictConfig, OmegaConf
 from pydantic import ValidationError
 from core.data import take_sample_test
 
-import torch
 log = logging.getLogger(__name__)
+
 
 
 class BMIdPLHydroModel(Bmi):
@@ -24,6 +30,8 @@ class BMIdPLHydroModel(Bmi):
         Create a dPLHydro model BMI ready for initialization.
         """
         super(BMIdPLHydroModel, self).__init__()
+        start_time = time.time()
+
         self._model = None
         self._initialized = False
 
@@ -32,28 +40,29 @@ class BMIdPLHydroModel(Bmi):
         self._end_time = np.finfo(float).max
         self.var_array_lengths = 1
 
+        self.bmi_process_time = 0
+
+
         # Required, static attributes of the model
         _att_map = {
-        'model_name':         "Hydrologic Differentiable Parameter Learning BMI",
+        'model_name':         "Differentiable Parameter Learning Hydrology BMI",
         'version':            '1.0',
         'author_name':        'MHPI',
-        # 'grid_type':          'unstructured&uniform_rectilinear',
         'time_units':         'days',
-               }
+        }
         
-        # TODO: Finish finding and assigning CSDMS standard names to the lists below.
         # Input forcing/attribute CSDMS Standard Names.
         # _input_var_names = []
         self._input_forcings_list = [
             'atmosphere_water__liquid_equivalent_precipitation_rate',
             'land_surface_air__temperature',
-            '_______'
+            'land_surface_water__potential_evaporation_volume_flux'  # check name
         ]
 
         self._input_attributes_list = [
             'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate',
             'land_surface_water__daily_mean_of_potential_evaporation_flux',
-            '_______',
+            'p_seasonality',  # custom name
             'atmosphere_water__precipitation_falling_as_snow_fraction',
             'ratio__mean_potential_evapotranspiration__mean_precipitation',
             'atmosphere_water__frequency_of_high_precipitation_events',
@@ -68,9 +77,9 @@ class BMIdPLHydroModel(Bmi):
             'land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index',
             'land_vegetation__max_monthly_mean_of_green_vegetation_fraction',
             'land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction',
-            '_______',
-            '_______',
-            '_______',
+            'region_state_land~covered__area_fraction',  # custom name
+            'region_state_land~covered__area',  # custom name
+            'root__depth',  # custom name
             'soil_bedrock_top__depth__pelletier',
             'soil_bedrock_top__depth__statsgo',
             'soil__porosity',
@@ -79,12 +88,12 @@ class BMIdPLHydroModel(Bmi):
             'soil_sand__volume_fraction',
             'soil_silt__volume_fraction', 
             'soil_clay__volume_fraction',
-            '_______',
-            '_______',
-            '_______',
-            '_______',
+            'geol_1st_class',  # custom name
+            'geol_1st_class__fraction',  # custom name
+            'geol_2nd_class',  # custom name
+            'geol_2nd_class__fraction',  # custom name
             'basin__carbonate_rocks_area_fraction',
-            '_______',
+            'soil_active-layer__porosity',  # check name
             'bedrock__permeability'
         ]
 
@@ -94,15 +103,16 @@ class BMIdPLHydroModel(Bmi):
         # NOTE: will we need this done for all desired datasets?? (starting with camels).
         # Map CSDMS Standard Names to the model's internal variable names (For CAMELS).
         self._variable_name_units_map = {
+            ############## Outputs ##############
             'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1'],
             ############## Forcings ##############
             'atmosphere_water__liquid_equivalent_precipitation_rate':['prcp(mm/day)', 'mm d-1'],
             'land_surface_air__temperature':['tmean(C)','degC'],
-            '_______':['PET_hargreaves(mm/day)', 'mm d-1'],
+            'land_surface_water__potential_evaporation_volume_flux':['PET_hargreaves(mm/day)', 'mm d-1'],  # check name
             ############## Attributes ##############
             'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate':['p_mean','mm d-1'],
             'land_surface_water__daily_mean_of_potential_evaporation_flux':['pet_mean','mm d-1'],
-            '_______':['p_seasonality', '-'],
+            'p_seasonality':['p_seasonality', '-'],  # custom name
             'atmosphere_water__precipitation_falling_as_snow_fraction':['frac_snow','-'],
             'ratio__mean_potential_evapotranspiration__mean_precipitation':['aridity','-'],
             'atmosphere_water__frequency_of_high_precipitation_events':['high_prec_freq','d yr-1'],
@@ -117,9 +127,9 @@ class BMIdPLHydroModel(Bmi):
             'land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index':['lai_diff','-'],
             'land_vegetation__max_monthly_mean_of_green_vegetation_fraction':['gvf_max','-'],
             'land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction':['gvf_diff','-'],
-            '_______':['dom_land_cover_frac', 'percent'],
-            '_______':['dom_land_cover', '-'],
-            '_______':['root_depth_50', '-'],
+            'region_state_land~covered__area_fraction':['dom_land_cover_frac', 'percent'],  # custom name
+            'region_state_land~covered__area':['dom_land_cover', '-'],  # custom name
+            'root__depth':['root_depth_50', '-'],  # custom name
             'soil_bedrock_top__depth__pelletier':['soil_depth_pelletier','m'],
             'soil_bedrock_top__depth__statsgo':['soil_depth_statsgo','m'],
             'soil__porosity':['soil_porosity','-'],
@@ -128,31 +138,36 @@ class BMIdPLHydroModel(Bmi):
             'soil_sand__volume_fraction':['sand_frac','percent'],
             'soil_silt__volume_fraction':['silt_frac','percent'], 
             'soil_clay__volume_fraction':['clay_frac','percent'],
-            '_______':['geol_1st_class', '-'],
-            '_______':['glim_1st_class_frac', '-'],
-            '_______':['geol_2nd_class', '-'],
-            '_______':['glim_2nd_class_frac', '-'],
+            'geol_1st_class':['geol_1st_class', '-'],  # custom name
+            'geol_1st_class__fraction':['glim_1st_class_frac', '-'],  # custom name
+            'geol_2nd_class':['geol_2nd_class', '-'],  # custom name
+            'geol_2nd_class__fraction':['glim_2nd_class_frac', '-'],  # custom name
             'basin__carbonate_rocks_area_fraction':['carbonate_rocks_frac','-'],
-            '_______':['geol_porosity', '-'],
+            'soil_active-layer__porosity':['geol_porosity', '-'],  # check name
             'bedrock__permeability':['geol_permeability','m2']
             }
+        
+        # Keep running total of BMI runtime.
+        self.bmi_process_time += time.time() - start_time
 
-    def initialize(self, bmi_cfg_filepath=None):
+    def initialize(self, bmi_cfg_filepath: Optional[str] = None) -> None:
         """
         (BMI Control function) Initialize the dPLHydro model.
 
         Parameters
         ----------
-        config_name : str, optional
-            Name of BMI configuration file.
+        bmi_cfg_filepath : str, optional
+            Path to the BMI configuration file.
         """
+        start_time = time.time()
+
         # Read in BMI configurations.
-        if not isinstance(bmi_cfg_filepath, str) or len(bmi_cfg_filepath) == 0:
+        if not isinstance(bmi_cfg_filepath, str) or not bmi_cfg_filepath:
             raise RuntimeError("No valid BMI configuration provided.")
 
         bmi_config_file = Path(bmi_cfg_filepath).resolve()
         if not bmi_config_file.is_file():
-            raise RuntimeError("No valid configuration provided.")
+            raise RuntimeError("No valid configuration file found.")
 
         with bmi_config_file.open('r') as f:
             config = yaml.safe_load(f)
@@ -161,40 +176,44 @@ class BMIdPLHydroModel(Bmi):
         self.bmi_config, self.bmi_config_dict = self.initialize_config(config)
 
         # TODO: write up maps for these.
-        # Values are fed into the enclosed model.
+        # Values fed into the enclosed model.
         self._values = {}
         self._var_units = {}
         self._var_loc = {}
 
-        # Set a simulation start time.
+        # Set a simulation start time and gettimestep size.
         self.current_time = self._start_time
-
-        # Set a timstep size.
         self._time_step_size = self.bmi_config.time_step_delta
 
         # Initialize a trained model.
         self._model = ModelHandler(self.self.bmi_config).to(self.bmi_config.device)
         self._initialized = True
 
-        # Intialize dataset.
+        # Intialize dataset (move this externally).
         self._get_data_dict()
 
-    def update(self):
+        # Keep running total of BMI runtime.
+        self.bmi_process_time += time.time() - start_time
+
+    def update(self) -> None:
         """
         (BMI Control function) Advance model state by one time step.
-        *Note* Models should be trained standalone with dPLHydro_PMI first before forward predictions with this BMI.
 
-        Perform all tasks that take place within one pass through the model's
-        time loop.
+        Note: Models should be trained standalone with dPLHydro_PMI first before forward predictions with this BMI.
         """
-        self.current_time += self._time_step_size 
-        
-        self.get_tensor_slice()
+        start_time = time.time()
 
+        self.current_time += self._time_step_size 
+        self.get_tensor_slice()
         self.output = self._model.forward(self.input_tensor)
 
-    def update_frac(self, time_frac):
-        """Update model by a fraction of a time step.
+        # Keep running total of BMI runtime.
+        self.bmi_process_time += time.time() - start_time
+
+    def update_frac(self, time_frac: float) -> None:
+        """
+        Update model by a fraction of a time step.
+        
         Parameters
         ----------
         time_frac : float
@@ -203,27 +222,27 @@ class BMIdPLHydroModel(Bmi):
         if self.verbose:
             print("Warning: This model is trained to make predictions on one day timesteps.")
         time_step = self.get_time_step()
-        self._time_step_size = time_frac * self._time_step_size
+        self._time_step_size = self._time_step_size * time_frac
         self.update()
         self._time_step_size = time_step
 
-    def update_until(self, then):
+    def update_until(self, end_time: float) -> None:
         """
         (BMI Control function) Update model until a particular time.
-        *Note* Models should be trained standalone with dPLHydro_PMI first before forward predictions with this BMI.
+        Note: Models should be trained standalone with dPLHydro_PMI first before forward predictions with this BMI.
 
         Parameters
         ----------
-        then : float
+        end_time : float
             Time to run model until.
         """
-        n_steps = (then - self.get_current_time()) / self.get_time_step()
+        n_steps = (end_time - self.get_current_time()) / self.get_time_step()
 
         for _ in range(int(n_steps)):
             self.update()
         self.update_frac(n_steps - int(n_steps))
 
-    def finalize(self):
+    def finalize(self) -> None:
         """
         (BMI Control function) Finalize model.
         """

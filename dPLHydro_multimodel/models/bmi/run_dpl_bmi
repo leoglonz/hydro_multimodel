@@ -1,24 +1,8 @@
 """
-This is a testing environment for building dPL hydrologic model BMI.
+This is a testing environment for running a dPL hydrologic model BMI compatible
+with NOAA OWP NextGen framework.
 """
-import logging
 import os
-
-from networkx import bidirectional_dijkstra
-import numpy as np
-import pandas as pd
-import torch
-import tqdm
-from conf.config import Config
-from core.calc.normalize import trans_norm
-from core.calc.stat import stat_error
-from core.data import take_sample_test
-from core.data.dataFrame_loading import load_data
-from core.utils import save_outputs
-from core.utils.Dates import Dates
-from models.model_handler import ModelHandler
-from models.multimodels.ensemble_network import EnsembleWeights
-
 from models.bmi.dpl_bmi import BMIdPLHydroModel
 
 
@@ -27,6 +11,8 @@ try:
     from ruamel.yaml import YAML
 except ModuleNotFoundError:
     print("YAML Module not found.")
+
+
 
 config_path = "bmi_config.yaml"
 yaml = YAML(typ="safe")
@@ -60,12 +46,12 @@ for t in range(n_forcings):
     # Set forcings...
     model.setvalue('atmosphere_water__liquid_equivalent_precipitation_rate', forcings['prcp(mm/day)'])
     model.setvalue('land_surface_air__temperature', forcings['tmean(C)'])
-    model.setvalue('_________', forcings['PET_hargreaves(mm/day)'])
+    model.setvalue('land_surface_water__potential_evaporation_volume_flux', forcings['PET_hargreaves(mm/day)'])  # confirm correct name
 
     # Set attributes...
     model.setvalue('atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate', attributes['p_mean'])
     model.setvalue('land_surface_water__daily_mean_of_potential_evaporation_flux', attributes['pet_mean'])
-    model.setvalue('_________', attributes['p_seasonality'])
+    model.setvalue('p_seasonality', attributes['p_seasonality'])  # custom name
     model.setvalue('atmosphere_water__precipitation_falling_as_snow_fraction', attributes['frac_snow'])
     model.setvalue('ratio__mean_potential_evapotranspiration__mean_precipitation', attributes['aridity'])
     model.setvalue('atmosphere_water__frequency_of_high_precipitation_events', attributes['high_prec_freq'])
@@ -80,9 +66,9 @@ for t in range(n_forcings):
     model.setvalue('land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index', attributes['lai_diff'])
     model.setvalue('land_vegetation__max_monthly_mean_of_green_vegetation_fraction', attributes['gvf_max'])
     model.setvalue('land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction', attributes['gvf_diff'])
-    model.setvalue('_________', attributes['dom_land_cover_frac'])
-    model.setvalue('_________', attributes['dom_land_cover'])
-    model.setvalue('_________', attributes['root_depth_50'])
+    model.setvalue('region_state_land~covered__area_fraction', attributes['dom_land_cover_frac'])  # custom name
+    model.setvalue('region_state_land~covered__area', attributes['dom_land_cover'])  # custom name
+    model.setvalue('root__depth', attributes['root_depth_50'])  # custom name
     model.setvalue('soil_bedrock_top__depth__pelletier', attributes['soil_depth_pelletier'])
     model.setvalue('soil_bedrock_top__depth__statsgo', attributes['soil_depth_statsgo'])
     model.setvalue('soil__porosity', attributes['soil_porosity'])
@@ -91,12 +77,12 @@ for t in range(n_forcings):
     model.setvalue('soil_sand__volume_fraction', attributes['sand_frac'])
     model.setvalue('soil_silt__volume_fraction', attributes['silt_frac'])
     model.setvalue('soil_clay__volume_fraction', attributes['clay_frac'])
-    model.setvalue('_________', attributes['geol_1st_class'])
-    model.setvalue('_________', attributes['glim_1st_class_frac'])
-    model.setvalue('_________', attributes['geol_2nd_class'])
-    model.setvalue('_________', attributes['glim_2nd_class_frac'])
-    model.setvalue('basin__carbonate_rocks_area_fraction', attributes['carbonate_rocks_frac'])
-    model.setvalue('_________', attributes['geol_porosity'])
+    model.setvalue('geol_1st_class', attributes['geol_1st_class'])  # custom name
+    model.setvalue('geol_1st_class__fraction', attributes['glim_1st_class_frac'])  # custom name
+    model.setvalue('geol_2nd_class', attributes['geol_2nd_class'])  # custom name
+    model.setvalue('geol_2nd_class__fraction', attributes['glim_2nd_class_frac'])  # custom name
+    model.setvalue('basin__carbonate_rocks_area_fraction', attributes['carbonate_rocks_frac'])  # custom name
+    model.setvalue('soil_active-layer__porosity', attributes['geol_porosity'])  # confirm correct name
     model.setvalue('bedrock__permeability', attributes['geol_permeability'])
 
     # Update the model at all basins for one timestep.

@@ -69,7 +69,7 @@ def select_subset(config: Dict,
     nx = x.shape[-1]
     batch_size = i_grid.shape[0]
 
-    if i_t != None:
+    if i_t is not None:
         x_tensor = torch.zeros([rho + warm_up, batch_size, nx], requires_grad=has_grad)
         for k in range(batch_size):
             temp = x[np.arange(i_t[k] - warm_up, i_t[k] + rho), i_grid[k]:i_grid[k] + 1, :]
@@ -83,7 +83,7 @@ def select_subset(config: Dict,
             x_tensor = torch.from_numpy(x[:, i_grid, :]).float()
             rho = x_tensor.shape[0]
 
-    if c != None:
+    if c is not None:
         nc = c.shape[-1]
         temp = np.repeat(np.reshape(c[i_grid, :], [batch_size, 1, nc]), rho + warm_up, axis=1)
         c_tensor = torch.from_numpy(temp).float()
