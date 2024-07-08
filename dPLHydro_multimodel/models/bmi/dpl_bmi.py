@@ -149,6 +149,77 @@ class BMIdPLHydroModel(Bmi):
         
         # Keep running total of BMI runtime.
         self.bmi_process_time += time.time() - start_time
+    
+    def __getattribute__(self, item: str):
+        """
+        Customize instance attribute access.
+
+        For those items that correspond to BMI input or output variables (which 
+        should be in numpy arrays) and have values that are just a single-element
+        array, deviate from the standard behavior and return the single array
+        element. Fall back to the default behavior in any other case. This
+        supports having a BMI variable be backed by a numpy array, while also
+        allowing the attribute to be used as just a scalar, as it is in many 
+        places for this type. (Peckham et al.).
+
+        Parameters
+        ----------
+        item
+            The name of the attribute item to get.
+
+        Returns
+        -------
+        The value of the named item.
+        """
+        # Have these work explicitly (or else loops)
+        if item == '_input_var_names' or item == '_output_var_names':
+            return super(BMIdPLHydroModel, self).__getattribute__(item)
+
+        # By default, for things other than BMI variables, use normal behavior.
+        if (item not in super(BMIdPLHydroModel, self).__getattribute__('_input_var_names')) & (item not in super(BMIdPLHydroModel, self).__getattribute__('_output_var_names')):
+            return super(BMIdPLHydroModel, self).__getattribute__(item)
+
+        # Return the single scalar value from any ndarray of size 1.
+        value = super(BMIdPLHydroModel, self).__getattribute__(item)
+        if (isinstance(value, np.ndarray)) & (value.size == 1):
+            return value[0]
+        else:
+            return value
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        """
+        Customized instance attribute mutator functionality.
+
+        For those attribute with keys indicating they are a BMI input or output
+        variable (which should be in numpy arrays), wrap any scalar `value` as a
+        one-element numpy array and use that in a nested call to the superclass
+        implementation of this function.  In any other cases, just pass the given
+        `key` and `value` to a nested call. (Peckham et al.).
+
+        This supports automatically having a BMI variable be backed by a numpy
+        array, even if it is initialized using a scalar, while otherwise
+        maintaining standard behavior.
+
+        Parameters
+        ----------
+        key : str
+            Attribute name.
+        value : Any
+            Attribute value.
+        """
+        # Have these work explicitly (or else loops)
+        if key in ['_input_var_names', '_output_var_names']:
+            super(BMIdPLHydroModel, self).__setattr__(key, value)
+
+        # Pass thru if value is already an array
+        if isinstance(value, np.ndarray):
+            super(BMIdPLHydroModel, self).__setattr__(key, value)
+        # Override to put scalars into ndarray for BMI input/output variables
+        elif (key in self._input_var_names) or (key in self._output_var_names):
+            super(BMIdPLHydroModel, self).__setattr__(key, np.array([value]))
+        # By default, use normal behavior
+        else:
+            super(BMIdPLHydroModel, self).__setattr__(key, value)
 
     def initialize(self, bmi_cfg_filepath: Optional[str] = None) -> None:
         """
@@ -172,25 +243,38 @@ class BMIdPLHydroModel(Bmi):
         with bmi_config_file.open('r') as f:
             config = yaml.safe_load(f)
 
+        # NOTE: will only use one of these dicts.
         # Initialize a configuration object.
         self.bmi_config, self.bmi_config_dict = self.initialize_config(config)
 
-        # TODO: write up maps for these.
-        # Values fed into the enclosed model.
-        self._values = {}
-        self._var_units = {}
-        self._var_loc = {}
+        # Initialize inputs and outputs.
+        for key in list(self._variable_name_units_map.keys()):
+            self._values[key] = 0
+            setattr(self, key, 0)
+        
+        # Make lookup tables (Peckham et al.).
+        self._var_name_map_long_first = {
+            long_name:self._var_name_units_map[long_name][0] for \
+            long_name in self._var_name_units_map.keys()
+            }
+        self._var_name_map_short_first = {
+            self._var_name_units_map[long_name][0]:long_name for \
+            long_name in self._var_name_units_map.keys()}
+        self._var_units_map = {
+            long_name:self._var_name_units_map[long_name][1] for \
+            long_name in self._var_name_units_map.keys()
+        }
 
         # Set a simulation start time and gettimestep size.
         self.current_time = self._start_time
         self._time_step_size = self.bmi_config.time_step_delta
 
-        # Initialize a trained model.
+        # Load a trained model.
         self._model = ModelHandler(self.self.bmi_config).to(self.bmi_config.device)
         self._initialized = True
 
-        # Intialize dataset (move this externally).
-        self._get_data_dict()
+        # Intialize dataset (NOTE: move this externally).
+        # self._get_data_dict()
 
         # Keep running total of BMI runtime.
         self.bmi_process_time += time.time() - start_time
@@ -204,6 +288,8 @@ class BMIdPLHydroModel(Bmi):
         start_time = time.time()
 
         self.current_time += self._time_step_size 
+        
+        # Assembles input values into Torch tensor and takes slice for model forward.
         self.get_tensor_slice()
         self.output = self._model.forward(self.input_tensor)
 
@@ -251,12 +337,27 @@ class BMIdPLHydroModel(Bmi):
 
         self._model = None
 
+    def array_to_tensor(self) -> None:
+        """
+        Converts input values into Torch tensor object to be read by model. 
+        """  
+        raise NotImplementedError("array_to_tensor")
+    
+    def tensor_to_array(self) -> None:
+        """
+        Converts model output Torch tensor into date + gradient arrays to be
+        passed out of BMI for backpropagation, loss, optimizer tuning.
+        """  
+        raise NotImplementedError("tensor_to_array")
+    
     def get_tensor_slice(self):
         """
         Get tensor of input data for a single timestep.
         """
-        sample_dict = take_sample_test(self.bmi_config, self.dataset_dict)
-        self.input_tensor = torch.Tensor()
+        # sample_dict = take_sample_test(self.bmi_config, self.dataset_dict)
+        # self.input_tensor = torch.Tensor()
+    
+        raise NotImplementedError("get_tensor_slice")
 
     def _get_data_dict(self):
         from core.calc.normalize import trans_norm
