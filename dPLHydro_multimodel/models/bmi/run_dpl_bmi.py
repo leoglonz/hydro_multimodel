@@ -1,10 +1,16 @@
 """
-This is a testing environment for running a dPL hydrologic model BMI compatible
-with NOAA OWP NextGen framework.
+This is a testing script for running a dPL, physics-informed machine learning
+model BMI that is NextGen framework and NOAA OWP operation-ready.
+
+Note:
+- The current setup only passes CAMELS (671 basins) data to the BMI. For
+    different datasets, `.set_value()` mappings must be modeified to the respective
+    forcing + attribute key values.
 """
 import os
-from models.bmi.dpl_bmi import BMIdPLHydroModel
 
+from models.bmi.dpl_bmi import BMIdPLHydroModel
+from core.data.dataset_loading import get_data_dict
 
 # Read configuration file.
 try:
@@ -14,6 +20,8 @@ except ModuleNotFoundError:
 
 
 
+
+################## Initialize BMI config ##################
 config_path = "bmi_config.yaml"
 yaml = YAML(typ="safe")
 path = os.path.realpath(config_path)
@@ -21,17 +29,36 @@ config = open(path, "r")
 config = yaml.load(config)
 
 
+exit()
+
+
+
+################## Instantiate the BMI ##################
 # Create instance of BMI model.
 model = BMIdPLHydroModel()
 
-# Initialize the BMI.
+# [CONTROL FUNCTION] Initialize the BMI.
 model.initialize(bmi_cfg_filepath=config_path)
+
+
+exit()
+
+
+
+################## Get test data; forcings + attributes ##################
+dataset_dict, config = get_data_dict(config, train=False)
 
 # TODO: Get forcing and attribute data
 # ... (take from bmi_train.py)...
 forcings = {}
 attributes = {}
 
+
+exit()
+
+
+
+################## Forward model for 1 or multiple timesteps ##################
 n_forcings = forcings['prcp(mm/day)'].size
 
 # TODO: write a timestep handler/translator so we can control we can pull out
@@ -42,13 +69,12 @@ for t in range(n_forcings):
     # NOTE: for each timestep in this loop, the data assignments below are of
     # arrays of basins. e.g., forcings['key'].shape = (1, # basins)
 
-    # TODO: Finish map of camels attribute/forcing data to CSDMS names.
-    # Set forcings...
+    # Set CAMELS forcings...
     model.setvalue('atmosphere_water__liquid_equivalent_precipitation_rate', forcings['prcp(mm/day)'])
     model.setvalue('land_surface_air__temperature', forcings['tmean(C)'])
     model.setvalue('land_surface_water__potential_evaporation_volume_flux', forcings['PET_hargreaves(mm/day)'])  # confirm correct name
 
-    # Set attributes...
+    # Set CAMELS attributes...
     model.setvalue('atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate', attributes['p_mean'])
     model.setvalue('land_surface_water__daily_mean_of_potential_evaporation_flux', attributes['pet_mean'])
     model.setvalue('p_seasonality', attributes['p_seasonality'])  # custom name
@@ -85,26 +111,13 @@ for t in range(n_forcings):
     model.setvalue('soil_active-layer__porosity', attributes['geol_porosity'])  # confirm correct name
     model.setvalue('bedrock__permeability', attributes['geol_permeability'])
 
-    # Update the model at all basins for one timestep.
+    # [CONTROL FUNCTION] Update the model at all basins for one timestep.
     model.update()
     print(f"Streamflow at time {model.t} is {model.streamflow_cms}")
 
-# Finalize the BMI once updating is complete.
+
+
+
+################## Finalize BMI ##################
+# [CONTROL FUNCTION] wrap up BMI run, deallocate mem.
 model.finalize()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
