@@ -1,12 +1,19 @@
 """
 BMI wrapper for interfacing dPL hydrology models with NOAA OWP NextGen framework.
 """
+# Need this to get external packages like conf.config.
+import sys
+package_path = '/data/lgl5139/hydro_multimodel/dPLHydro_multimodel'
+sys.path.append(package_path)
+
+import os
 import logging
 from pathlib import Path
 from typing import Optional, Any, Dict, Union
 
 import numpy as np
 import yaml
+from ruamel.yaml import YAML
 import torch
 import time
 
@@ -98,16 +105,15 @@ class BMIdPLHydroModel(Bmi):
         ]
 
         # Output variable names (CSDMS standard names)
-        self._output_variable_names = ['land_surface_water__runoff_volume_flux']
+        self._output_var_names = ['land_surface_water__runoff_volume_flux']
 
-        # NOTE: will we need this done for all desired datasets?? (starting with camels).
         # Map CSDMS Standard Names to the model's internal variable names (For CAMELS).
-        self._variable_name_units_map = {
-            ############## Outputs ##############
-            'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1'],
+        self._var_name_units_map = {
             ############## Forcings ##############
             'atmosphere_water__liquid_equivalent_precipitation_rate':['prcp(mm/day)', 'mm d-1'],
             'land_surface_air__temperature':['tmean(C)','degC'],
+            'land_surface_air__max_of_temperature':['tmax(C)', 'degC'],  # custom name
+            'land_surface_air__min_of_temperature':['tmin(C)', 'degC'],  # custom name
             'land_surface_water__potential_evaporation_volume_flux':['PET_hargreaves(mm/day)', 'mm d-1'],  # check name
             ############## Attributes ##############
             'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate':['p_mean','mm d-1'],
@@ -144,82 +150,86 @@ class BMIdPLHydroModel(Bmi):
             'geol_2nd_class__fraction':['glim_2nd_class_frac', '-'],  # custom name
             'basin__carbonate_rocks_area_fraction':['carbonate_rocks_frac','-'],
             'soil_active-layer__porosity':['geol_porosity', '-'],  # check name
-            'bedrock__permeability':['geol_permeability','m2']
+            'bedrock__permeability':['geol_permeability','m2'],
+            'drainage__area':['DRAIN_SQKM', 'km2'],  # custom name
+            'land_surface__latitude':['lat','degrees'],
+            ############## Outputs ##############
+            'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1']
             }
         
         # Keep running total of BMI runtime.
         self.bmi_process_time += time.time() - start_time
     
-    def __getattribute__(self, item: str):
-        """
-        Customize instance attribute access.
+    # def __getattribute__(self, item: str):
+    #     """
+    #     Customize instance attribute access.
 
-        For those items that correspond to BMI input or output variables (which 
-        should be in numpy arrays) and have values that are just a single-element
-        array, deviate from the standard behavior and return the single array
-        element. Fall back to the default behavior in any other case. This
-        supports having a BMI variable be backed by a numpy array, while also
-        allowing the attribute to be used as just a scalar, as it is in many 
-        places for this type. (Peckham et al.).
+    #     For those items that correspond to BMI input or output variables (which 
+    #     should be in numpy arrays) and have values that are just a single-element
+    #     array, deviate from the standard behavior and return the single array
+    #     element. Fall back to the default behavior in any other case. This
+    #     supports having a BMI variable be backed by a numpy array, while also
+    #     allowing the attribute to be used as just a scalar, as it is in many 
+    #     places for this type. (Peckham et al.).
 
-        Parameters
-        ----------
-        item
-            The name of the attribute item to get.
+    #     Parameters
+    #     ----------
+    #     item
+    #         The name of the attribute item to get.
 
-        Returns
-        -------
-        The value of the named item.
-        """
-        # Have these work explicitly (or else loops)
-        if item == '_input_var_names' or item == '_output_var_names':
-            return super(BMIdPLHydroModel, self).__getattribute__(item)
+    #     Returns
+    #     -------
+    #     The value of the named item.
+    #     """
+    #     # Have these work explicitly (or else loops)
+    #     if item == '_input_var_names' or item == '_output_var_names':
+    #         return super(BMIdPLHydroModel, self).__getattribute__(item)
 
-        # By default, for things other than BMI variables, use normal behavior.
-        if (item not in super(BMIdPLHydroModel, self).__getattribute__('_input_var_names')) & (item not in super(BMIdPLHydroModel, self).__getattribute__('_output_var_names')):
-            return super(BMIdPLHydroModel, self).__getattribute__(item)
+    #     # By default, for things other than BMI variables, use normal behavior.
+    #     if (item not in super(BMIdPLHydroModel, self).__getattribute__('_input_var_names')) & (item not in super(BMIdPLHydroModel, self).__getattribute__('_output_var_names')):
+    #         return super(BMIdPLHydroModel, self).__getattribute__(item)
 
-        # Return the single scalar value from any ndarray of size 1.
-        value = super(BMIdPLHydroModel, self).__getattribute__(item)
-        if (isinstance(value, np.ndarray)) & (value.size == 1):
-            return value[0]
-        else:
-            return value
+    #     # Return the single scalar value from any ndarray of size 1.
+    #     value = super(BMIdPLHydroModel, self).__getattribute__(item)
+    #     if (isinstance(value, np.ndarray)) & (value.size == 1):
+    #         return value[0]
+    #     else:
+    #         return value
 
-    def __setattr__(self, key: str, value: Any) -> None:
-        """
-        Customized instance attribute mutator functionality.
+    # def __setattr__(self, key: str, value: Any) -> None:
+    #     """
+    #     Customized instance attribute mutator functionality.
 
-        For those attribute with keys indicating they are a BMI input or output
-        variable (which should be in numpy arrays), wrap any scalar `value` as a
-        one-element numpy array and use that in a nested call to the superclass
-        implementation of this function.  In any other cases, just pass the given
-        `key` and `value` to a nested call. (Peckham et al.).
+    #     For those attribute with keys indicating they are a BMI input or output
+    #     variable (which should be in numpy arrays), wrap any scalar `value` as a
+    #     one-element numpy array and use that in a nested call to the superclass
+    #     implementation of this function.  In any other cases, just pass the given
+    #     `key` and `value` to a nested call. (Peckham et al.).
 
-        This supports automatically having a BMI variable be backed by a numpy
-        array, even if it is initialized using a scalar, while otherwise
-        maintaining standard behavior.
+    #     This supports automatically having a BMI variable be backed by a numpy
+    #     array, even if it is initialized using a scalar, while otherwise
+    #     maintaining standard behavior.
 
-        Parameters
-        ----------
-        key : str
-            Attribute name.
-        value : Any
-            Attribute value.
-        """
-        # Have these work explicitly (or else loops)
-        if key in ['_input_var_names', '_output_var_names']:
-            super(BMIdPLHydroModel, self).__setattr__(key, value)
+    #     Parameters
+    #     ----------
+    #     key : str
+    #         Attribute name.
+    #     value : Any
+    #         Attribute value.
+    #     """
+    #     # Have these work explicitly (or else loops)
+    #     if key in ['_input_var_names', '_output_var_names']:
+    #         super(BMIdPLHydroModel, self).__setattr__(key, value)
 
-        # Pass thru if value is already an array
-        if isinstance(value, np.ndarray):
-            super(BMIdPLHydroModel, self).__setattr__(key, value)
-        # Override to put scalars into ndarray for BMI input/output variables
-        elif (key in self._input_var_names) or (key in self._output_var_names):
-            super(BMIdPLHydroModel, self).__setattr__(key, np.array([value]))
-        # By default, use normal behavior
-        else:
-            super(BMIdPLHydroModel, self).__setattr__(key, value)
+    #     # Pass thru if value is already an array
+    #     if isinstance(value, np.ndarray):
+    #         super(BMIdPLHydroModel, self).__setattr__(key, value)
+    #     # Override to put scalars into ndarray for BMI input/output variables
+    #     elif (key in self._input_var_names) or (key in self._output_var_names):
+    #         super(BMIdPLHydroModel, self).__setattr__(key, np.array([value]))
+    #     # By default, use normal behavior
+    #     else:
+    #         super(BMIdPLHydroModel, self).__setattr__(key, value)
 
     def initialize(self, bmi_cfg_filepath: Optional[str] = None) -> None:
         """
@@ -233,24 +243,12 @@ class BMIdPLHydroModel(Bmi):
         start_time = time.time()
 
         # Read in BMI configurations.
-        if not isinstance(bmi_cfg_filepath, str) or not bmi_cfg_filepath:
-            raise RuntimeError("No valid BMI configuration provided.")
-
-        bmi_config_file = Path(bmi_cfg_filepath).resolve()
-        if not bmi_config_file.is_file():
-            raise RuntimeError("No valid configuration file found.")
-
-        with bmi_config_file.open('r') as f:
-            config = yaml.safe_load(f)
-
-        # NOTE: will only use one of these dicts.
-        # Initialize a configuration object.
-        self.bmi_config, self.bmi_config_dict = self.initialize_config(config)
+        self.initialize_config(bmi_cfg_filepath)
 
         # Initialize inputs and outputs.
-        for key in list(self._variable_name_units_map.keys()):
-            self._values[key] = 0
-            setattr(self, key, 0)
+        for var in list(self._var_name_units_map.keys()):
+            self._values[var] = []
+            # setattr(self, var, 0)
         
         # Make lookup tables (Peckham et al.).
         self._var_name_map_long_first = {
@@ -267,10 +265,10 @@ class BMIdPLHydroModel(Bmi):
 
         # Set a simulation start time and gettimestep size.
         self.current_time = self._start_time
-        self._time_step_size = self.bmi_config.time_step_delta
+        self._time_step_size = self.config['time_step_delta']
 
         # Load a trained model.
-        self._model = ModelHandler(self.self.bmi_config).to(self.bmi_config.device)
+        self._model = ModelHandler(self.config).to(self.config['device'])
         self._initialized = True
 
         # Intialize dataset (NOTE: move this externally).
@@ -358,42 +356,6 @@ class BMIdPLHydroModel(Bmi):
         # self.input_tensor = torch.Tensor()
     
         raise NotImplementedError("get_tensor_slice")
-
-    def _get_data_dict(self):
-        from core.calc.normalize import trans_norm
-        from core.utils.Dates import Dates
-        from dPLHydro_multimodel.core.data.dataset_loading import load_data
-
-        log.info(f"Collecting testing data")
-
-        # Prepare training data.
-        self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
-        self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
-        self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
-
-        # Read data for the test time range
-        dataset_dict = load_data(self.config, trange=self.test_trange)
-
-        # Normalizations
-        # init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
-        x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
-        c_nn_scaled = trans_norm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
-        c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
-        dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
-        del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
-        
-        # Convert numpy arrays to torch tensors
-        for key in dataset_dict.keys():
-            if type(dataset_dict[key]) == np.ndarray:
-                dataset_dict[key] = torch.from_numpy(dataset_dict[key]).float()
-        self.dataset_dict = dataset_dict
-
-        ngrid = dataset_dict['inputs_nn_scaled'].shape[1]
-        self.iS = np.arange(0, ngrid, self.config['batch_basins'])
-        self.iE = np.append(self.iS[1:], ngrid)
-
-
-
 
     # ------------------ Finished up to here ------------------
     # ---------------------------------------------------------
@@ -501,7 +463,7 @@ class BMIdPLHydroModel(Bmi):
         raise NotImplementedError("get_grid_size")
 
 
-    def get_value_ptr(self, var_name):
+    def get_value_ptr(self, var_name: str) -> np.ndarray:
         """Reference to values.
 
         Parameters
@@ -514,6 +476,9 @@ class BMIdPLHydroModel(Bmi):
         array_like
             Value array.
         """
+        if var_name not in self._values.keys():
+            raise ValueError(f"No known variable in BMI model: {var_name}")
+        
         return self._values[var_name]
 
     def get_value(self, var_name, dest):
@@ -554,18 +519,22 @@ class BMIdPLHydroModel(Bmi):
         dest[:] = self.get_value_ptr(var_name).take(indices)
         return dest
 
-    def set_value(self, var_name, src):
+    def set_value(self, var_name, values: np.ndarray):
         """Set model values.
 
         Parameters
         ----------
         var_name : str
             Name of variable as CSDMS Standard Name.
-        src : array_like
+        values : array_like
             Array of new values.
         """
+        if not isinstance(values, (np.ndarray, list, tuple)):
+            values = np.array([values])
+
         val = self.get_value_ptr(var_name)
-        val[:] = src.reshape(val.shape)
+        val[:] = values
+        # val[:] = values.reshape(val.shape)
 
     def set_value_at_indices(self, name, inds, src):
         """Set model values at particular indices.
@@ -621,12 +590,10 @@ class BMIdPLHydroModel(Bmi):
         # return origin
         raise NotImplementedError("get_grid_origin")
 
-
     def get_grid_type(self, grid_id):
         """Type of grid."""
         # return self._grid_type[grid_id]
         raise NotImplementedError("get_grid_type")
-
 
     def get_start_time(self):
         """Start time of model."""
@@ -690,16 +657,29 @@ class BMIdPLHydroModel(Bmi):
     def get_grid_z(self, grid, z):
         raise NotImplementedError("get_grid_z")
 
-    def initialize_config(cfg: DictConfig) -> Config:
+    def initialize_config(self, config_path: str) -> Dict:
         """
-        Convert config into a dictionary and a Config object for validation.
+        Check that config_path is valid path and convert config into a
+        dictionary object.
         """
-        try:
-            config_dict: Union[Dict[str, Any], Any] = OmegaConf.to_container(
-                cfg, resolve=True
-            )
-            config = Config(**config_dict)
-        except ValidationError as e:
-            log.exception(e)
-            raise e
-        return config, config_dict
+        config_path = Path(config_path).resolve()
+        
+        if not config_path:
+            raise RuntimeError("No BMI configuration path provided.")
+        elif not config_path.is_file():
+            raise RuntimeError(f"BMI configuration not found at path {config_path}.")
+        else:
+            with config_path.open('r') as f:
+                self.config = yaml.safe_load(f)
+    
+
+        # USE BELOW FOR HYDRA + OMEGACONF:
+        # try:
+        #     config_dict: Union[Dict[str, Any], Any] = OmegaConf.to_container(
+        #         cfg, resolve=True
+        #     )
+        #     config = Config(**config_dict)
+        # except ValidationError as e:
+        #     log.exception(e)
+        #     raise e
+        # return config, config_dict

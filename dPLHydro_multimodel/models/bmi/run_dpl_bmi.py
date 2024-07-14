@@ -8,116 +8,95 @@ Note:
     forcing + attribute key values.
 """
 import os
+from ruamel.yaml import YAML
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s][%(name)s][%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
-from models.bmi.dpl_bmi import BMIdPLHydroModel
+from dpl_bmi import BMIdPLHydroModel
 from core.data.dataset_loading import get_data_dict
 
-# Read configuration file.
-try:
-    from ruamel.yaml import YAML
-except ModuleNotFoundError:
-    print("YAML Module not found.")
+log = logging.getLogger(__name__)
+
+
+
+def main() -> None:
+    ################## Initialize the BMI ##################
+    # Path to BMI config.
+    config_path = '/data/lgl5139/hydro_multimodel/dPLHydro_multimodel/models/bmi/bmi_config.yaml' #"bmi_config.yaml"
+
+    # Create instance of BMI model.
+    log.info("Creating dPLHydro BMI model instance")
+    model = BMIdPLHydroModel()
+
+    # [CONTROL FUNCTION] Initialize the BMI.
+    log.info(f"INITIALIZING BMI")
+    model.initialize(bmi_cfg_filepath=config_path)
+
+
+    ################## Get test data ##################
+    log.info(f"Collecting attribute and forcing data")
+
+    # TODO: Adapt this PMI data loader to be more-BMI friendly, less a function iceberg.
+    dataset_dict, _ = get_data_dict(model.config, train=False)
+
+    # Fixing typo in CAMELS dataset: 'geol_porostiy'.
+    # (Written into config somewhere inside get_data_dict...)
+    var_c_nn = model.config['observations']['var_c_nn']
+    if 'geol_porostiy' in var_c_nn:
+        model.config['observations']['var_c_nn'][var_c_nn.index('geol_porostiy')] = 'geol_porosity'
+
+
+    ################## Forward model for 1 or multiple timesteps ##################
+    # n_timesteps = dataset_dict['inputs_nn_scaled'].shape[0]
+    n_timesteps = 1  # debug
+    log.info(f"BEGIN BMI FORWARD: {n_timesteps} timesteps...")
+
+    # TODO: write a timestep handler/translator so we can pull out
+    # forcings/attributes for the specific timesteps we want streamflow predictions for.
+
+    # Loop through and return streamflow at each timestep.
+    for t in range(n_timesteps):
+        # NOTE: for each timestep in this loop, the data assignments below are of
+        # arrays of basins. e.g., forcings['key'].shape = (1, # basins)
+
+        ################## Map forcings + attributes into BMI ##################
+        # Set NN forcings...
+        for i, var in enumerate(model.config['observations']['var_t_nn']):
+            standard_name = model._var_name_map_short_first[var]
+            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t, 1, i])
+        
+        # Set NN attributes...
+        for i, var in enumerate(model.config['observations']['var_c_nn']):
+            standard_name = model._var_name_map_short_first[var]
+            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t, 1, i]) 
+
+        # Set physics model forcings...
+        for i, var in enumerate(model.config['observations']['var_t_hydro_model']):
+            standard_name = model._var_name_map_short_first[var]
+            model.set_value(standard_name, dataset_dict['x_hydro_model'][t, 1, i]) 
+
+        # Set physics model attributes...
+        for i, var in enumerate(model.config['observations']['var_c_hydro_model']):
+            standard_name = model._var_name_map_short_first[var]
+            print(standard_name, var)
+            # NOTE: These attributes don't have a time dimension...
+            model.set_value(standard_name, dataset_dict['c_hydro_model'][1, i]) 
+
+        # [CONTROL FUNCTION] Update the model at all basins for one timestep.
+        model.update()
+        print(f"Streamflow at time {model.t} is {model.streamflow_cms}")
 
 
 
 
-################## Initialize BMI config ##################
-config_path = "bmi_config.yaml"
-yaml = YAML(typ="safe")
-path = os.path.realpath(config_path)
-config = open(path, "r")
-config = yaml.load(config)
+    ################## Finalize BMI ##################
+    # [CONTROL FUNCTION] wrap up BMI run, deallocate mem.
+    log.info(f"FINALIZE BMI")
+    model.finalize()
 
-
-exit()
-
-
-
-################## Instantiate the BMI ##################
-# Create instance of BMI model.
-model = BMIdPLHydroModel()
-
-# [CONTROL FUNCTION] Initialize the BMI.
-model.initialize(bmi_cfg_filepath=config_path)
-
-
-exit()
-
-
-
-################## Get test data; forcings + attributes ##################
-dataset_dict, config = get_data_dict(config, train=False)
-
-# TODO: Get forcing and attribute data
-# ... (take from bmi_train.py)...
-forcings = {}
-attributes = {}
-
-
-exit()
-
-
-
-################## Forward model for 1 or multiple timesteps ##################
-n_forcings = forcings['prcp(mm/day)'].size
-
-# TODO: write a timestep handler/translator so we can control we can pull out
-# forcings/attributes for the specific timesteps we want streamflow predictions for.
-
-# Loop through and return streamflow at each timestep.
-for t in range(n_forcings):
-    # NOTE: for each timestep in this loop, the data assignments below are of
-    # arrays of basins. e.g., forcings['key'].shape = (1, # basins)
-
-    # Set CAMELS forcings...
-    model.setvalue('atmosphere_water__liquid_equivalent_precipitation_rate', forcings['prcp(mm/day)'])
-    model.setvalue('land_surface_air__temperature', forcings['tmean(C)'])
-    model.setvalue('land_surface_water__potential_evaporation_volume_flux', forcings['PET_hargreaves(mm/day)'])  # confirm correct name
-
-    # Set CAMELS attributes...
-    model.setvalue('atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate', attributes['p_mean'])
-    model.setvalue('land_surface_water__daily_mean_of_potential_evaporation_flux', attributes['pet_mean'])
-    model.setvalue('p_seasonality', attributes['p_seasonality'])  # custom name
-    model.setvalue('atmosphere_water__precipitation_falling_as_snow_fraction', attributes['frac_snow'])
-    model.setvalue('ratio__mean_potential_evapotranspiration__mean_precipitation', attributes['aridity'])
-    model.setvalue('atmosphere_water__frequency_of_high_precipitation_events', attributes['high_prec_freq'])
-    model.setvalue('atmosphere_water__mean_duration_of_high_precipitation_events', attributes['high_prec_dur'])
-    model.setvalue('atmosphere_water__precipitation_frequency', attributes['low_prec_freq'])
-    model.setvalue('atmosphere_water__low_precipitation_duration', attributes['low_prec_dur'])
-    model.setvalue('basin__mean_of_elevation', attributes['elev_mean'])
-    model.setvalue('basin__mean_of_slope', attributes['slope_mean'])
-    model.setvalue('basin__area', attributes['area_gages2'])
-    model.setvalue('land_vegetation__forest_area_fraction', attributes['frac_forest'])
-    model.setvalue('land_vegetation__max_monthly_mean_of_leaf-area_index', attributes['lai_max'])
-    model.setvalue('land_vegetation__diff_max_min_monthly_mean_of_leaf-area_index', attributes['lai_diff'])
-    model.setvalue('land_vegetation__max_monthly_mean_of_green_vegetation_fraction', attributes['gvf_max'])
-    model.setvalue('land_vegetation__diff__max_min_monthly_mean_of_green_vegetation_fraction', attributes['gvf_diff'])
-    model.setvalue('region_state_land~covered__area_fraction', attributes['dom_land_cover_frac'])  # custom name
-    model.setvalue('region_state_land~covered__area', attributes['dom_land_cover'])  # custom name
-    model.setvalue('root__depth', attributes['root_depth_50'])  # custom name
-    model.setvalue('soil_bedrock_top__depth__pelletier', attributes['soil_depth_pelletier'])
-    model.setvalue('soil_bedrock_top__depth__statsgo', attributes['soil_depth_statsgo'])
-    model.setvalue('soil__porosity', attributes['soil_porosity'])
-    model.setvalue('soil__saturated_hydraulic_conductivity', attributes['soil_conductivity'])
-    model.setvalue('maximum_water_content', attributes['max_water_content'])
-    model.setvalue('soil_sand__volume_fraction', attributes['sand_frac'])
-    model.setvalue('soil_silt__volume_fraction', attributes['silt_frac'])
-    model.setvalue('soil_clay__volume_fraction', attributes['clay_frac'])
-    model.setvalue('geol_1st_class', attributes['geol_1st_class'])  # custom name
-    model.setvalue('geol_1st_class__fraction', attributes['glim_1st_class_frac'])  # custom name
-    model.setvalue('geol_2nd_class', attributes['geol_2nd_class'])  # custom name
-    model.setvalue('geol_2nd_class__fraction', attributes['glim_2nd_class_frac'])  # custom name
-    model.setvalue('basin__carbonate_rocks_area_fraction', attributes['carbonate_rocks_frac'])  # custom name
-    model.setvalue('soil_active-layer__porosity', attributes['geol_porosity'])  # confirm correct name
-    model.setvalue('bedrock__permeability', attributes['geol_permeability'])
-
-    # [CONTROL FUNCTION] Update the model at all basins for one timestep.
-    model.update()
-    print(f"Streamflow at time {model.t} is {model.streamflow_cms}")
-
-
-
-
-################## Finalize BMI ##################
-# [CONTROL FUNCTION] wrap up BMI run, deallocate mem.
-model.finalize()
+if __name__ == "__main__":
+    main()
