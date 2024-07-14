@@ -81,6 +81,11 @@ class DataFrame_dataset(Data_Reader):
     def getDataConst(self, args, varLst, doNorm=True, rmNan=True):
         if type(varLst) is str:
             varLst = [varLst]
+        
+        if 'geol_porosity' in varLst:
+            # correct typo
+            varLst[varLst.index('geol_porosity')] = 'geol_porostiy'
+
         inputfile = os.path.join(os.path.realpath(args['observations']['forcing_path']))
         if self.inputfile_attr.endswith('.csv'):
             dfMain = pd.read_csv(self.inputfile)
@@ -96,8 +101,13 @@ class DataFrame_dataset(Data_Reader):
         c = np.empty([nNodes, len(varLst)])
 
         for k, kk in enumerate(sites):
-            data = dfC.loc[dfC['site_no'] == kk, varLst].to_numpy().squeeze()
-            c[k, :] = data
+            data = dfC.loc[dfC['site_no'] == kk, varLst]
+            if 'geol_porostiy' in varLst:
+                # correct typo
+                data = data.rename(columns={'geol_porostiy': 'geol_porosity'})
+            data1 = data.to_numpy().squeeze()
+            
+            c[k, :] = data1
 
         data = c
         # if doNorm is True:

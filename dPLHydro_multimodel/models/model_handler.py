@@ -48,7 +48,7 @@ class ModelHandler(torch.nn.Module):
             # Note: optimizer init must be within this handler, and not called
             # externally, so that it can be wrapped by a CSDMS BMI (NextGen comp.)
             self.init_optimizer()
-        elif self.config['mode'] in ['test', 'test_bmi']:
+        elif self.config['mode'] in ['test', 'bmi_forward']:
             for mod in self.config['hydro_models']:
                 self.load_model(mod)
         else:

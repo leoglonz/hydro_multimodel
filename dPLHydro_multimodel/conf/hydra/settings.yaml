@@ -4,7 +4,7 @@ help:
   template: |-
     ${hydra.help.header}
 
-    Multimodel framework developed by Leo Lonzarich.
+    Multimodel framework developed by Leo Lonzarich, w/ contributions from Tadd Bindas, Farshid Rahmani, et al.
 
     ${hydra.help.footer}
   footer: |-

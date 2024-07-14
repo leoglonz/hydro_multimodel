@@ -1,13 +1,13 @@
 defaults:
     - _self_
     - hydra: settings
-    - observations: gages2_50    # gages2_50, camels_671_dp_2024, camels_671_dp_2023
+    - observations: camels_671_dp_2024    # gages2_50, camels_671_dp_2024, camels_671_dp_2023
 
 
 
 ## General Config -------------------------------#
-mode: train   # train, test, train_test, train_wnn_only
-ensemble_type: frozen_pnn    # none, frozen_pnn, free_pnn
+mode: test   # train, test, train_test, train_wnn_only
+ensemble_type: free_pnn    # none, frozen_pnn, free_pnn
 use_checkpoint: False    # See bottom
 
 random_seed: 0
@@ -27,7 +27,7 @@ name: hmm1.2-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs # Subject to removal.
-output_dir: ${data_dir}/${observations.name}/saved_models
+output_dir: ${data_dir}/${observations.name}/saved_models/debug_3
 
 
 ## Model Config -------------------------------#
@@ -51,7 +51,7 @@ loss_function_weights:
 nmul: 16
 warm_up: 365
 rho: 365
-batch_size: 30
+batch_size: 200
 epochs: 50
 dropout: 0.5
 hidden_size: 256
