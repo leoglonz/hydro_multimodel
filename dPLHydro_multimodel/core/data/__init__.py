@@ -130,7 +130,7 @@ def take_sample_train(config: Dict,
 def take_sample_test(config: Dict, dataset_dictionary: Dict[str, torch.Tensor], 
                      i_s: int, i_e: int) -> Dict[str, torch.Tensor]:
     """
-    Tkae sample of data for testing batch.
+    Take sample of data for testing batch.
     """
     dataset_sample = {}
     for key, value in dataset_dictionary.items():

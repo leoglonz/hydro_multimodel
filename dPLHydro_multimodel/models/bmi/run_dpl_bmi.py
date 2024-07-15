@@ -49,10 +49,13 @@ def main() -> None:
     if 'geol_porostiy' in var_c_nn:
         model.config['observations']['var_c_nn'][var_c_nn.index('geol_porostiy')] = 'geol_porosity'
 
+    print(type(dataset_dict['inputs_nn_scaled']))
 
     ################## Forward model for 1 or multiple timesteps ##################
     # n_timesteps = dataset_dict['inputs_nn_scaled'].shape[0]
     n_timesteps = 1  # debug
+    n_basins = 671
+
     log.info(f"BEGIN BMI FORWARD: {n_timesteps} timesteps...")
 
     # TODO: write a timestep handler/translator so we can pull out
@@ -67,36 +70,38 @@ def main() -> None:
         # Set NN forcings...
         for i, var in enumerate(model.config['observations']['var_t_nn']):
             standard_name = model._var_name_map_short_first[var]
-            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t, 1, i])
+            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t, :n_basins, i], model='nn')
+        n_forc = i
         
         # Set NN attributes...
         for i, var in enumerate(model.config['observations']['var_c_nn']):
             standard_name = model._var_name_map_short_first[var]
-            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t, 1, i]) 
+            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t, :n_basins, n_forc + i + 1], model='nn') 
 
         # Set physics model forcings...
         for i, var in enumerate(model.config['observations']['var_t_hydro_model']):
             standard_name = model._var_name_map_short_first[var]
-            model.set_value(standard_name, dataset_dict['x_hydro_model'][t, 1, i]) 
+            model.set_value(standard_name, dataset_dict['x_hydro_model'][t, :n_basins, i], model='pm') 
 
         # Set physics model attributes...
         for i, var in enumerate(model.config['observations']['var_c_hydro_model']):
             standard_name = model._var_name_map_short_first[var]
-            print(standard_name, var)
             # NOTE: These attributes don't have a time dimension...
-            model.set_value(standard_name, dataset_dict['c_hydro_model'][1, i]) 
+            model.set_value(standard_name, dataset_dict['c_hydro_model'][:n_basins, i], model='pm') 
+
+        # print(model._values)
 
         # [CONTROL FUNCTION] Update the model at all basins for one timestep.
         model.update()
-        print(f"Streamflow at time {model.t} is {model.streamflow_cms}")
-
-
-
+        # print(f"Streamflow at time {model.t} is {model.streamflow_cms}")
 
     ################## Finalize BMI ##################
     # [CONTROL FUNCTION] wrap up BMI run, deallocate mem.
     log.info(f"FINALIZE BMI")
     model.finalize()
 
+
+
 if __name__ == "__main__":
     main()
+    

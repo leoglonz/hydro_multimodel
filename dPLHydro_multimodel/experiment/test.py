@@ -56,13 +56,13 @@ class TestModel:
 
     def _get_data_dict(self) -> None:
         """
-        Get dicionary of input data.
+        Get dictionary of input data.
 
         iS, iE: arrays of start and end pairs of basin indicies for batching.
         """
         dataset_dict, self.config = get_data_dict(self.config)
 
-        # NOTE: why is this only necessary for testing?
+        # NOTE: why is this only necessary for testing? Because conversion happens in dataset_dict_sample.
         # Convert numpy arrays to torch tensors.
         for key in dataset_dict.keys():
             if type(dataset_dict[key]) == np.ndarray:

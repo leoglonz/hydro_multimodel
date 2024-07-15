@@ -294,3 +294,33 @@ def get_data_dict(config, train=False):
     del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
 
     return dataset_dict, config
+
+
+def extract_data(config):
+    """
+    Extract forcings and attributes from dataset feather files.
+    """
+    # Get date range.
+    config['train_t_range'] = Dates(config['train'], config['rho']).date_to_int()
+    config['test_t_range'] = Dates(config['test'], config['rho']).date_to_int()
+    config['t_range'] = [config['train_t_range'][0], config['test_t_range'][1]]
+    
+    # Lists of forcings and attributes for nn + physics model.
+    forcing_list = list(
+        dict.fromkeys(config['observations']['var_t_nn'] + config['observations']['var_t_hydro_model'])
+        )
+    attribute_list = list(
+        dict.fromkeys(config['observations']['var_c_nn'] + config['observations']['var_c_hydro_model'])
+        )
+     
+    out_dict = {}
+    forcing_dataset_class = choose_class_to_read_dataset(config, config['test_t_range'], config['observations']['forcing_path'])
+
+    forcing_dat = forcing_dataset_class.read_data.getDataTs(config, varLst=forcing_list)
+    attribute_dat = forcing_dataset_class.read_data.getDataConst(config, varLst=attribute_list)
+
+    out_dict['x_all'] = {key: forcing_dat[:,:, i] for i, key in enumerate(forcing_list)}
+    out_dict['c_all'] = {key: attribute_dat[:, i] for i, key in enumerate(attribute_list)}
+    # obs_raw = forcing_dataset_class.read_data.getDataTs(config, varLst=config['target'])
+
+    return out_dict

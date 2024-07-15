@@ -12,7 +12,7 @@ train:
     end_time: 1995/10/01
 test:
     start_time: 1995/10/01
-    end_time: 2010/10/01
+    end_time: 1995/10/02
 
 batch_basins: 25
 
@@ -33,7 +33,7 @@ dyn_hydro_params:
     SACSMA: []
     PRMS: []
 
-routing_hydro_model: True
+routing_hydro_model: False
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
 pet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']    # 00060_Mean, 00010_Mean, BFI_AVE, PET
@@ -44,8 +44,8 @@ loss_function_weights:
     w2: 1.0
 
 nmul: 16
-warm_up: 365
-rho: 365
+warm_up: 0
+rho: 0
 batch_size: 200
 epochs: 50
 dropout: 0.5
