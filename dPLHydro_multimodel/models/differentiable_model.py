@@ -59,7 +59,7 @@ class dPLHydroModel(torch.nn.Module):
             self.ny = self.config['nmul'] * (len(self.hydro_model.parameters_bound)) + len(
                 self.hydro_model.conv_routing_hydro_model_bound)
         else:
-            self.ny = self.args['nmul'] * len(self.hydro_model.parameters_bound)
+            self.ny = self.config['nmul'] * len(self.hydro_model.parameters_bound)
 
     def breakdown_params(self, params_all) -> None:
         params_dict = dict()

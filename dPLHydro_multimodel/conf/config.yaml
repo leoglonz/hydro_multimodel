@@ -6,8 +6,8 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: test   # train, test, train_test, train_wnn_only
-ensemble_type: free_pnn    # none, frozen_pnn, free_pnn
+mode: train   # train, test, train_test, train_wnn_only
+ensemble_type: none    # none, frozen_pnn, free_pnn
 use_checkpoint: False    # See bottom
 
 random_seed: 0
@@ -27,18 +27,18 @@ name: hmm1.2-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs # Subject to removal.
-output_dir: ${data_dir}/${observations.name}/saved_models/debug_3
+output_dir: ${data_dir}/${observations.name}/saved_models/no_rout
 
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV, marrmot_PRMS, SACSMA_with_snow]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     HBV: []    # parBETA, parBETAET
     SACSMA: []
     PRMS: []
 
-routing_hydro_model: True
+routing_hydro_model: False
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
 pet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']    # 00060_Mean, 00010_Mean, BFI_AVE, PET
@@ -52,13 +52,13 @@ nmul: 16
 warm_up: 365
 rho: 365
 batch_size: 200
-epochs: 50
+epochs: 5
 dropout: 0.5
 hidden_size: 256
 learning_rate: 1
 nearzero: 1e-5
 
-save_epoch: 10
+save_epoch: 1
 
 weighting_nn:
     dropout: 0.5

@@ -55,7 +55,7 @@ class BMIdPLHydroModel(Bmi):
         # Required, static attributes of the model
         _att_map = {
         'model_name':         "Differentiable Parameter Learning Hydrology BMI",
-        'version':            '1.1',
+        'version':            '1.2',
         'author_name':        'MHPI',
         'time_units':         'days',
         }
@@ -106,8 +106,25 @@ class BMIdPLHydroModel(Bmi):
             'bedrock__permeability'
         ]
 
-        # Output variable names (CSDMS standard names)
-        self._output_var_names = ['land_surface_water__runoff_volume_flux']
+        # Output variable names (CSDMS standard names).
+        # TODO: Find CSDMS names for the other ouput vars.
+        self._output_var_names = [
+            'land_surface_water__runoff_volume_flux',
+            'srflow',
+            'ssflow',
+            'gwflow',
+            'AET_hydro',
+            'PET_hydro',
+            'flow_sim_no_rout',
+            'srflow_no_rout',
+            'ssflow_no_rout',
+            'gwflow_no_rout',
+            'excs',
+            'evapfactor',
+            'tosoil',
+            'percolation',
+            'BFI_sim'
+        ]
 
         # Map CSDMS Standard Names to the model's internal variable names (For CAMELS).
         self._var_name_units_map = {
@@ -156,83 +173,27 @@ class BMIdPLHydroModel(Bmi):
             'drainage__area':['DRAIN_SQKM', 'km2'],  # custom name
             'land_surface__latitude':['lat','degrees'],
             ############## Outputs ##############
-            'land_surface_water__runoff_volume_flux':['streamflow_cms','m3 s-1']
-            }
+            # TODO: Find csdms names.
+            'land_surface_water__runoff_volume_flux':['flow_sim','m3 s-1'],
+            'srflow':['srflow','m3 s-1'],
+            'ssflow':['ssflow','m3 s-1'],
+            'gwflow':['gwflow','m3 s-1'],
+            'AET_hydro':['AET_hydro','m3 s-1'],
+            'PET_hydro':['PET_hydro','m3 s-1'],
+            'flow_sim_no_rout':['flow_sim_no_rout','m3 s-1'],
+            'srflow_no_rout':['srflow_no_rout','m3 s-1'],
+            'ssflow_no_rout':['ssflow_no_rout','m3 s-1'],
+            'gwflow_no_rout':['gwflow_no_rout','m3 s-1'],
+            'excs':['excs','-'],
+            'evapfactor':['evapfactor','-'],
+            'tosoil':['tosoil','m3 s-1'],
+            'percolation':['percolation','-'],
+            'BFI_sim':['BFI_sim','-']
+        }
         
         # Keep running total of BMI runtime.
         self.bmi_process_time += time.time() - start_time
     
-    # def __getattribute__(self, item: str):
-    #     """
-    #     Customize instance attribute access.
-
-    #     For those items that correspond to BMI input or output variables (which 
-    #     should be in numpy arrays) and have values that are just a single-element
-    #     array, deviate from the standard behavior and return the single array
-    #     element. Fall back to the default behavior in any other case. This
-    #     supports having a BMI variable be backed by a numpy array, while also
-    #     allowing the attribute to be used as just a scalar, as it is in many 
-    #     places for this type. (Peckham et al.).
-
-    #     Parameters
-    #     ----------
-    #     item
-    #         The name of the attribute item to get.
-
-    #     Returns
-    #     -------
-    #     The value of the named item.
-    #     """
-    #     # Have these work explicitly (or else loops)
-    #     if item == '_input_var_names' or item == '_output_var_names':
-    #         return super(BMIdPLHydroModel, self).__getattribute__(item)
-
-    #     # By default, for things other than BMI variables, use normal behavior.
-    #     if (item not in super(BMIdPLHydroModel, self).__getattribute__('_input_var_names')) & (item not in super(BMIdPLHydroModel, self).__getattribute__('_output_var_names')):
-    #         return super(BMIdPLHydroModel, self).__getattribute__(item)
-
-    #     # Return the single scalar value from any ndarray of size 1.
-    #     value = super(BMIdPLHydroModel, self).__getattribute__(item)
-    #     if (isinstance(value, np.ndarray)) & (value.size == 1):
-    #         return value[0]
-    #     else:
-    #         return value
-
-    # def __setattr__(self, key: str, value: Any) -> None:
-    #     """
-    #     Customized instance attribute mutator functionality.
-
-    #     For those attribute with keys indicating they are a BMI input or output
-    #     variable (which should be in numpy arrays), wrap any scalar `value` as a
-    #     one-element numpy array and use that in a nested call to the superclass
-    #     implementation of this function.  In any other cases, just pass the given
-    #     `key` and `value` to a nested call. (Peckham et al.).
-
-    #     This supports automatically having a BMI variable be backed by a numpy
-    #     array, even if it is initialized using a scalar, while otherwise
-    #     maintaining standard behavior.
-
-    #     Parameters
-    #     ----------
-    #     key : str
-    #         Attribute name.
-    #     value : Any
-    #         Attribute value.
-    #     """
-    #     # Have these work explicitly (or else loops)
-    #     if key in ['_input_var_names', '_output_var_names']:
-    #         super(BMIdPLHydroModel, self).__setattr__(key, value)
-
-    #     # Pass thru if value is already an array
-    #     if isinstance(value, np.ndarray):
-    #         super(BMIdPLHydroModel, self).__setattr__(key, value)
-    #     # Override to put scalars into ndarray for BMI input/output variables
-    #     elif (key in self._input_var_names) or (key in self._output_var_names):
-    #         super(BMIdPLHydroModel, self).__setattr__(key, np.array([value]))
-    #     # By default, use normal behavior
-    #     else:
-    #         super(BMIdPLHydroModel, self).__setattr__(key, value)
-
     def initialize(self, bmi_cfg_filepath: Optional[str] = None) -> None:
         """
         (BMI Control function) Initialize the dPLHydro model.
@@ -280,9 +241,6 @@ class BMIdPLHydroModel(Bmi):
         self._model = ModelHandler(self.config).to(self.config['device'])
         self._initialized = True
 
-        # Intialize dataset (NOTE: move this externally).
-        # self._get_data_dict()
-
         # Keep running total of BMI runtime.
         self.bmi_process_time += time.time() - start_time
 
@@ -307,77 +265,12 @@ class BMIdPLHydroModel(Bmi):
                                           iE[0]
                                           )
 
-        self._model.forward(self.dataset_sample, eval=True)
-
-        # # Assembles input values into Torch tensor and takes slice for model forward.
-        # self.get_tensor_slice()
-        # self.output = self._model.forward(self.input_tensor)
-
-        # # Keep running total of BMI runtime.
-        # self.bmi_process_time += time.time() - start_time
-
-    def _values_to_dict(self) -> None:
-        """
-        Take CSDMS Standard Name-mapped forcings + attributes and construct data
-        dictionary for NN and physics model.
-        """
-        # Initialize dict arrays
-        n_basins = len(self._nn_values[self._var_name_map_short_first[self.config['observations']['var_t_nn'][0]]])
-
-        x_nn = np.zeros((n_basins, len(self.config['observations']['var_t_nn'])))
-        c_nn = np.zeros((n_basins, len(self.config['observations']['var_c_nn'])))
-        x_hydro_model = np.zeros((n_basins, len(self.config['observations']['var_t_hydro_model'])))
-        c_hydro_model = np.zeros((n_basins, len(self.config['observations']['var_c_hydro_model'])))
-
-        for i, var in enumerate(self.config['observations']['var_t_nn']):
-            standard_name = self._var_name_map_short_first[var]
-            # NOTE: Using _values is a bit hacky. Should use get_values I think.    
-            x_nn[:, i] = np.array([self._nn_values[standard_name]])
+        # Forward dPLHydro model
+        self.preds = self._model.forward(self.dataset_sample, eval=True)
         
-        for i, var in enumerate(self.config['observations']['var_c_nn']):
-            standard_name = self._var_name_map_short_first[var]
-            c_nn[:, i] = np.array([self._nn_values[standard_name]])
+        # Scale and check output
+        self.scale_output()
 
-        for i, var in enumerate(self.config['observations']['var_t_hydro_model']):
-            standard_name = self._var_name_map_short_first[var]
-            x_hydro_model[:, i] = np.array([self._pm_values[standard_name]])
-
-        for i, var in enumerate(self.config['observations']['var_c_hydro_model']):
-            standard_name = self._var_name_map_short_first[var]
-            c_hydro_model[:, i] = np.array([self._pm_values[standard_name]])
-        
-        self.dataset_dict = {
-            'inputs_nn_scaled': np.concatenate((x_nn, c_nn), axis=1)[np.newaxis,:,:],
-            'x_hydro_model': x_hydro_model[np.newaxis,:,:],
-            'c_hydro_model': c_hydro_model
-        }
-
-        # Convert to torch tensors:
-        for key in self.dataset_dict.keys():
-            if type(self.dataset_dict[key]) == np.ndarray:
-                self.dataset_dict[key] = torch.from_numpy(self.dataset_dict[key]).float() #.to(self.config['device'])
-
-    def take_sample_test(self, config: Dict, dataset_dictionary: Dict[str, torch.Tensor],
-                         i_s: int, i_e: int) -> Dict[str, torch.Tensor]:
-        """
-        Take sample of data for testing batch.
-        """
-        dataset_sample = {}
-        for key, value in dataset_dictionary.items():
-            if value.ndim == 3:
-                # TODO: I don't think we actually need this.
-                # Remove the warmup period for all except airtemp_memory and hydro inputs.
-                if key in ['airT_mem_temp_model', 'x_hydro_model', 'inputs_nn_scaled']:
-                    warm_up = 0
-                else:
-                    warm_up = config['warm_up']
-                dataset_sample[key] = value[warm_up:, i_s:i_e, :].to(config['device'])
-            elif value.ndim == 2:
-                dataset_sample[key] = value[i_s:i_e, :].to(config['device'])
-            else:
-                raise ValueError(f"Incorrect input dimensions. {key} array must have 2 or 3 dimensions.")
-        return dataset_sample
-    
     def update_frac(self, time_frac: float) -> None:
         """
         Update model by a fraction of a time step.
@@ -441,8 +334,6 @@ class BMIdPLHydroModel(Bmi):
     
         raise NotImplementedError("get_tensor_slice")
 
-    # ------------------ Finished up to here ------------------
-    # ---------------------------------------------------------
     def get_var_type(self, var_name):
         """
         Data type of variable.
@@ -528,7 +419,6 @@ class BMIdPLHydroModel(Bmi):
         """
         # return len(self._model.shape)
         raise NotImplementedError("get_grid_rank")
-
 
     def get_grid_size(self, grid_id):
         """Size of grid.
@@ -625,8 +515,8 @@ class BMIdPLHydroModel(Bmi):
 
         val = self.get_value_ptr(var_name, model=model)
 
-        val[:] = values
         # val = values.reshape(val.shape)
+        val[:] = values
 
     def set_value_at_indices(self, name, inds, src):
         """Set model values at particular indices.
@@ -732,8 +622,6 @@ class BMIdPLHydroModel(Bmi):
         # return self.get_grid_size(grid)
         raise NotImplementedError("get_grid_node_count")
 
-        
-
     def get_grid_nodes_per_face(self, grid, nodes_per_face):
         raise NotImplementedError("get_grid_nodes_per_face")
 
@@ -764,7 +652,6 @@ class BMIdPLHydroModel(Bmi):
             with config_path.open('r') as f:
                 self.config = yaml.safe_load(f)
     
-
         # USE BELOW FOR HYDRA + OMEGACONF:
         # try:
         #     config_dict: Union[Dict[str, Any], Any] = OmegaConf.to_container(
@@ -775,3 +662,82 @@ class BMIdPLHydroModel(Bmi):
         #     log.exception(e)
         #     raise e
         # return config, config_dict
+
+    def scale_output(self) -> None:
+        """
+        Scale and return more meaningful output from wrapped model.
+        """
+        models = self.config['hydro_models'][0]
+
+        # TODO: still have to finish finding and undoing scaling applied before
+        # model run. (See some checks used in bmi_lstm.py.)
+
+        # Strip unnecessary time and variable dims. This gives 1D array of flow
+        # at each basin.
+        # TODO: setup properly for multiple models later.
+        self.streamflow_cms = self.preds[models]['flow_sim'].squeeze()
+
+    def take_sample_test(self, config: Dict, dataset_dictionary: Dict[str, torch.Tensor], 
+                        i_s: int, i_e: int) -> Dict[str, torch.Tensor]:
+        """
+        Take sample of data for testing batch.
+        """
+        dataset_sample = {}
+        for key, value in dataset_dictionary.items():
+            if value.ndim == 3:
+                # TODO: I don't think we actually need this.
+                # Remove the warmup period for all except airtemp_memory and hydro inputs.
+                if key in ['airT_mem_temp_model', 'x_hydro_model', 'inputs_nn_scaled']:
+                    warm_up = 0
+                else:
+                    warm_up = config['warm_up']
+                dataset_sample[key] = value[warm_up:, i_s:i_e, :].to(config['device'])
+            elif value.ndim == 2:
+                dataset_sample[key] = value[i_s:i_e, :].to(config['device'])
+            else:
+                raise ValueError(f"Incorrect input dimensions. {key} array must have 2 or 3 dimensions.")
+        return dataset_sample
+
+    def _values_to_dict(self) -> None:
+        """
+        Take CSDMS Standard Name-mapped forcings + attributes and construct data
+        dictionary for NN and physics model.
+        """
+        # n_basins = self.config['batch_basins']
+        n_basins = 671
+        rho = self.config['rho']
+
+        # Initialize dict arrays
+        x_nn = np.zeros((rho + 1, n_basins, len(self.config['observations']['var_t_nn'])))
+        c_nn = np.zeros((rho + 1, n_basins, len(self.config['observations']['var_c_nn'])))
+        x_hydro_model = np.zeros((rho + 1, n_basins, len(self.config['observations']['var_t_hydro_model'])))
+        c_hydro_model = np.zeros((n_basins, len(self.config['observations']['var_c_hydro_model'])))
+
+        for i, var in enumerate(self.config['observations']['var_t_nn']):
+            standard_name = self._var_name_map_short_first[var]
+            # NOTE: Using _values is a bit hacky. Should use get_values I think.    
+            x_nn[:, :, i] = np.array([self._nn_values[standard_name]])
+        
+        for i, var in enumerate(self.config['observations']['var_c_nn']):
+            standard_name = self._var_name_map_short_first[var]
+            c_nn[:, :, i] = np.array([self._nn_values[standard_name]])
+
+        for i, var in enumerate(self.config['observations']['var_t_hydro_model']):
+            standard_name = self._var_name_map_short_first[var]
+            x_hydro_model[:, :, i] = np.array([self._pm_values[standard_name]])
+
+        for i, var in enumerate(self.config['observations']['var_c_hydro_model']):
+            standard_name = self._var_name_map_short_first[var]
+            c_hydro_model[:, i] = np.array([self._pm_values[standard_name]])
+        
+        self.dataset_dict = {
+            'inputs_nn_scaled': np.concatenate((x_nn, c_nn), axis=2), #[np.newaxis,:,:],
+            'x_hydro_model': x_hydro_model, #[np.newaxis,:,:],
+            'c_hydro_model': c_hydro_model
+        }
+        print(self.dataset_dict['inputs_nn_scaled'].shape)
+
+        # Convert to torch tensors:
+        for key in self.dataset_dict.keys():
+            if type(self.dataset_dict[key]) == np.ndarray:
+                self.dataset_dict[key] = torch.from_numpy(self.dataset_dict[key]).float() #.to(self.config['device'])

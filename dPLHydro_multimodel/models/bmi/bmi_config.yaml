@@ -12,7 +12,7 @@ train:
     end_time: 1995/10/01
 test:
     start_time: 1995/10/01
-    end_time: 1995/10/02
+    end_time: 1998/10/01
 
 batch_basins: 25
 
@@ -44,8 +44,8 @@ loss_function_weights:
     w2: 1.0
 
 nmul: 16
-warm_up: 0
-rho: 0
+warm_up: 365
+rho: 365 
 batch_size: 200
 epochs: 50
 dropout: 0.5
