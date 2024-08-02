@@ -8,6 +8,7 @@ Note:
     forcing + attribute key values.
 """
 import os
+import numpy as np
 from ruamel.yaml import YAML
 import logging
 logging.basicConfig(
