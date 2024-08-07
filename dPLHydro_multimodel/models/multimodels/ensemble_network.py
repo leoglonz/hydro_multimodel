@@ -138,7 +138,7 @@ class EnsembleWeights(torch.nn.Module):
 
         return total_loss, loss_rb, loss_sf
     
-    def ensemble_models(self, hydro_preds_dict: Dict[str, np.float32]) -> Dict[str, np.float32]:
+    def ensemble_models(self, model_preds_dict: Dict[str, np.float32]) -> Dict[str, np.float32]:
         """
         Calculate composite predictions by combining individual hydrology model results scaled by learned nn weights.
         
@@ -148,7 +148,7 @@ class EnsembleWeights(torch.nn.Module):
         self.ensemble_pred = dict()
 
         # Get prediction shared between all models.
-        mod_dicts = [hydro_preds_dict[mod] for mod in self.config['hydro_models']]
+        mod_dicts = [model_preds_dict[mod] for mod in self.config['hydro_models']]
         shared_keys = find_shared_keys(*mod_dicts)
 
         # TODO: identify why 'flow_sim_no_rout' calculation returns shape [365,1]
@@ -160,10 +160,10 @@ class EnsembleWeights(torch.nn.Module):
         for key in shared_keys:
             self.ensemble_pred[key] = 0
             for mod in self.config['hydro_models']:
-                if self.weights_dict[mod].size(0) != hydro_preds_dict[mod]['flow_sim'].squeeze().size(0):
+                if self.weights_dict[mod].size(0) != model_preds_dict[mod]['flow_sim'].squeeze().size(0):
                     # Cut out warmup data present when testing model from loaded mod file.
-                    hydro_preds_dict[mod][key] = hydro_preds_dict[mod][key][self.config['warm_up']:,:] 
-                self.ensemble_pred[key] += self.weights_dict[mod] * hydro_preds_dict[mod][key].squeeze()
+                    model_preds_dict[mod][key] = model_preds_dict[mod][key][self.config['warm_up']:,:]
+                self.ensemble_pred[key] += self.weights_dict[mod] * model_preds_dict[mod][key].squeeze()
 
         # # Old ensembling calculation
         # ntstep = self.weights.shape[0]

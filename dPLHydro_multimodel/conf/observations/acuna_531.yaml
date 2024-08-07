@@ -1,12 +1,12 @@
-name: camels_671_dp_2023
+name: camels_671_dp_2024
 gage_info: None
-forcing_path: /scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/camels_671_dp_20231113.feather
-attr_path: /scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/attr_camels_all_sep14_2023.feather
+forcing_path: /scratch/fzr5082/PGML_STemp_results/inputs/dataset_20240331/camels_671_dp_20240331.feather
+attr_path: /scratch/fzr5082/PGML_STemp_results/inputs/dataset_20240331/attr_camels_all_sep14_2023.feather
 
 var_t_nn: [
-  'prcp(mm/day)',
-  'tmean(C)',
-  'PET_hargreaves(mm/day)'
+  'prcp',
+  'tmean',
+  'pet'
 ]
 var_c_nn: [
   'p_mean',
@@ -42,7 +42,7 @@ var_c_nn: [
   'geol_2nd_class',
   'glim_2nd_class_frac',
   'carbonate_rocks_frac',
-  'geol_porostiy',
+  'geol_porosity',
   'geol_permeability'
 ]
 var_t_hydro_model: [

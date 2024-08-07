@@ -1,18 +1,18 @@
 defaults:
     - _self_
     - hydra: settings
-    - observations: camels_671_dp_2024    # gages2_50, camels_671_dp_2024, camels_671_dp_2023
+    - observations: acuna_531    # gages2_50, camels_671_dp_2024, camels_671_dp_2023
 
 
 
 ## General Config -------------------------------#
 mode: train   # train, test, train_test, train_wnn_only
-ensemble_type: none    # none, frozen_pnn, free_pnn
+ensemble_type: none    # none, frozen_pnn, free_pnn, avg
 use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 1
+gpu_id: 2
 
 train:
     start_time: 1980/10/01
@@ -27,7 +27,7 @@ name: hmm1.2-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs # Subject to removal.
-output_dir: ${data_dir}/${observations.name}/saved_models/no_rout
+output_dir: ${data_dir}/${observations.name}/debugging/debug_3
 
 
 ## Model Config -------------------------------#
@@ -38,7 +38,7 @@ dyn_hydro_params:
     SACSMA: []
     PRMS: []
 
-routing_hydro_model: False
+routing_hydro_model: True
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
 pet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']    # 00060_Mean, 00010_Mean, BFI_AVE, PET
@@ -51,14 +51,14 @@ loss_function_weights:
 nmul: 16
 warm_up: 365
 rho: 365
-batch_size: 200
-epochs: 5
+batch_size: 30
+epochs: 50
 dropout: 0.5
 hidden_size: 256
 learning_rate: 1
 nearzero: 1e-5
 
-save_epoch: 1
+save_epoch: 10
 
 weighting_nn:
     dropout: 0.5

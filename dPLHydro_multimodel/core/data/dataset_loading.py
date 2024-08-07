@@ -270,6 +270,7 @@ def get_data_dict(config, train=False):
 
     train: bool, specifies whether data is for training.
     """
+    ### TODO: modify for merit/CONUS
     # Get date range.
     config['train_t_range'] = Dates(config['train'], config['rho']).date_to_int()
     config['test_t_range'] = Dates(config['test'], config['rho']).date_to_int()

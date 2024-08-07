@@ -101,21 +101,31 @@ def create_output_dirs(config) -> dict:
         para_state = 'frozen_pnn'
     elif config['ensemble_type'] == 'free_pnn':
         para_state = 'free_pnn'
+    elif config['ensemble_type'] == 'avg':
+        para_state = 'avg'
     else:
         raise ValueError("Unsupported ensemble type specified.")
     ensemble_name = ""
     for mod in config['hydro_models']:
         ensemble_name += mod + "_"
 
-    config['output_dir'] = os.path.join(config['output_dir'], para_state, out_folder, dyn_state, ensemble_name)
+    output_dir = config['output_dir']
+    config['output_dir'] = os.path.join(output_dir, para_state, out_folder, dyn_state, ensemble_name)
 
     test_dir = 'test' + str(config['test']['start_time'][:4]) + '_' + str(config['test']['end_time'][:4])
     test_path = os.path.join(config['output_dir'], test_dir)
     config['testing_dir'] = test_path
 
     if (config['mode'] == 'test') and (os.path.exists(config['output_dir']) == False):
-        raise FileNotFoundError(f"Model directory {config['output_dir']} was not found. Check configurations.")
-    print(config['output_dir'])
+        if config['ensemble_type'] in ['avg', 'frozen_pnn']:
+            for mod in config['hydro_models']:
+                # Check if individually trained models exist and use those.
+                check_path = os.path.join(output_dir,'no_ensemble', out_folder, dyn_state, mod + "_")
+                if os.path.exists(check_path) == False:           
+                    raise FileNotFoundError(f"Attempted to identify individually trained modelsTrained models but could not find {check_path}. Check configurations or train models before testing.")
+        else:
+            raise FileNotFoundError(f"Model directory {config['output_dir']} was not found. Check configurations or train models before testing.")
+
     os.makedirs(test_path, exist_ok=True)
     
     # Saving the config file in output directory.

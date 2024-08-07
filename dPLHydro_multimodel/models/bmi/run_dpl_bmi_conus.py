@@ -55,6 +55,7 @@ def main() -> None:
     # n_timesteps = dataset_dict['inputs_nn_scaled'].shape[0]
     # debugging ----- #
     n_timesteps = 1  # debug
+    tlim = 367  # debug
     n_basins = 671
     # --------------- #
 
@@ -62,10 +63,8 @@ def main() -> None:
 
     rho = model.config['rho']  # For routing
 
-    # TODO: add basin batching from train.py experiment for this loop instead
-    # of doing all basins at once.
-    # TODO: Add model-internal compiler directives that skip over these steps
-    # when the model is run in nextgen. See here: https://github.com/NOAA-OWP/noah-owp-modular/blob/5be0faae07637ffb44235d4783b5420478ff0e9f/src/RunModule.f90#L284
+    # TODO: implement basin batching for this loop instead of doing all basins at once.
+    n_basins = 671
 
     # Loop through and return streamflow at each timestep.
     for t in range(n_timesteps - rho):

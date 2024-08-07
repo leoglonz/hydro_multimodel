@@ -309,7 +309,8 @@ class BMIdPLHydroModel(Bmi):
         """
         # TODO: Force destruction of ESMF and other objects when testing is done
         # to save space.
-
+        
+        torch.cuda.empty_cache()
         self._model = None
 
     def array_to_tensor(self) -> None:
