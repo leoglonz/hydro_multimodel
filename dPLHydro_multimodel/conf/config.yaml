@@ -6,17 +6,17 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: train   # train, test, train_test, train_wnn_only
+mode: test   # train, test, train_test, train_wnn_only
 ensemble_type: none    # none, frozen_pnn, free_pnn, avg
 use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 3
+gpu_id: 0
 
 train:
-    start_time: 1998/10/01
-    end_time: 2008/10/01
+    start_time: 1980/10/01
+    end_time: 1995/10/01
 test:
     start_time: 1995/10/01
     end_time: 2010/10/01
@@ -26,16 +26,15 @@ batch_basins: 25
 name: hmm1.2-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
-data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs # Subject to removal.
-output_dir: ${data_dir}/${observations.name}/debugging/full_run/3vars_noDayllat #ts1998_2008
-
+data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs  # Might remove
+output_dir: ${data_dir}/${observations.name}/debugging/full_run/    #3vars_noDayllat #ts1998_2008
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [marrmot_PRMS]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     # HBV: parBETA, parBETAET | PRMS: scx, cgw, alpha, tt | SACSMA: pctim, smax, parTT
-    HBV: [parBETA, parBETAET]
+    HBV: []
     PRMS: []
     SACSMA: []
 
