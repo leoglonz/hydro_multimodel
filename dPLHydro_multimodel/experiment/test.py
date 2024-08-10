@@ -21,6 +21,10 @@ from models.multimodels.model_average import model_average
 
 log = logging.getLogger(__name__)
 
+# NOTE: directory to save model streamflow predictions and observation data to
+# (warmup data is already removed). Remove or incorprotate in config.py later.
+OUT_DATA_SAVE_PATH = '/data/lgl5139/hydro_multimodel/HBV_1.1p/data/yalan_preds/'
+
 
 
 class TestModel:
@@ -126,7 +130,13 @@ class TestModel:
         preds_list.append(flow_preds.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
         name_list.append('flow')
-    
+
+        #######################
+        ## Added to save prediction and observation data:
+        np.save(OUT_DATA_SAVE_PATH + 'pmi_sf_pred.npy',preds_list)
+        np.save(OUT_DATA_SAVE_PATH + 'pmi_sf_obs.npy',obs_list)
+        #######################
+
         # Swap axes for shape [basins, days]
         statDictLst = [
             stat_error(np.swapaxes(x.squeeze(), 1, 0), np.swapaxes(y.squeeze(), 1, 0))

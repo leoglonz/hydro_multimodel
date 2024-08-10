@@ -110,6 +110,8 @@ class TrainModel:
             optim.step()
             optim.zero_grad() # set_to_none=True actually increases runtimes.
 
+            print ("Batch loss: ", total_loss.item())
+
         self.ep_loss_dict = ep_loss_dict
 
     def _log_epoch_stats(self, epoch: int, ep_loss_dict: Dict[str, float],

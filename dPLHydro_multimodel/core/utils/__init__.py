@@ -89,12 +89,14 @@ def create_output_dirs(config) -> dict:
              '_n' + str(config['nmul']) + \
              '_' + str(config['random_seed'])
 
-    # Make a folder for static or dynamic parametrization
-    if config['dyn_hydro_params']['HBV'] != []:
-        # If one model has dynamic params, all of them should.
-        dyn_state = 'dynamic_para'
-    else:
-        dyn_state = 'static_para'
+    # Make a folder for static or dynamic parametrization.
+    dyn_state = 'static_para'
+    for mod in config['dyn_hydro_params']:
+        if config['dyn_hydro_params'][mod] != []:
+            dyn_state = 'dynamic_para'
+            # If one model in ensemble has dynamic params, model is called dynamic.
+            break
+
     if config['ensemble_type'] == 'none':
         para_state = 'no_ensemble'
     elif config['ensemble_type'] == 'frozen_pnn':
@@ -105,6 +107,7 @@ def create_output_dirs(config) -> dict:
         para_state = 'avg'
     else:
         raise ValueError("Unsupported ensemble type specified.")
+    
     ensemble_name = ""
     for mod in config['hydro_models']:
         ensemble_name += mod + "_"
