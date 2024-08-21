@@ -79,12 +79,6 @@ class dPLHydroModel(torch.nn.Module):
         return params_dict
 
     def forward(self, dataset_dict_sample) -> None:
-        ### Temporary mappings to run a legacy model.
-        self.config['pet_module'] = 'dataset'
-        self.config['pet_dataset_name'] = 'PET_hargreaves(mm/day)'
-        self.config['pnn_model'] = 'LSTM'
-        ### ------- ###
-
         params_all = self.NN_model(dataset_dict_sample['inputs_nn_scaled'])
 
         # Breaking down params into different pieces for different models (PET, hydro)

@@ -85,10 +85,10 @@ class ModelHandler(torch.nn.Module):
         # Forward each diff hydro model.
         for mod in self.model_dict:
             if eval:
-                # self.model_dict[mod].eval()  # For testing.
-                torch.set_grad_enabled(False)
+                self.model_dict[mod].eval()  # For testing.
+                # torch.set_grad_enabled(False)
                 self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
-                torch.set_grad_enabled(True)
+                # torch.set_grad_enabled(True)
             else:
                 self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
 

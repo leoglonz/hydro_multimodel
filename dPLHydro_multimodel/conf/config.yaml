@@ -27,11 +27,11 @@ name: hmm1.2-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs  # Might remove
-output_dir: ${data_dir}/${observations.name}/debugging/full_run/    #3vars_noDayllat #ts1998_2008
+output_dir: ${data_dir}/${observations.name}/debugging/08_12 #3vars_noDayllat #ts1998_2008
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [marrmot_PRMS]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     # HBV: parBETA, parBETAET | PRMS: scx, cgw, alpha, tt | SACSMA: pctim, smax, parTT
     HBV: []
@@ -51,14 +51,14 @@ loss_function_weights:
 nmul: 16
 warm_up: 365
 rho: 365
-batch_size: 100
-epochs: 50
+batch_size: 200
+epochs: 2
 dropout: 0.5
 hidden_size: 256
 learning_rate: 1.0
 nearzero: 1e-4
 
-save_epoch: 10
+save_epoch: 1
 
 weighting_nn:
     dropout: 0.5

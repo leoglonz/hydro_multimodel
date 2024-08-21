@@ -252,12 +252,13 @@ def show_args(config) -> None:
     print(f'  {"Optimizer:":<20}{config.loss_function:<20}')
     print()
 
-    print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
-    print(f'  {"Dropout:":<20}{config.weighting_nn.dropout:<20}{"Hidden Size:":<20}{config.weighting_nn.hidden_size:<20}')
-    print(f'  {"Method:":<20}{config.weighting_nn.method:<20}{"Loss Factor:":<20}{config.weighting_nn.loss_factor:<20}')
-    print(f'  {"Loss Lower Bound:":<20}{config.weighting_nn.loss_lower_bound:<20}{"Loss Upper Bound:":<20}{config.weighting_nn.loss_upper_bound:<20}')
-    print(f'  {"Optimizer:":<20}{config.weighting_nn.loss_function:<20}')
-    print()
+    if 'pnn' in config.ensemble_type:
+        print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
+        print(f'  {"Dropout:":<20}{config.weighting_nn.dropout:<20}{"Hidden Size:":<20}{config.weighting_nn.hidden_size:<20}')
+        print(f'  {"Method:":<20}{config.weighting_nn.method:<20}{"Loss Factor:":<20}{config.weighting_nn.loss_factor:<20}')
+        print(f'  {"Loss Lower Bound:":<20}{config.weighting_nn.loss_lower_bound:<20}{"Loss Upper Bound:":<20}{config.weighting_nn.loss_upper_bound:<20}')
+        print(f'  {"Optimizer:":<20}{config.weighting_nn.loss_function:<20}')
+        print()
 
     print("\033[1m" + "Machine" + "\033[0m")
     print(f'  {"Use Device:":<20}{str(config.device):<20}')
