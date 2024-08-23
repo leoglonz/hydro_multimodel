@@ -37,7 +37,7 @@ class TrainModel:
     
     def run(self, experiment_tracker) -> None:
         """
-        High-level management of ensemble/non-ensemble model training .
+        High-level management of ensemble/non-ensemble model training.
         """
         log.info(f"Training model: {self.config['name']} | Collecting training data")
 
@@ -48,6 +48,7 @@ class TrainModel:
             )
 
         # Initialize loss function(s) and optimizer.
+        log.info(f"Initializing loss function, optimizer")
         self.dplh_model_handler.init_loss_func(self.dataset_dict['obs'])
         optim = self.dplh_model_handler.optim
 
@@ -110,7 +111,8 @@ class TrainModel:
             optim.step()
             optim.zero_grad() # set_to_none=True actually increases runtimes.
 
-            print ("Batch loss: ", total_loss.item())
+            print("Batch loss: ", total_loss.item())
+            print("loss dict", ep_loss_dict)
 
         self.ep_loss_dict = ep_loss_dict
 

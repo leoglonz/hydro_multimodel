@@ -6,13 +6,13 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: test   # train, test, train_test, train_wnn_only
-ensemble_type: none    # none, frozen_pnn, free_pnn, avg
+mode: train_test   # train, test, train_test, train_wnn_only
+ensemble_type: free_pnn    # none, frozen_pnn, free_pnn, avg
 use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 0
+gpu_id: 0  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1980/10/01
@@ -31,7 +31,7 @@ output_dir: ${data_dir}/${observations.name}/debugging/08_12 #3vars_noDayllat #t
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV, marrmot_PRMS]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dyn_hydro_params:
     # HBV: parBETA, parBETAET | PRMS: scx, cgw, alpha, tt | SACSMA: pctim, smax, parTT
     HBV: []
@@ -51,8 +51,8 @@ loss_function_weights:
 nmul: 16
 warm_up: 365
 rho: 365
-batch_size: 200
-epochs: 2
+batch_size: 600
+epochs: 1
 dropout: 0.5
 hidden_size: 256
 learning_rate: 1.0

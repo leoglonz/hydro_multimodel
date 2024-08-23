@@ -55,6 +55,8 @@ class ModelHandler(torch.nn.Module):
             # Initialize differentiable hydrology model(s) and bulk optimizer.
             self.all_model_params = []
             for mod in self.config['hydro_models']:
+
+                ### TODO: change which models are set to which devices here: ###
                 self.model_dict[mod] = dPLHydroModel(self.config, mod).to(self.config['device'])
                 self.all_model_params += list(self.model_dict[mod].parameters())
 

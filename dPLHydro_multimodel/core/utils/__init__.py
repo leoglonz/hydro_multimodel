@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 
-def set_system_spec(cuda_device: Optional[int] = None) -> Tuple[torch.device, torch.dtype]:
+def set_system_spec(cuda_devices: Optional[list] = None) -> Tuple[torch.device, torch.dtype]:
     """
     Sets appropriate torch device and dtype for current system.
     
@@ -29,13 +29,15 @@ def set_system_spec(cuda_device: Optional[int] = None) -> Tuple[torch.device, to
     Returns:
         Tuple[torch.device, torch.dtype]: A tuple containing the device and dtype.
     """
-    if cuda_device != None:
-        if torch.cuda.is_available() and cuda_device < torch.cuda.device_count():
-            device = torch.device(f'cuda:{cuda_device}')
+    if cuda_devices != []:
+        # Set the first device as the active device.
+        # d = cuda_devices[0]
+        if torch.cuda.is_available() and cuda_devices < torch.cuda.device_count():
+            device = torch.device(f'cuda:{cuda_devices}')
             torch.cuda.set_device(device)   # Set as active device.
         else:
-            raise ValueError(f"Selected CUDA device {cuda_device} is not available.")
-        
+            raise ValueError(f"Selected CUDA device {cuda_devices} is not available.")  
+    
     elif torch.cuda.is_available():
         device = torch.device(f'cuda:{torch.cuda.current_device()}')
         torch.cuda.set_device(device)   # Set as active device.
