@@ -112,7 +112,7 @@ class TrainModel:
             optim.zero_grad() # set_to_none=True actually increases runtimes.
 
             print("Batch loss: ", total_loss.item())
-            print("loss dict", ep_loss_dict)
+            # print("loss dict", ep_loss_dict)
 
         self.ep_loss_dict = ep_loss_dict
 
@@ -138,7 +138,7 @@ class TrainModel:
         self.ensemble_lstm.init_optimizer()
         optim = self.ensemble_lstm.optim
 
-        for epoch in range(self.start_epoch, self.config['epochs'] + 1):
+        for epoch in range(start_ep, self.config['epochs'] + 1):
             start_time = time.perf_counter()
             prog_str = f"Epoch {epoch}/{self.config['epochs']}"
             ep_loss = {'wNN': 0}
@@ -152,11 +152,11 @@ class TrainModel:
                 model_preds = self.dplh_model_handler(dataset_dict_sample)
                 self.ensemble_lstm(dataset_dict_sample)
                 
-                total_loss = self.ensemble_lstm.calc_loss(model_preds)
+                total_loss, _, _ = self.ensemble_lstm.calc_loss(model_preds)
                 total_loss.backward()
                 optim.step()
                 optim.zero_grad()
-                ep_loss += total_loss.item()
+                ep_loss['wNN'] += total_loss.item()
 
             self._log_epoch_stats(epoch, ep_loss, minibatch_iter, start_time)
 

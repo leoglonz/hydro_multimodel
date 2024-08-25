@@ -25,13 +25,13 @@ class EnsembleWeights(torch.nn.Module):
 
     def _init_model(self) -> None:
         """
-        Initialize LSTM.
+        Initialize weighting LSTM.
         """
         if self.config['use_checkpoint']:
             # Reinitialize trained model to continue training.
             load_path = self.config['checkpoint']['weighting_nn']
             self.lstm = torch.load(load_path).to(self.config['device'])
-            self.model_params = self.lstm.parameters()
+            self.model_params = list(self.lstm.parameters())
             self.lstm.zero_grad()
             self.lstm.train()
         elif self.config['mode'] in ['test', 'test_bmi']:
@@ -44,7 +44,7 @@ class EnsembleWeights(torch.nn.Module):
                 hiddenSize=self.config['weighting_nn']['hidden_size'],
                 dr=self.config['weighting_nn']['dropout']
             ).to(self.config['device'])
-            self.model_params = self.lstm.parameters()
+            self.model_params = list(self.lstm.parameters())
             self.lstm.zero_grad()
             self.lstm.train()
     

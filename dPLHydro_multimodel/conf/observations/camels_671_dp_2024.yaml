@@ -49,8 +49,8 @@ var_c_nn: [
 var_t_hydro_model: [
   'prcp(mm/day)',
   'tmean(C)',
-  'tmax(C)',
-  'tmin(C)',
+  # 'tmax(C)',
+  # 'tmin(C)',
   'PET_hargreaves(mm/day)'
 ]
 var_c_hydro_model: [

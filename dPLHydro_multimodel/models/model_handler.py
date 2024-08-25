@@ -15,6 +15,7 @@ class ModelHandler(torch.nn.Module):
     def __init__(self, config):
         super(ModelHandler, self).__init__()
         self.config = config
+        self.name = 'Differentiable Model Handler'
         self._init_models()
         
     def _init_models(self):
