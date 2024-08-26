@@ -1,3 +1,10 @@
+"""
+A custom backward method to enable gradient backpropogation in a
+physics-informed, differentiable ML BMI.
+"""
+import torch
+
+
 class MyReLU(torch.autograd.Function):
     """
     We can implement our own custom autograd Functions by subclassing
