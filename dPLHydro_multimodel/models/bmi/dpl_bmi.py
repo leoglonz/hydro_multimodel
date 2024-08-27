@@ -54,9 +54,9 @@ class BMIdPLHydroModel(Bmi):
 
         # Required, static attributes of the model
         _att_map = {
-        'model_name':         "Differentiable Parameter Learning Hydrology BMI",
+        'model_name':         "Differentiable Parameter Learning Physics-informed BMI",
         'version':            '1.2',
-        'author_name':        'MHPI',
+        'author_name':        'MHPI Team',
         'time_units':         'days',
         }
         
@@ -67,6 +67,7 @@ class BMIdPLHydroModel(Bmi):
             'land_surface_air__temperature',
             'land_surface_air__max_of_temperature',  # custom name
             'land_surface_air__min_of_temperature',  # custom name
+            'day__length',  # custom name
             'land_surface_water__potential_evaporation_volume_flux',  # check name,
             ############## Attributes ##############
             'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate',
@@ -133,6 +134,7 @@ class BMIdPLHydroModel(Bmi):
             'land_surface_air__temperature':['tmean(C)','degC'],
             'land_surface_air__max_of_temperature':['tmax(C)', 'degC'],  # custom name
             'land_surface_air__min_of_temperature':['tmin(C)', 'degC'],  # custom name
+            'day__length':['dayl(s)', 's'],  # custom name
             'land_surface_water__potential_evaporation_volume_flux':['PET_hargreaves(mm/day)', 'mm d-1'],  # check name
             ############## Attributes ##############
             'atmosphere_water__daily_mean_of_liquid_equivalent_precipitation_rate':['p_mean','mm d-1'],
@@ -708,7 +710,8 @@ class BMIdPLHydroModel(Bmi):
         n_basins = 671
         rho = self.config['rho']
 
-        # Initialize dict arrays
+        # Initialize dict arrays.
+        # NOTE: used to have rho+1 here but this is no longer necessary?
         x_nn = np.zeros((rho + 1, n_basins, len(self.config['observations']['var_t_nn'])))
         c_nn = np.zeros((rho + 1, n_basins, len(self.config['observations']['var_c_nn'])))
         x_hydro_model = np.zeros((rho + 1, n_basins, len(self.config['observations']['var_t_hydro_model'])))

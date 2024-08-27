@@ -5,7 +5,7 @@ use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 1
+gpu_id: 0
 
 train:
     start_time: 1980/10/01
@@ -18,7 +18,7 @@ batch_basins: 25
 
 name: hmm1.1-${observations.name}
 # NOTE: Temporarily only using output_dir to load a trained model into BMI.
-output_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp_2024/saved_models/debug_3/free_pnn/LSTM_E50_R365_B200_H256_n16_0/static_para/HBV_marrmot_PRMS_SACSMA_with_snow_
+output_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp_2024/debugging/debug_4/no_ensemble/LSTM_E1_R365_B100_H256_n16_0/static_para/HBV_
 
 
 ## BMI Specific Config -------------------------------#
@@ -28,7 +28,7 @@ time_step_delta: 1
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
 hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
-dyn_hydro_params:
+dy_params:
     HBV: []    # parBETA, parBETAET
     SACSMA: []
     PRMS: []
@@ -46,8 +46,8 @@ loss_function_weights:
 nmul: 16
 warm_up: 365
 rho: 365 
-batch_size: 200
-epochs: 50
+batch_size: 100
+epochs: 1
 dropout: 0.5
 hidden_size: 256
 learning_rate: 1
@@ -89,6 +89,7 @@ observations:
     var_t_nn: [
     'prcp(mm/day)',
     'tmean(C)',
+    'dayl(s)',
     'PET_hargreaves(mm/day)'
     ]
     var_c_nn: [
@@ -131,11 +132,11 @@ observations:
     var_t_hydro_model: [
     'prcp(mm/day)',
     'tmean(C)',
-    'tmax(C)',
-    'tmin(C)',
+    # 'tmax(C)',
+    # 'tmin(C)',
     'PET_hargreaves(mm/day)'
     ]
     var_c_hydro_model: [
     'DRAIN_SQKM',
-    'lat'
+    # 'lat'
     ]

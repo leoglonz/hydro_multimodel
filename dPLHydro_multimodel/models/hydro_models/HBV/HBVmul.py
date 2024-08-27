@@ -25,7 +25,7 @@ class HBVMul(torch.nn.Module):
                                      parCFMAX=[0.5, 10],
                                      parCFR=[0, 0.1],
                                      parCWH=[0, 0.2])
-        if 'parBETAET' in config['dyn_hydro_params']['HBV']:
+        if 'parBETAET' in config['dy_params']['HBV']:
             self.parameters_bound['parBETAET'] = [0.3, 5]
 
         self.conv_routing_hydro_model_bound = [
@@ -216,13 +216,13 @@ class HBVMul(torch.nn.Module):
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
-            if key not in args['dyn_hydro_params']['HBV']:  ## it is a static parameter
+            if key not in args['dy_params']['HBV']:  ## it is a static parameter
                 params_dict[key] = params_dict_raw[key][-1, :, :]
 
         for t in range(Nstep):
             # do dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args['dyn_hydro_params']['HBV']:  ## it is a dynamic parameter
+                if key in args['dy_params']['HBV']:  ## it is a dynamic parameter
                     params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
 
             # Separate precipitation into liquid and solid components

@@ -83,6 +83,24 @@ def create_output_dirs(config) -> dict:
 
     Modified from dPL_Hydro_SNTEMP @ Farshid Rahmani.
     """
+    # Add dir for train period:
+    train_period = 'train_' + str(config['train']['start_time'][:4]) + '_' + str(config['train']['end_time'][:4])
+
+    # Add dir for number of forcings:
+    forcings = str(len(config['observations']['var_t_nn'])) + '_forcing'
+
+    # Add dir for ensemble type.
+    if config['ensemble_type'] in ['none', '']:
+        ensemble_state = 'no_ensemble'
+    else:
+        ensemble_state = config['ensemble_type']
+    
+    # Add dir for model name(s).
+    ensemble_name = ""
+    for mod in config['hydro_models']:
+        ensemble_name += mod + "_"
+
+    # Add dir with hyperparam spec.
     out_folder = config['pnn_model'] + \
              '_E' + str(config['epochs']) + \
              '_R' + str(config['rho'])  + \
@@ -91,31 +109,23 @@ def create_output_dirs(config) -> dict:
              '_n' + str(config['nmul']) + \
              '_' + str(config['random_seed'])
 
-    # Make a folder for static or dynamic parametrization.
-    dyn_state = 'static_para'
-    for mod in config['dyn_hydro_params']:
-        if config['dyn_hydro_params'][mod] != []:
-            dyn_state = 'dynamic_para'
-            # If one model in ensemble has dynamic params, model is called dynamic.
-            break
+    # Add a dir for static or dynamic parametrization.
+    dy_params = ''
+    for mod in config['dy_params']:
+        for param in config['dy_params'][mod]:
+            dy_params += param + '_'
 
-    if config['ensemble_type'] == 'none':
-        para_state = 'no_ensemble'
-    elif config['ensemble_type'] == 'frozen_pnn':
-        para_state = 'frozen_pnn'
-    elif config['ensemble_type'] == 'free_pnn':
-        para_state = 'free_pnn'
-    elif config['ensemble_type'] == 'avg':
-        para_state = 'avg'
-    else:
-        raise ValueError("Unsupported ensemble type specified.")
-    
-    ensemble_name = ""
-    for mod in config['hydro_models']:
-        ensemble_name += mod + "_"
+    # If any model in ensemble is dynamic, whole ensemble is dynamic.
+    dy_state = 'static_params' if dy_params.replace('_','') == '' else 'dynamic_params'
 
+    # ---- Combine all dirs ---- #
     output_dir = config['output_dir']
-    config['output_dir'] = os.path.join(output_dir, para_state, out_folder, dyn_state, ensemble_name)
+    full_path = os.path.join(output_dir, train_period, forcings, ensemble_state, ensemble_name, out_folder, dy_state)
+
+    if dy_state == 'dynamic_params':
+        full_path = os.path.join(full_path, dy_params)
+    
+    config['output_dir'] = full_path
 
     test_dir = 'test' + str(config['test']['start_time'][:4]) + '_' + str(config['test']['end_time'][:4])
     test_path = os.path.join(config['output_dir'], test_dir)
@@ -125,9 +135,9 @@ def create_output_dirs(config) -> dict:
         if config['ensemble_type'] in ['avg', 'frozen_pnn']:
             for mod in config['hydro_models']:
                 # Check if individually trained models exist and use those.
-                check_path = os.path.join(output_dir,'no_ensemble', out_folder, dyn_state, mod + "_")
+                check_path = os.path.join(output_dir,'no_ensemble', out_folder, dy_state, mod + "_")
                 if os.path.exists(check_path) == False:           
-                    raise FileNotFoundError(f"Attempted to identify individually trained modelsTrained models but could not find {check_path}. Check configurations or train models before testing.")
+                    raise FileNotFoundError(f"Attempted to identify individually trained models but could not find {check_path}. Check configurations or train models before testing.")
         else:
             raise FileNotFoundError(f"Model directory {config['output_dir']} was not found. Check configurations or train models before testing.")
 

@@ -3,12 +3,15 @@ This is a validation script for testing *data assimilation* with a
 physics-informed, differentiable ML BMI that is NextGen and NOAA OWP
 operation-ready.
 
+BMI Docs: https://csdms.colorado.edu/wiki/BMI
+
 Note:
 - The current setup only passes CAMELS (671 basins) data to the BMI. For
     different datasets, `.set_value()` mappings must be modeified to the respective
     forcing + attribute key values.
 """
 import os
+import torch
 import numpy as np
 from ruamel.yaml import YAML
 import logging
@@ -18,6 +21,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+from custom_autograd import BMIBackward
 from dpl_bmi import BMIdPLHydroModel
 from core.data.dataset_loading import get_data_dict
 
@@ -55,7 +59,7 @@ def main() -> None:
     ################## Forward model for 1 or multiple timesteps ##################
     # n_timesteps = dataset_dict['inputs_nn_scaled'].shape[0]
     # debugging ----- #
-    n_timesteps = 1  # debug
+    n_timesteps = 400
     n_basins = 671
     # --------------- #
 
@@ -83,18 +87,18 @@ def main() -> None:
         # Set NN forcings...
         for i, var in enumerate(model.config['observations']['var_t_nn']):
             standard_name = model._var_name_map_short_first[var]
-            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t:rho + t, :n_basins, i], model='nn')
+            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t:rho + t + 1, :n_basins, i], model='nn')
         n_forc = i
         
         # Set NN attributes...
         for i, var in enumerate(model.config['observations']['var_c_nn']):
             standard_name = model._var_name_map_short_first[var]
-            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t:rho + t, :n_basins, n_forc + i + 1], model='nn') 
+            model.set_value(standard_name, dataset_dict['inputs_nn_scaled'][t:rho + t + 1, :n_basins, n_forc + i + 1], model='nn') 
 
         # Set physics model forcings...
         for i, var in enumerate(model.config['observations']['var_t_hydro_model']):
             standard_name = model._var_name_map_short_first[var]
-            model.set_value(standard_name, dataset_dict['x_hydro_model'][t:rho + t, :n_basins, i], model='pm') 
+            model.set_value(standard_name, dataset_dict['x_hydro_model'][t:rho + t + 1, :n_basins, i], model='pm') 
 
         # Set physics model attributes...
         for i, var in enumerate(model.config['observations']['var_c_hydro_model']):
@@ -104,19 +108,50 @@ def main() -> None:
 
         # [CONTROL FUNCTION] Update the model at all basins for one timestep.
         model.update()
-        print(f"Streamflow at time {t} is {np.average((model.streamflow_cms))}") #.cpu()
+
+        sf = model.streamflow_cms.cpu().detach().numpy()
+        print(f"Streamflow at time {t} is {np.average((sf))}")
         print(f"BMI process time: {model.bmi_process_time}")
 
 
         # flow_sim = model.get_value('land_surface_water__runoff_volume_flux')
         flow_sim = model.preds['HBV']['flow_sim']
-        print(flow_sim)
+        # print(flow_sim)
+
+    
+        ## Data assimilation code here;
+        # Add step here to pass gradients back into BMI.
+        # During the BMI update() pass, gradients will be updated and then passed
+        loss = MeanSquaredLoss()
+
+        optim = "not implemented"  # Some sort of optimizer.
+
+        # back externally.
+        loss = BMIBackward(MeanSquareLoss(flow_sim))
+        loss.backward()
+        optim.step()
+        optim.zero_grad()
+
+        # model.grads
+        # exit()
+
+        ## ------- ##
 
     ################## Finalize BMI ##################
     # [CONTROL FUNCTION] wrap up BMI run, deallocate mem.
     log.info(f"FINALIZE BMI")
     model.finalize()
 
+
+class MeanSquaredLoss(torch.nn.Module):
+    """
+    Mean squared loss function for BMI Backward.
+    """
+    def __init__(self) -> None:
+        pass
+
+    def forward(self):
+        pass
 
 
 if __name__ == "__main__":

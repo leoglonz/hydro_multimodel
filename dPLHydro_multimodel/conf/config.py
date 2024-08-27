@@ -42,6 +42,13 @@ class ModeEnum(str, Enum):
     test_bmi = "test_bmi"
 
 
+class EnsembleEnum(str, Enum):
+    none = 'none'
+    free_pnn = 'free_pnn'
+    frozen_pnn = 'frozen_pnn'
+    avg = 'avg'
+    reg_max = 'reg_max'
+
 
 class InitalizationEnum(str, Enum):
     kaiming_normal = "kaiming_normal"
@@ -259,8 +266,8 @@ class Config(BaseModel):
     mode: ModeEnum = Field(default=ModeEnum.train_test)
     pnn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
-    ensemble_type: str
-    dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
+    ensemble_type: EnsembleEnum = Field(default=EnsembleEnum.none)
+    dy_params: DynamicConfig = Field(default_factory=ExperimentConfig)
 
     random_seed: int = 0
     device: str = 'cpu'

@@ -28,7 +28,7 @@ time_step_delta: 1
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
 hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
-dyn_hydro_params:
+dy_params:
     HBV: []    # parBETA, parBETAET
     SACSMA: []
     PRMS: []
