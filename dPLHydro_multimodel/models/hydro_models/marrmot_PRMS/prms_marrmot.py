@@ -306,12 +306,12 @@ class prms_marrmot(torch.nn.Module):
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
-            if key not in args["dy_params"]['PRMS']:  ## it is a static parameter
+            if key not in args["dy_params"]['marrmot_PRMS']:  ## it is a static parameter
                 params_dict[key] = params_dict_raw[key][-1, :, :]
         for t in range(Ndays):
             # do dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args["dy_params"]['PRMS']:  ## it is a dynamic parameter
+                if key in args["dy_params"]['marrmot_PRMS']:  ## it is a dynamic parameter
                     params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
             scn = params_dict["fscn"] * params_dict["scx"]
             remx = (1 - params_dict["flz"]) * params_dict["stot"]

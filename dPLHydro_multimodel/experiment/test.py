@@ -21,10 +21,10 @@ from models.multimodels.model_average import model_average
 
 log = logging.getLogger(__name__)
 
-# NOTE: directory to save model streamflow predictions and observation data to
-# (warmup data is already removed). Remove or incorprotate in config.py later.
-SAVE_DATA = False
-OUT_DATA_SAVE_PATH = '/data/lgl5139/hydro_multimodel/HBV_1.1p/data/yalan_preds/'
+# # NOTE: directory to save model streamflow predictions and observation data to
+# # (warmup data is already removed). Remove or incorprotate in config.py later.
+# SAVE_DATA = False
+# OUT_DATA_SAVE_PATH = '/data/lgl5139/hydro_multimodel/HBV_1.1p/data/yalan_preds/'
 
 
 
