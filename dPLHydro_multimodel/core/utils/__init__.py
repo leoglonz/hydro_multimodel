@@ -96,9 +96,9 @@ def create_output_dirs(config) -> dict:
         ensemble_state = config['ensemble_type']
     
     # Add dir for model name(s).
-    ensemble_name = ""
+    mod_names = ""
     for mod in config['hydro_models']:
-        ensemble_name += mod + "_"
+        mod_names += mod + "_"
 
     # Add dir with hyperparam spec.
     out_folder = config['pnn_model'] + \
@@ -111,18 +111,18 @@ def create_output_dirs(config) -> dict:
 
     # Add a dir for static or dynamic parametrization.
     dy_params = ''
-    for mod in config['dy_params']:
+    for mod in config['hydro_models']:
         for param in config['dy_params'][mod]:
             dy_params += param + '_'
 
     # If any model in ensemble is dynamic, whole ensemble is dynamic.
-    dy_state = 'static_params' if dy_params.replace('_','') == '' else 'dynamic_params'
+    dy_state = 'static_para' if dy_params.replace('_','') == '' else 'dynamic_para'
 
     # ---- Combine all dirs ---- #
     output_dir = config['output_dir']
-    full_path = os.path.join(output_dir, train_period, forcings, ensemble_state, ensemble_name, out_folder, dy_state)
+    full_path = os.path.join(output_dir, train_period, forcings, ensemble_state, out_folder, mod_names, dy_state)
 
-    if dy_state == 'dynamic_params':
+    if dy_state == 'dynamic_para':
         full_path = os.path.join(full_path, dy_params)
     
     config['output_dir'] = full_path

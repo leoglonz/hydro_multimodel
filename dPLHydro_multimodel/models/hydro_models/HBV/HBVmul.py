@@ -25,6 +25,7 @@ class HBVMul(torch.nn.Module):
                                      parCFMAX=[0.5, 10],
                                      parCFR=[0, 0.1],
                                      parCWH=[0, 0.2])
+
         if 'parBETAET' in config['dy_params']['HBV']:
             self.parameters_bound['parBETAET'] = [0.3, 5]
 

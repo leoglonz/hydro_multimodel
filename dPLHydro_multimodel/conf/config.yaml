@@ -12,7 +12,7 @@ use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 2  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 6  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1980/10/01
@@ -27,16 +27,17 @@ name: hmm1.2-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs  # Might remove
-output_dir: ${data_dir}/${observations.name}/saved_models/TEST #3vars_noDayllat #ts1998_2008
+output_dir: ${data_dir}/${observations.name}/saved_models/ #3vars_noDayllat #ts1998_2008
+
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
 hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dy_params:
-    # HBV: parBETA, parBETAET, k0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs
-    HBV: []
-    PRMS: [alpha, scx, cgw, resmax, k1, k2]
-    SACSMA: [pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs]
+    # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs
+    HBV: [parBETA, parBETAET, parK0]
+    marrmot_PRMS: [alpha, scx, cgw, resmax, k1, k2]
+    SACSMA_with_snow: []
 
 routing_hydro_model: True
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves

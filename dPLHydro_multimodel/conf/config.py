@@ -193,9 +193,9 @@ class ExperimentConfig(BaseModel):
 
 class DynamicConfig(BaseModel):
     HBV: list
-    SACSMA: list
-    PRMS: list
-
+    marrmot_PRMS: list
+    SACSMA_with_snow: list
+    
 
 class LossFunc(BaseModel):
     w1: float = 11.0

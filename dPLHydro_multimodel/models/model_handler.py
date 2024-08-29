@@ -69,7 +69,11 @@ class ModelHandler(torch.nn.Module):
         model_name = str(model) + '_model_Ep' + str(self.config['epochs']) + '.pt'
         model_path = os.path.join(self.config['output_dir'], model_name)
         try:
-            self.model_dict[model] = torch.load(model_path).to(self.config['device']) 
+            self.model_dict[model] = torch.load(model_path).to(self.config['device'])
+
+            # Overwrite internal config if there is discontinuity:
+            if self.model_dict[model].config:
+                self.model_dict[model].config = self.config
         except:
             raise FileNotFoundError(f"Model file {model_path} was not found. Check configurations.")
 
