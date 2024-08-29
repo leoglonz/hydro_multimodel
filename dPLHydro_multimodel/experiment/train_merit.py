@@ -37,10 +37,11 @@ class TrainModel:
     
     def run(self, experiment_tracker) -> None:
         """
-        High-level management of ensemble/non-ensemble model training.
+        High-level management of ensemble/non-ensemble model training .
         """
         log.info(f"Training model: {self.config['name']} | Collecting training data")
 
+        ## TODO: This dataset dictionary should be modified to support CONUS/merit data for training continental HBV
         self.dataset_dict, self.config = get_data_dict(self.config, train=True)
 
         ngrid_train, minibatch_iter, nt, batch_size = n_iter_nt_ngrid(
@@ -48,7 +49,6 @@ class TrainModel:
             )
 
         # Initialize loss function(s) and optimizer.
-        log.info(f"Initializing loss function, optimizer")
         self.dplh_model_handler.init_loss_func(self.dataset_dict['obs'])
         optim = self.dplh_model_handler.optim
 
@@ -111,9 +111,6 @@ class TrainModel:
             optim.step()
             optim.zero_grad() # set_to_none=True actually increases runtimes.
 
-            print("Batch loss: ", total_loss.item())
-            # print("loss dict", ep_loss_dict)
-
         self.ep_loss_dict = ep_loss_dict
 
     def _log_epoch_stats(self, epoch: int, ep_loss_dict: Dict[str, float],
@@ -138,7 +135,7 @@ class TrainModel:
         self.ensemble_lstm.init_optimizer()
         optim = self.ensemble_lstm.optim
 
-        for epoch in range(start_ep, self.config['epochs'] + 1):
+        for epoch in range(self.start_epoch, self.config['epochs'] + 1):
             start_time = time.perf_counter()
             prog_str = f"Epoch {epoch}/{self.config['epochs']}"
             ep_loss = {'wNN': 0}
@@ -152,11 +149,11 @@ class TrainModel:
                 model_preds = self.dplh_model_handler(dataset_dict_sample)
                 self.ensemble_lstm(dataset_dict_sample)
                 
-                total_loss, _, _ = self.ensemble_lstm.calc_loss(model_preds)
+                total_loss = self.ensemble_lstm.calc_loss(model_preds)
                 total_loss.backward()
                 optim.step()
                 optim.zero_grad()
-                ep_loss['wNN'] += total_loss.item()
+                ep_loss += total_loss.item()
 
             self._log_epoch_stats(epoch, ep_loss, minibatch_iter, start_time)
 

@@ -1,82 +1,84 @@
-from gettext import find
-from logging import config
-
+import os
+import numpy as np
 import torch
+from typing import Dict, List
+
+from conf.config import Config
 from core.calc.RangeBoundLoss import RangeBoundLoss
 from core.utils.utils import find_shared_keys
 from models.loss_functions.get_loss_function import get_loss_func
 from models.neural_networks.lstm_models import CudnnLstmModel
 
 
+
 class EnsembleWeights(torch.nn.Module):
     """
-    Interface for weighting neural network used for ensembling multiple
-    hydrology models.
+    Interface for an ensemble weighting LSTM (wNN) used for combining outputs of
+    multiple hydrology models.
     """
-    def __init__(self, config):
+    def __init__(self, config: Config):
         super(EnsembleWeights, self).__init__()
         self.config = config
-        self.name = 'Ensemble Weighting Network'
-        self._init_model()
+        self.name = 'Ensemble Weighting LSTM (wNN)'
         self.range_bound_loss = RangeBoundLoss(config)
+        self._init_model()
 
-    def _init_model(self):
+    def _init_model(self) -> None:
         """
-        Initialize LSTM.
+        Initialize weighting LSTM.
         """
         if self.config['use_checkpoint']:
             # Reinitialize trained model to continue training.
             load_path = self.config['checkpoint']['weighting_nn']
             self.lstm = torch.load(load_path).to(self.config['device'])
-            self.model_params = self.lstm.parameters()
+            self.model_params = list(self.lstm.parameters())
             self.lstm.zero_grad()
             self.lstm.train()
-        
         elif self.config['mode'] in ['test', 'test_bmi']:
-            self.load_model('wtNN')
+            self.load_model('wNN')
         else:
             self.get_nn_model_dim()
-            self.lstm = CudnnLstmModel(nx=self.nx,
-                                        ny=self.ny,
-                                        hiddenSize=self.config['weighting_nn']['hidden_size'],
-                                        dr=self.config['weighting_nn']['dropout']
-                                        ).to(self.config['device'])
-            # self.optim = torch.optim.Adadelta(self.lstm.parameters()) 
-            # Save model parameters to pass to optimizer
-            self.model_params = self.lstm.parameters()
+            self.lstm = CudnnLstmModel(
+                nx=self.nx,
+                ny=self.ny,
+                hiddenSize=self.config['weighting_nn']['hidden_size'],
+                dr=self.config['weighting_nn']['dropout']
+            ).to(self.config['device'])
+            self.model_params = list(self.lstm.parameters())
             self.lstm.zero_grad()
             self.lstm.train()
     
     def load_model(self, model) -> None:
-        import os
-        model_name = str(model) + '_model_Ep' + str(self.config['epochs']) + '.pt'
+        model_name = f"{model}_model_Ep{self.config['epochs']}.pt"
         model_path = os.path.join(self.config['output_dir'], model_name)
-        
         try:
             self.lstm = torch.load(model_path).to(self.config['device']) 
         except:
             raise FileNotFoundError(f"Model file {model_path} was not found.")
         
-    def init_loss_func(self, obs) -> None:
-        self.loss_func = get_loss_func(self.config['weighting_nn'], obs)
-        self.loss_func = self.loss_func.to(self.config['device'])
+    def init_loss_func(self, obs: np.float32) -> None:
+        self.loss_func = get_loss_func(self.config['weighting_nn'],
+                                       obs).to(self.config['device'])
 
     def init_optimizer(self) -> None:
-        self.optim = torch.optim.Adadelta(self.lstm.parameters())
+        self.optim = torch.optim.Adadelta(self.model_params, lr=self.config['weighting_nn']['learning_rate'])
 
     def get_nn_model_dim(self) -> None:
         self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
-        self.ny = len(self.config['hydro_models'])  # Output size of NN
+        self.ny = len(self.config['hydro_models'])  # Output size of pNN
 
-    def forward(self, dataset_dict_sample, eval=False) -> None:
+    def forward(self, dataset_dict_sample: Dict, eval=False) -> Dict:
         self.dataset_dict_sample = dataset_dict_sample
 
         # Get scaled mini-batch of basin forcings + attributes.
         # inputs_nn_scaled = x_nn + c_nn, forcings + basin attributes
-        nn_inputs = dataset_dict_sample['inputs_nn_scaled'].requires_grad_(True)
+        nn_inputs = dataset_dict_sample['inputs_nn_scaled']
 
-        if eval: self.lstm.eval()  # For testing
-        self.weights = self.lstm(nn_inputs) # Forward
+        # For testing
+        if eval: self.lstm.eval()
+
+        # Forward
+        self.weights = self.lstm(nn_inputs)
         self._scale_weights()
 
         self.weights_dict = dict()
@@ -86,7 +88,7 @@ class EnsembleWeights(torch.nn.Module):
 
         return self.weights_dict
     
-    def _scale_weights(self):
+    def _scale_weights(self) -> None:
         if self.config['weighting_nn']['method'] == 'sigmoid':
             self.weights_scaled = torch.sigmoid(self.weights)
         elif self.config['weighting_nn']['method'] == 'softmax':
@@ -94,12 +96,12 @@ class EnsembleWeights(torch.nn.Module):
         else:
             raise ValueError(self.config['weighting_nn']['method'], "is not a valid model weighting method.")
 
-    def calc_loss(self, hydro_preds_dict, loss_dict=None) -> None:
+    def calc_loss(self, hydro_preds_dict: Dict, loss_dict=None) -> float:
         """
         Compute a composite loss: 
-        1) Takes in predictions from set of hydro models, and computes a loss on the linear combination of model predictions using lstm-derived weights.
+        1) Calculates range-bound loss on the lstm weights.
 
-        2) Calculates range-bound loss on the lstm weights.
+        2) Takes in predictions from set of hydro models, and computes a loss on the linear combination of model predictions using lstm-derived weights.
         """
         # Range-bound loss on weights.
         weights_sum = torch.sum(self.weights_scaled, dim=2)
@@ -108,8 +110,63 @@ class EnsembleWeights(torch.nn.Module):
         # Get ensembled streamflow.
         self.ensemble_models(hydro_preds_dict)
 
+        # Loss on streamflow preds.
+        loss_sf = self.loss_func(self.config,
+                                 self.ensemble_pred['flow_sim'],
+                                 self.dataset_dict_sample['obs'],
+                                 igrid=self.dataset_dict_sample['iGrid']
+                                 )
+    
+
+        print("rb loss:", loss_rb)
+        print("stream loss:", 0.1*loss_sf)
+
+
+        # Return total_loss for optimizer.
+        ###### NOTE: Added e2 factor to streamflow loss to account for ~1 OoM difference.
+        # TODO:
+        total_loss = loss_rb + loss_sf
+        if loss_dict:
+            loss_dict['wNN'] += total_loss.item()
+            return total_loss, loss_dict
+
+        # total_loss.backward()
+        # self.optim2.step()
+        # self.optim2.zero_grad()
+        # comb_loss += total_loss.item()
+        # return comb_loss
+
+        return total_loss, loss_rb, loss_sf
+    
+    def ensemble_models(self, model_preds_dict: Dict[str, np.float32]) -> Dict[str, np.float32]:
+        """
+        Calculate composite predictions by combining individual hydrology model results scaled by learned nn weights.
+        
+        Returns: predictions dict with attributes
+        'flow_sim', 'srflow', 'ssflow', 'gwflow', 'AET_hydro', 'PET_hydro', 'flow_sim_no_rout', 'srflow_no_rout', 'ssflow_no_rout', 'gwflow_no_rout', 'BFI_sim'
+        """
+        self.ensemble_pred = dict()
+
+        # Get prediction shared between all models.
+        mod_dicts = [model_preds_dict[mod] for mod in self.config['hydro_models']]
+        shared_keys = find_shared_keys(*mod_dicts)
+
+        # TODO: identify why 'flow_sim_no_rout' calculation returns shape [365,1]
+        # vs [365, 100] which breaks the ensemble loop at point of matrix mul below. (weights_dict[mod]
+        # takes shape [365, 100].) Look at `QSIM` comprout vs no comprout in HBVmul.py. For now, remove it.
+        # NOTE: may have fixed this ^^^ need to confirm.
+        shared_keys.remove('flow_sim_no_rout')
+
+        for key in shared_keys:
+            self.ensemble_pred[key] = 0
+            for mod in self.config['hydro_models']:
+                if self.weights_dict[mod].size(0) != model_preds_dict[mod]['flow_sim'].squeeze().size(0):
+                    # Cut out warmup data present when testing model from loaded mod file.
+                    model_preds_dict[mod][key] = model_preds_dict[mod][key][self.config['warm_up']:,:]
+                self.ensemble_pred[key] += self.weights_dict[mod] * model_preds_dict[mod][key].squeeze()
+
         # # Old ensembling calculation
-        # ntstep = self.weights.shape[0] ### TODO replace weights with weights_dict.
+        # ntstep = self.weights.shape[0]
         # ngage = self.weights.shape[1]
         # self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
 
@@ -120,53 +177,5 @@ class EnsembleWeights(torch.nn.Module):
         #         h_pred = h_pred[self.config['warm_up']:,:]
         #     self.ensemble_pred += self.weights_scaled[:, :, i] * h_pred 
         # # torch.sum(hydro_preds_dict * weights_scaled, dim=2)
-
-        # Loss on streamflow preds.
-        loss_sf = self.loss_func(self.config,
-                                 self.ensemble_pred['flow_sim'],
-                                 self.dataset_dict_sample['obs'],
-                                 igrid=self.dataset_dict_sample['iGrid']
-                                 )
-        # self.lstm.zero_grad()  # Shouldn't be necessary
-
-        # Return total_loss for optimizer.
-        total_loss = loss_rb + loss_sf
-        if loss_dict:
-            loss_dict['wtNN'] += total_loss.item()
-            return total_loss, loss_dict
-
-        # total_loss.backward()
-        # self.optim2.step()
-        # self.optim2.zero_grad()
-        # comb_loss += total_loss.item()
-        # return comb_loss
-
-        return total_loss
-    
-    def ensemble_models(self, hydro_preds_dict) -> dict:
-        """
-        Calculate composite predictions by combining individual hydrology model results scaled by learned nn weights.
-        
-        Returns: predictions dict with attributes
-        'flow_sim', 'srflow', 'ssflow', 'gwflow', 'AET_hydro', 'PET_hydro', 'flow_sim_no_rout', 'srflow_no_rout', 'ssflow_no_rout', 'gwflow_no_rout', 'BFI_sim'
-        """
-        self.ensemble_pred = dict()
-
-        # Get prediction shared between all models.
-        mod_dicts = [hydro_preds_dict[mod] for mod in self.config['hydro_models']]
-        shared_keys = find_shared_keys(*mod_dicts)
-
-        # TODO: Not critical, but identify why 'flow_sim_no_rout' calculation returns shape [365,1]
-        # vs [365, 100] which breaks the ensemble loop at point of matrix mul below. (weights_dict[mod]
-        # takes shape [365, 100].) Look at `QSIM` comprout vs no comprout in HBVmul.py. For now, remove it.
-        shared_keys.remove('flow_sim_no_rout')
-
-        for key in shared_keys:
-            self.ensemble_pred[key] = 0
-            for mod in self.config['hydro_models']:
-                # if self.weights_dict[mod].size(0) != hydro_preds_dict[mod]['flow_sim'].squeeze().size(0):
-                #     # Cut out warmup data present when testing model from loaded mod file.
-                #     h_pred = h_pred[self.config['warm_up']:,:]
-                self.ensemble_pred[key] += self.weights_dict[mod] * hydro_preds_dict[mod][key].squeeze()
 
         return self.ensemble_pred

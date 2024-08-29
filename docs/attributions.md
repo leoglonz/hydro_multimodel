@@ -4,6 +4,7 @@
 - Farshid Rahmani
 - Jiangtao Liu
 - Kamlesh Sawadekar
+- MHPI
 
 ## Specific Use:
 - Farshid Rahmani (from `dPL_Hydro_STEMP`)
@@ -25,3 +26,8 @@
 - Dr. Chaopeng Shen
     - Dynamic attribute/parameter/variable handling
     - Functional interfaces
+
+- MHPI
+    - Utility functions
+    - Data handling
+    

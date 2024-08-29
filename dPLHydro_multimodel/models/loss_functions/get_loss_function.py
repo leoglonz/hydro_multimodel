@@ -4,8 +4,9 @@ import numpy as np
 
 
 def get_loss_func(args, obs):
+    # args['target'] = ['00060_Mean']
     # module = importlib.import_module(args['loss_function'])
-    spec = importlib.util.spec_from_file_location(args['loss_function'], './models/loss_functions/' + args['loss_function'] + '.py')
+    spec = importlib.util.spec_from_file_location("RmseLoss_flow_comb", "/data/lgl5139/hydro_multimodel/dPLHydro_multimodel/models/loss_functions/RmseLoss_flow_comb.py") #args['loss_function'], './models/loss_functions/' + args['loss_function'] + '.py')
     module = spec.loader.load_module()
     loss_function_default = getattr(module, args['loss_function'])
     if (args['loss_function'] =='RmseLoss_flow_temp') or (args['loss_function'] =='RmseLoss_flow_temp_BFI') or \

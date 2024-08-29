@@ -6,6 +6,7 @@ attr_path: /scratch/fzr5082/PGML_STemp_results/inputs/dataset_20240331/attr_came
 var_t_nn: [
   'prcp(mm/day)',
   'tmean(C)',
+  'dayl(s)',
   'PET_hargreaves(mm/day)'
 ]
 var_c_nn: [
@@ -42,14 +43,14 @@ var_c_nn: [
   'geol_2nd_class',
   'glim_2nd_class_frac',
   'carbonate_rocks_frac',
-  'geol_porostiy',
+  'geol_porosity',
   'geol_permeability'
 ]
 var_t_hydro_model: [
   'prcp(mm/day)',
   'tmean(C)',
-  'tmax(C)',
-  'tmin(C)',
+  # 'tmax(C)',
+  # 'tmin(C)',
   'PET_hargreaves(mm/day)'
 ]
 var_c_hydro_model: [

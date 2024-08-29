@@ -1,3 +1,6 @@
+## This config is for debugging only.
+
+
 defaults:
     - _self_
     - hydra: settings
@@ -7,12 +10,12 @@ defaults:
 
 ## General Config -------------------------------#
 mode: train_test   # train, test, train_test, train_wnn_only
-ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
+ensemble_type: frozen_pnn    # none, frozen_pnn, free_pnn, avg
 use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 3  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 0  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1980/10/01
@@ -27,17 +30,16 @@ name: hmm1.2-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs  # Might remove
-output_dir: ${data_dir}/${observations.name}/saved_models/ #3vars_noDayllat #ts1998_2008
-
+output_dir: ${data_dir}/${observations.name}/debugging/08_12 #3vars_noDayllat #ts1998_2008
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [SACSMA_with_snow]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
 dy_params:
-    # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs
-    HBV: [parBETA, parBETAET, parK0]
-    marrmot_PRMS: []
-    SACSMA_with_snow: [pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs]
+    # HBV: parBETA, parBETAET | PRMS: scx, cgw, alpha, tt | SACSMA: pctim, smax, parTT
+    HBV: []
+    PRMS: []
+    SACSMA: []
 
 routing_hydro_model: True
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
@@ -49,17 +51,17 @@ loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-nmul: 16
+nmul: 2
 warm_up: 365
 rho: 365
-batch_size: 100
-epochs: 50
+batch_size: 670
+epochs: 1
 dropout: 0.5
 hidden_size: 256
 learning_rate: 1.0
 nearzero: 1e-4
 
-save_epoch: 10
+save_epoch: 1
 
 weighting_nn:
     dropout: 0.5
@@ -82,3 +84,4 @@ checkpoint:
     marrmot_PRMS: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/debug_yalan/frozen_pnn/LSTM_E50_R365_B30_H256_n16_0/static_para/HBV_marrmot_PRMS_SACSMA_with_snow_/marrmot_PRMS_model_Ep50.pt
     SACSMA_with_snow: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/gages2_50/saved_models/debug_yalan/frozen_pnn/LSTM_E50_R365_B30_H256_n16_0/static_para/HBV_marrmot_PRMS_SACSMA_with_snow_/SACSMA_with_snow_model_Ep50.pt
     weighting_nn: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp/saved_models/free_pnn/LSTM_E50_R365_B100_H256_n2_0/static_para/HBV_/wtNN_model_model_Ep10.pt
+

@@ -1,59 +1,75 @@
+"""
+Test a pytorch model.
+"""
 import logging
 import os
+from typing import Dict, List, Any
 
 import numpy as np
 import pandas as pd
 import torch
 import tqdm
+
 from conf.config import Config
-from core.calc.normalize import trans_norm
 from core.calc.stat import stat_error
 from core.data import take_sample_test
-from core.data.dataFrame_loading import load_data
+from core.data.dataset_loading import get_data_dict
 from core.utils import save_outputs
-from core.utils.Dates import Dates
-from models.model_handler import modelHandler
+from models.model_handler import ModelHandler
 from models.multimodels.ensemble_network import EnsembleWeights
+from models.multimodels.model_average import model_average
 
 log = logging.getLogger(__name__)
+
+# # NOTE: directory to save model streamflow predictions and observation data to
+# # (warmup data is already removed). Remove or incorprotate in config.py later.
+# SAVE_DATA = False
+# OUT_DATA_SAVE_PATH = '/data/lgl5139/hydro_multimodel/HBV_1.1p/data/yalan_preds/'
 
 
 
 class TestModel:
     """
     High-level multimodel testing handler; retrieves and formats testing data,
-    initializes all individual models, and runs testing.
+    initializes all individual models, and runs tests a trained model.
     """
     def __init__(self, config: Config):
         self.config = config
 
-        # Initializing collection of differentiable hydrology models and their optimizers.
-        # Training this object will parallel train all hydro models specified for ensemble.
-        self.dplh_model_handler = modelHandler(self.config).to(self.config['device'])
-        # Initialize the weighting LSTM.
-        if self.config['ensemble_type'] != 'none':
+        # Initializing collection of dPL hydrology models.
+        self.dplh_model_handler = ModelHandler(self.config).to(self.config['device'])
+        
+        # Initialize weighting LSTM (wNN) if ensemble type is specified.
+        if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
             self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
-    def _get_data_dict(self):
-        log.info(f"Collecting testing data")
+    def run(self, experiment_tracker) -> None:
+        log.info(f"Testing model: {self.config['name']} | Collecting testing data")
 
-        # Prepare training data.
-        self.train_trange = Dates(self.config['train'], self.config['rho']).date_to_int()
-        self.test_trange = Dates(self.config['test'], self.config['rho']).date_to_int()
-        self.config['t_range'] = [self.train_trange[0], self.test_trange[1]]
-
-        # Read data for the test time range
-        dataset_dict = load_data(self.config, trange=self.test_trange)
-
-        # Normalizatio ns
-        # init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
-        x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
-        c_nn_scaled = trans_norm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
-        c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
-        dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
-        del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
+        # Get dataset dictionary.
+        self._get_data_dict()
         
-        # Convert numpy arrays to torch tensors
+        # Get model predictions and observation data.
+        log.info(f"Testing on batches of {self.config['batch_basins']} basins...")
+        batched_preds_list = self._get_model_predictions()
+        y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]
+
+        log.info(f"Saving model results.")
+        save_outputs(self.config, batched_preds_list, y_obs)
+            
+        # Calculate model result statistics.
+        self.calc_metrics(batched_preds_list, y_obs)
+
+    def _get_data_dict(self) -> None:
+        """
+        Get dictionary of input data.
+
+        iS, iE: arrays of start and end pairs of basin indicies for batching.
+        """
+        dataset_dict, self.config = get_data_dict(self.config)
+
+        # NOTE: why is this only necessary for testing? Because conversion happens in dataset_dict_sample.
+        # Convert numpy arrays to torch tensors.
         for key in dataset_dict.keys():
             if type(dataset_dict[key]) == np.ndarray:
                 dataset_dict[key] = torch.from_numpy(dataset_dict[key]).float()
@@ -63,81 +79,83 @@ class TestModel:
         self.iS = np.arange(0, ngrid, self.config['batch_basins'])
         self.iE = np.append(self.iS[1:], ngrid)
 
-    def run(self, experiment_tracker) -> None:
-        log.info(f"Testing model: {self.config['name']}")
-
-        self._get_data_dict()
-        # self.dplh_model_handler.eval()
-        
-        # Get model predictions.
+    def _get_model_predictions(self) -> List[Dict[str, torch.Tensor]]:
+        """
+        Get predictions from a trained model.
+        """
         batched_preds_list = []
-        for i in tqdm.tqdm(range(0, len(self.iS)),
-                           desc=f"Testing on batches of {self.config['batch_basins']}",
-                           leave=False,
-                           dynamic_ncols=True):
-            
-            dataset_dict_sample = take_sample_test(self.config,
-                                                   self.dataset_dict,
-                                                   self.iS[i],
-                                                   self.iE[i])
-            
+        for i in tqdm.tqdm(range(len(self.iS)), leave=False, dynamic_ncols=True):
+            dataset_dict_sample = take_sample_test(self.config, self.dataset_dict,
+                                                   self.iS[i], self.iE[i])
+            # Forward pass for hydrology models.
             hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
 
-            if self.config['ensemble_type'] != 'none':
-                # Calculate ensembled streamflow.
-                wt_nn_preds = self.ensemble_lstm(dataset_dict_sample, eval=True)
-                ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
+            # Compile predictions from each batch.
+            if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
+                # For ensembles w/ wNN: Forward pass for wNN to get ensemble weights.
+                self.ensemble_lstm(dataset_dict_sample, eval=True)
 
-                # batched_preds_list.append(ensemble_pred.cpu().detach())
+                # Ensemble hydrology models using learned weights.
+                ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
+                batched_preds_list.append({key: tensor.cpu().detach() for key,
+                                           tensor in ensemble_pred.items()})
+            elif self.config['ensemble_type'] == 'avg':
+                # For 'average' type ensemble: Average model predictions at each
+                # basin for each day.
+                ensemble_pred = model_average(hydro_preds, self.config)
                 batched_preds_list.append({key: tensor.cpu().detach() for key,
                                            tensor in ensemble_pred.items()})
             else:
+                # For single hydrology model.
                 model_name = self.config['hydro_models'][0]
                 batched_preds_list.append({key: tensor.cpu().detach() for key,
                                            tensor in hydro_preds[model_name].items()})
+        return batched_preds_list
 
-        # Get observation data.
-        y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]
-
-        log.info(f"Saving model results.")
-        save_outputs(self.config, batched_preds_list, y_obs)
-
-        self.calc_metrics(batched_preds_list, y_obs)
-        torch.cuda.empty_cache()
-
-    def calc_metrics(self, batched_preds_list, y_obs):
+    def calc_metrics(self, batched_preds_list: List[Dict[str, torch.Tensor]],
+                     y_obs: torch.Tensor) -> None:
         """
-        Calculate and save model test metrics to csv.
+        Calculate test metrics and save to csv.
+
+        TODO: You could streamline this up a little more.
         """
-        preds_list = list()
-        obs_list = list()
+        preds_list = []
+        obs_list = []
         name_list = []
         
-        flow_sim = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
+        # Format streamflow predictions and observations.
+        flow_preds = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
         flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
-        preds_list.append(flow_sim.numpy())
+        preds_list.append(flow_preds.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
         name_list.append('flow')
-    
-        # we need to swap axes here to have [basin, days]
+
+        #######################
+        if SAVE_DATA:
+            ## Added to save prediction and observation data:
+            np.save(OUT_DATA_SAVE_PATH + 'sacsma_dyn_sf_pred.npy',preds_list)
+            np.save(OUT_DATA_SAVE_PATH + 'sacsma_sf_obs.npy',obs_list)
+        #######################
+
+        # Swap axes for shape [basins, days]
         statDictLst = [
             stat_error(np.swapaxes(x.squeeze(), 1, 0), np.swapaxes(y.squeeze(), 1, 0))
             for (x, y) in zip(preds_list, obs_list)
         ]
-        ### save this file
-        # median and STD calculation
+
+        # Calculate statistics on model results/performance.
         for stat, name in zip(statDictLst, name_list):
             count = 0
             mdstd = np.zeros([len(stat), 3])
             for key in stat.keys():
-                median = np.nanmedian(stat[key])  # abs(i)
-                STD = np.nanstd(stat[key])  # abs(i)
-                mean = np.nanmean(stat[key])  # abs(i)
+                median = np.nanmedian(stat[key])
+                STD = np.nanstd(stat[key])
+                mean = np.nanmean(stat[key])
                 k = np.array([[median, STD, mean]])
                 mdstd[count] = k
-                count = count + 1
+                count += 1
             mdstd = pd.DataFrame(
                 mdstd, index=stat.keys(), columns=['median', 'STD', 'mean']
             )
-
+            # Save statistics to CSV
             mdstd.to_csv((os.path.join(self.config['testing_dir'], 'mdstd_' + name + '.csv')))

@@ -38,9 +38,16 @@ class ModeEnum(str, Enum):
     train = "train"
     test = "test"
     train_test = "train_test"
-    train_wts_only = "train_wts_only"
+    train_wnn_only = "train_wnn_only"
     test_bmi = "test_bmi"
 
+
+class EnsembleEnum(str, Enum):
+    none = 'none'
+    free_pnn = 'free_pnn'
+    frozen_pnn = 'frozen_pnn'
+    avg = 'avg'
+    reg_max = 'reg_max'
 
 
 class InitalizationEnum(str, Enum):
@@ -186,9 +193,9 @@ class ExperimentConfig(BaseModel):
 
 class DynamicConfig(BaseModel):
     HBV: list
-    SACSMA: list
-    PRMS: list
-
+    marrmot_PRMS: list
+    SACSMA_with_snow: list
+    
 
 class LossFunc(BaseModel):
     w1: float = 11.0
@@ -199,6 +206,7 @@ class WeightingNNConfig(BaseModel):
     dropout: float
     hidden_size: int
     loss_factor: int
+    learning_rate: float = 0.1
     method: str
     loss_function: str
     loss_lower_bound: float = 0.95
@@ -258,9 +266,8 @@ class Config(BaseModel):
     mode: ModeEnum = Field(default=ModeEnum.train_test)
     pnn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
-    ensemble_type: str
-    # train_wts_only: bool
-    dyn_hydro_params: DynamicConfig = Field(default_factory=ExperimentConfig)
+    ensemble_type: EnsembleEnum = Field(default=EnsembleEnum.none)
+    dy_params: DynamicConfig = Field(default_factory=ExperimentConfig)
 
     random_seed: int = 0
     device: str = 'cpu'
@@ -285,7 +292,7 @@ class Config(BaseModel):
     epochs: int
     hidden_size: int
     dropout: float
-    freeze: bool = True
+    learning_rate: float = 0.1
     nearzero: float
 
     weighting_nn: WeightingNNConfig

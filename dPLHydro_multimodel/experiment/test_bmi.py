@@ -1,38 +1,28 @@
 import logging
-import os
 
+from networkx import bidirectional_dijkstra
 import numpy as np
-import pandas as pd
 import torch
-import tqdm
-from conf.config import Config
+
 from core.calc.normalize import trans_norm
-from core.calc.stat import stat_error
-from core.data import take_sample_test
-from core.data.dataFrame_loading import load_data
-from core.utils import save_outputs
+from core.data.dataset_loading import load_data
 from core.utils.Dates import Dates
-from models.model_handler import modelHandler
-from models.multimodels.ensemble_network import EnsembleWeights
+from models.bmi.dpl_bmi import BMIdPLHydroModel
+
 
 log = logging.getLogger(__name__)
+
+cfg_filepath = ''
 
 
 
 class TestBMIModel:
     """
-    High-level multimodel testing handler; retrieves and formats testing data,
+    High-level multimodel testing handler; retrieves and formats testindata,
     initializes all individual models, and runs testing.
     """
-    def __init__(self, config: Config):
-        self.config = config
-
-        # Initializing collection of differentiable hydrology models and their optimizers.
-        # Training this object will parallel train all hydro models specified for ensemble.
-        self.dplh_model_handler = modelHandler(self.config).to(self.config['device'])
-        # Initialize the weighting LSTM.
-        if self.config['ensemble_type'] != 'none':
-            self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
+    def __init__(self):
+        log.info("Initializing BMI forward instance.")
 
     def _get_data_dict(self):
         log.info(f"Collecting testing data")
@@ -45,7 +35,7 @@ class TestBMIModel:
         # Read data for the test time range
         dataset_dict = load_data(self.config, trange=self.test_trange)
 
-        # Normalizatio ns
+        # Normalizations
         # init_norm_stats(self.config, dataset_dict['x_nn'], dataset_dict['c_nn'], dataset_dict['obs'])
         x_nn_scaled = trans_norm(self.config, dataset_dict['x_nn'], varLst=self.config['observations']['var_t_nn'], toNorm=True)
         c_nn_scaled = trans_norm(self.config, dataset_dict['c_nn'], varLst=self.config['observations']['var_c_nn'], toNorm=True)
@@ -64,80 +54,44 @@ class TestBMIModel:
         self.iE = np.append(self.iS[1:], ngrid)
 
     def run(self, experiment_tracker) -> None:
-        log.info(f"Testing model: {self.config['name']}")
+        log.info(f"Testing BMI model: {self.config['name']}")
 
+        # Instantiate BMI object.
+        log.info("Creating dPLHydro BMI object")
+        model = BMIdPLHydroModel()
+
+        # Initialize the BMI.
+        log.info("Initializing BMI")
+        model.initialize(bmi_cfg_filepath=cfg_filepath)
+
+        # Extract data and get forcings, basin attributes.
         self._get_data_dict()
-        # self.dplh_model_handler.eval()
-        
-        # Get model predictions.
-        batched_preds_list = []
-        for i in tqdm.tqdm(range(0, len(self.iS)),
-                           desc=f"Testing on batches of {self.config['batch_basins']}",
-                           leave=False,
-                           dynamic_ncols=True):
-            
-            dataset_dict_sample = take_sample_test(self.config,
-                                                   self.dataset_dict,
-                                                   self.iS[i],
-                                                   self.iE[i])
-            
-            hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
+        forcings_dict = self.dataset_dict['inputs_nn_scaled']['x_nn_scaled']
+        attributes_dict = self.dataset_dict['inputs_nn_scaled']['c_nn_scaled']
 
-            if self.config['ensemble_type'] != 'none':
-                # Calculate ensembled streamflow.
-                wt_nn_preds = self.ensemble_lstm(dataset_dict_sample, eval=True)
-                ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
+        # TODO: Set attributes to validated keys within model.
+        model.set_value('attribute_x', attributes_dict['x'])
 
-                # batched_preds_list.append(ensemble_pred.cpu().detach())
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in ensemble_pred.items()})
-            else:
-                model_name = self.config['hydro_models'][0]
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in hydro_preds[model_name].items()})
+        # Run through all available forcings.
+        # TODO: allow specification of update time range.
+        n_forcings = forcings_dict.size[0]
 
-        # Get observation data.
-        y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]
+        for day in range(n_forcings):
+            # TODO: extract each forcing out from this and map to value with "set_value". The same should be done for the basin attributes.
+            forcings = forcings[day,:,:]
 
-        log.info(f"Saving model results.")
-        save_outputs(self.config, batched_preds_list, y_obs)
+            # Set forcings to validated keys within model.
+            model.set_value('forcing_x', forcings['x'])
+            model.set_value('forcing_y', forcings['y'])
 
-        self.calc_metrics(batched_preds_list, y_obs)
-        torch.cuda.empty_cache()
+            # 1-timestep update of BMI.
+            model.update()
 
-    def calc_metrics(self, batched_preds_list, y_obs):
-        """
-        Calculate and save model test metrics to csv.
-        """
-        preds_list = list()
-        obs_list = list()
-        name_list = []
-        
-        flow_sim = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
-        flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
-        preds_list.append(flow_sim.numpy())
-        obs_list.append(np.expand_dims(flow_obs, 2))
-        name_list.append('flow')
-    
-        # we need to swap axes here to have [basin, days]
-        statDictLst = [
-            stat_error(np.swapaxes(x.squeeze(), 1, 0), np.swapaxes(y.squeeze(), 1, 0))
-            for (x, y) in zip(preds_list, obs_list)
-        ]
-        ### save this file
-        # median and STD calculation
-        for stat, name in zip(statDictLst, name_list):
-            count = 0
-            mdstd = np.zeros([len(stat), 3])
-            for key in stat.keys():
-                median = np.nanmedian(stat[key])  # abs(i)
-                STD = np.nanstd(stat[key])  # abs(i)
-                mean = np.nanmean(stat[key])  # abs(i)
-                k = np.array([[median, STD, mean]])
-                mdstd[count] = k
-                count = count + 1
-            mdstd = pd.DataFrame(
-                mdstd, index=stat.keys(), columns=['median', 'STD', 'mean']
-            )
+            if day > 10:
+                # In case of runaway during debut
+                log.info("Terminating for debug.")
+                break
 
-            mdstd.to_csv((os.path.join(self.config['testing_dir'], 'mdstd_' + name + '.csv')))
+        # Finalization step for BMI
+        log.info("Finalizing BMI and wrapping up...")
+        model.finalize()

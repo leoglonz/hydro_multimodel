@@ -25,7 +25,8 @@ class HBVMul(torch.nn.Module):
                                      parCFMAX=[0.5, 10],
                                      parCFR=[0, 0.1],
                                      parCWH=[0, 0.2])
-        if 'parBETAET' in config['dyn_hydro_params']['HBV']:
+
+        if 'parBETAET' in config['dy_params']['HBV']:
             self.parameters_bound['parBETAET'] = [0.3, 5]
 
         self.conv_routing_hydro_model_bound = [
@@ -121,8 +122,8 @@ class HBVMul(torch.nn.Module):
         return out
     
     def forward(self, x_hydro_model, c_hydro_model, params_raw, args, muwts=None, warm_up=0, init=False, routing=False, comprout=False, conv_params_hydro=None):
+        nearzero = args['nearzero']
         nmul = args['nmul']
-        PRECS = 1e-5
 
         # Initialization
         if warm_up > 0:
@@ -200,23 +201,29 @@ class HBVMul(torch.nn.Module):
         # logPS = np.zeros(P.size())
         # logswet = np.zeros(P.size())
         # logRE = np.zeros(P.size())
-        AET = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args['device'])
-        recharge_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
-        excs_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
-        evapfactor_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
-        tosoil_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
-        PERC_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        AET = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args["device"])
+        recharge_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args["device"])
+        excs_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args["device"])
+        evapfactor_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args["device"])
+        tosoil_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args["device"])
+        PERC_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args["device"])
+        # AET = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args['device'])
+        # recharge_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        # excs_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        # evapfactor_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        # tosoil_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
+        # PERC_sim = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.0001).to(args["device"])
 
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
-            if key not in args['dyn_hydro_params']['HBV']:  ## it is a static parameter
+            if key not in args['dy_params']['HBV']:  ## it is a static parameter
                 params_dict[key] = params_dict_raw[key][-1, :, :]
 
         for t in range(Nstep):
             # do dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args['dyn_hydro_params']['HBV']:  ## it is a dynamic parameter
+                if key in args['dy_params']['HBV']:  ## it is a dynamic parameter
                     params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
 
             # Separate precipitation into liquid and solid components
@@ -230,15 +237,15 @@ class HBVMul(torch.nn.Module):
             melt = torch.clamp(melt, min=0.0)
             melt = torch.min(melt, SNOWPACK)
             MELTWATER = MELTWATER + melt
-            SNOWPACK = SNOWPACK - melt
+            SNOWPACK = torch.clamp(SNOWPACK - melt, min=nearzero)
             refreezing = params_dict['parCFR'] * params_dict['parCFMAX'] * (params_dict['parTT'] - mean_air_temp[t, :, :])
             refreezing = torch.clamp(refreezing, min=0.0)
             refreezing = torch.min(refreezing, MELTWATER)
             SNOWPACK = SNOWPACK + refreezing
-            MELTWATER = MELTWATER - refreezing
+            MELTWATER = torch.clamp(MELTWATER - refreezing, min=nearzero)
             tosoil = MELTWATER - (params_dict['parCWH'] * SNOWPACK)
             tosoil = torch.clamp(tosoil, min=0.0)
-            MELTWATER = MELTWATER - tosoil
+            MELTWATER = torch.clamp(MELTWATER - tosoil, min=nearzero)
 
             # Soil and evaporation
             soil_wetness = (SM / params_dict['parFC']) ** params_dict['parBETA']
@@ -248,7 +255,7 @@ class HBVMul(torch.nn.Module):
             SM = SM + RAIN + tosoil - recharge
             excess = SM - params_dict['parFC']
             excess = torch.clamp(excess, min=0.0)
-            SM = SM - excess
+            SM = torch.clamp(SM - excess, min=nearzero)
             # parBETAET only has effect when it is a dynamic parameter (=1 otherwise).
             evapfactor = (SM / (params_dict['parLP'] * params_dict['parFC']))
             if 'parBETAET' in params_dict:
@@ -257,7 +264,7 @@ class HBVMul(torch.nn.Module):
             ETact = PET[t, :, :] * evapfactor
             ETact = torch.min(SM, ETact)
             AET[t,:,:] = ETact
-            SM = torch.clamp(SM - ETact, min=PRECS)  # SM can not be zero for gradient tracking
+            SM = torch.clamp(SM - ETact, min=nearzero)  # SM can not be zero for gradient tracking
 
             # Groundwater boxes
             SUZ = SUZ + recharge + excess

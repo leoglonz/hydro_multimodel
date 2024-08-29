@@ -5,7 +5,7 @@ from typing import Union
 
 import torch
 import xarray as xr
-from core.data.Mapping import MeritMap
+from archive.Mapping import MeritMap
 from core.utils.Dates import Dates
 
 # from dMC.dataset_modules.utils.Network import FullZoneNetwork, Network

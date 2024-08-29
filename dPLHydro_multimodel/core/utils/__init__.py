@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 
-def set_system_spec(cuda_device: Optional[int] = None) -> Tuple[torch.device, torch.dtype]:
+def set_system_spec(cuda_devices: Optional[list] = None) -> Tuple[torch.device, torch.dtype]:
     """
     Sets appropriate torch device and dtype for current system.
     
@@ -29,13 +29,15 @@ def set_system_spec(cuda_device: Optional[int] = None) -> Tuple[torch.device, to
     Returns:
         Tuple[torch.device, torch.dtype]: A tuple containing the device and dtype.
     """
-    if cuda_device != None:
-        if torch.cuda.is_available() and cuda_device < torch.cuda.device_count():
-            device = torch.device(f'cuda:{cuda_device}')
+    if cuda_devices != []:
+        # Set the first device as the active device.
+        # d = cuda_devices[0]
+        if torch.cuda.is_available() and cuda_devices < torch.cuda.device_count():
+            device = torch.device(f'cuda:{cuda_devices}')
             torch.cuda.set_device(device)   # Set as active device.
         else:
-            raise ValueError(f"Selected CUDA device {cuda_device} is not available.")
-        
+            raise ValueError(f"Selected CUDA device {cuda_devices} is not available.")  
+    
     elif torch.cuda.is_available():
         device = torch.device(f'cuda:{torch.cuda.current_device()}')
         torch.cuda.set_device(device)   # Set as active device.
@@ -81,6 +83,24 @@ def create_output_dirs(config) -> dict:
 
     Modified from dPL_Hydro_SNTEMP @ Farshid Rahmani.
     """
+    # Add dir for train period:
+    train_period = 'train_' + str(config['train']['start_time'][:4]) + '_' + str(config['train']['end_time'][:4])
+
+    # Add dir for number of forcings:
+    forcings = str(len(config['observations']['var_t_nn'])) + '_forcing'
+
+    # Add dir for ensemble type.
+    if config['ensemble_type'] in ['none', '']:
+        ensemble_state = 'no_ensemble'
+    else:
+        ensemble_state = config['ensemble_type']
+    
+    # Add dir for model name(s).
+    mod_names = ""
+    for mod in config['hydro_models']:
+        mod_names += mod + "_"
+
+    # Add dir with hyperparam spec.
     out_folder = config['pnn_model'] + \
              '_E' + str(config['epochs']) + \
              '_R' + str(config['rho'])  + \
@@ -89,33 +109,38 @@ def create_output_dirs(config) -> dict:
              '_n' + str(config['nmul']) + \
              '_' + str(config['random_seed'])
 
-    # Make a folder for static or dynamic parametrization
-    if config['dyn_hydro_params']['HBV'] != []:
-        # If one model has dynamic params, all of them should.
-        dyn_state = 'dynamic_para'
-    else:
-        dyn_state = 'static_para'
-    if config['ensemble_type'] == 'none':
-        para_state = 'no_ensemble'
-    elif config['ensemble_type'] == 'frozen_pnn':
-        para_state = 'frozen_pnn'
-    elif config['ensemble_type'] == 'free_pnn':
-        para_state = 'free_pnn'
-    else:
-        raise ValueError("Unsupported ensemble type specified.")
-    ensemble_name = ""
+    # Add a dir for static or dynamic parametrization.
+    dy_params = ''
     for mod in config['hydro_models']:
-        ensemble_name += mod + "_"
+        for param in config['dy_params'][mod]:
+            dy_params += param + '_'
 
-    config['output_dir'] = os.path.join(config['output_dir'], para_state, out_folder, dyn_state, ensemble_name)
+    # If any model in ensemble is dynamic, whole ensemble is dynamic.
+    dy_state = 'static_para' if dy_params.replace('_','') == '' else 'dynamic_para'
+
+    # ---- Combine all dirs ---- #
+    output_dir = config['output_dir']
+    full_path = os.path.join(output_dir, train_period, forcings, ensemble_state, out_folder, mod_names, dy_state)
+
+    if dy_state == 'dynamic_para':
+        full_path = os.path.join(full_path, dy_params)
+    
+    config['output_dir'] = full_path
 
     test_dir = 'test' + str(config['test']['start_time'][:4]) + '_' + str(config['test']['end_time'][:4])
     test_path = os.path.join(config['output_dir'], test_dir)
     config['testing_dir'] = test_path
 
     if (config['mode'] == 'test') and (os.path.exists(config['output_dir']) == False):
-        raise FileNotFoundError(f"Model directory {config['output_dir']} was not found. Check configurations.")
-    print(config['output_dir'])
+        if config['ensemble_type'] in ['avg', 'frozen_pnn']:
+            for mod in config['hydro_models']:
+                # Check if individually trained models exist and use those.
+                check_path = os.path.join(output_dir,'no_ensemble', out_folder, dy_state, mod + "_")
+                if os.path.exists(check_path) == False:           
+                    raise FileNotFoundError(f"Attempted to identify individually trained models but could not find {check_path}. Check configurations or train models before testing.")
+        else:
+            raise FileNotFoundError(f"Model directory {config['output_dir']} was not found. Check configurations or train models before testing.")
+
     os.makedirs(test_path, exist_ok=True)
     
     # Saving the config file in output directory.
@@ -239,12 +264,13 @@ def show_args(config) -> None:
     print(f'  {"Optimizer:":<20}{config.loss_function:<20}')
     print()
 
-    print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
-    print(f'  {"Dropout:":<20}{config.weighting_nn.dropout:<20}{"Hidden Size:":<20}{config.weighting_nn.hidden_size:<20}')
-    print(f'  {"Method:":<20}{config.weighting_nn.method:<20}{"Loss Factor:":<20}{config.weighting_nn.loss_factor:<20}')
-    print(f'  {"Loss Lower Bound:":<20}{config.weighting_nn.loss_lower_bound:<20}{"Loss Upper Bound:":<20}{config.weighting_nn.loss_upper_bound:<20}')
-    print(f'  {"Optimizer:":<20}{config.weighting_nn.loss_function:<20}')
-    print()
+    if 'pnn' in config.ensemble_type:
+        print("\033[1m" + "Weighting Network Parameters" + "\033[0m")
+        print(f'  {"Dropout:":<20}{config.weighting_nn.dropout:<20}{"Hidden Size:":<20}{config.weighting_nn.hidden_size:<20}')
+        print(f'  {"Method:":<20}{config.weighting_nn.method:<20}{"Loss Factor:":<20}{config.weighting_nn.loss_factor:<20}')
+        print(f'  {"Loss Lower Bound:":<20}{config.weighting_nn.loss_lower_bound:<20}{"Loss Upper Bound:":<20}{config.weighting_nn.loss_upper_bound:<20}')
+        print(f'  {"Optimizer:":<20}{config.weighting_nn.loss_function:<20}')
+        print()
 
     print("\033[1m" + "Machine" + "\033[0m")
     print(f'  {"Use Device:":<20}{str(config.device):<20}')
