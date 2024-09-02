@@ -55,7 +55,7 @@ class BMIdPLHydroModel(Bmi):
         # Required, static attributes of the model
         _att_map = {
         'model_name':         "Differentiable Parameter Learning Physics-informed BMI",
-        'version':            '1.2',
+        'version':            '1.3',
         'author_name':        'MHPI Team',
         'time_units':         'days',
         }

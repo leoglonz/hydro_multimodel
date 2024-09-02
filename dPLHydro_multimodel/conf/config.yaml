@@ -6,13 +6,13 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: train_test   # train, test, train_test, train_wnn_only
-ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
+mode: test   # train, test, train_test, train_wnn_only
+ensemble_type: free_pnn    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
 random_seed: 0
 device: cuda
-gpu_id: 3  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 0  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1980/10/01
@@ -30,15 +30,17 @@ data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs  # Might remov
 output_dir: ${data_dir}/${observations.name}/saved_models/ #3vars_noDayllat #ts1998_2008
 
 
+/data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs/camels_671_dp_2024/saved_models/train_1980_1995/3_forcing/free_pnn/LSTM_E50_R365_B100_H256_n16_0/HBV_marrmot_PRMS_SACSMA_with_snow_/dynamic_para/parBETA_parBETAET_alpha_scx_cgw_resmax_k1_k2_pctim_smax_f1_f2_kuz rexp_f3_f4_pfree_klzp_klzs_ was not found. Check configurations or train models before testing.
+
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [SACSMA_with_snow, HBV]    # HBV, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV, marrmot_PRMS, SACSMA_with_snow]    # HBV, marrmot_PRMS, SACSMA_with_snow
 # ensemble_seeds: [2,6,6]
 dy_params:
     # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs
-    HBV: [parBETA, parBETAET, parK0]
-    marrmot_PRMS: []
-    SACSMA_with_snow: [pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs]
+    HBV: ["parBETA", "parBETAET"]
+    marrmot_PRMS: ["alpha", "scx", "cgw", "resmax", "k1", "k2"]
+    SACSMA_with_snow: ["pctim", "smax", "f1", "f2", "kuz rexp", "f3", "f4", "pfree", "klzp", "klzs"]
 
 routing_hydro_model: True
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
