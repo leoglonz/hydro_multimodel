@@ -3,8 +3,7 @@ from models.pet_models.potet import get_potet
 import torch.nn.functional as F
 
 
-
-class HBVMul(torch.nn.Module):
+class HBVMulTDET(torch.nn.Module):
     """
     HBV Model Pytorch version (dynamic and static param capable) adapted from
     dPL_Hydro_SNTEMP @ Farshid Rahmani.
@@ -14,7 +13,7 @@ class HBVMul(torch.nn.Module):
     (Seibert, 2005).
     """
     def __init__(self, config):
-        super(HBVMul, self).__init__()
+        super(HBVMulTDET, self).__init__()
         self.parameters_bound = dict(parBETA=[1.0, 6.0],
                                      parFC=[50, 1000],
                                      parK0=[0.05, 0.9],
@@ -26,11 +25,10 @@ class HBVMul(torch.nn.Module):
                                      parTT=[-2.5, 2.5],
                                      parCFMAX=[0.5, 10],
                                      parCFR=[0, 0.1],
-                                     parCWH=[0, 0.2])
-
-        if 'parBETAET' in config['dy_params']['HBV']:
-            self.parameters_bound['parBETAET'] = [0.3, 5]
-
+                                     parCWH=[0, 0.2],
+                                     parBETAET=[0.3, 5],
+                                     parC=[0, 1]
+                                     )
         self.conv_routing_hydro_model_bound = [
             [0, 2.9],  # routing parameter a
             [0, 6.5]   # routing parameter b
@@ -63,7 +61,6 @@ class HBVMul(torch.nn.Module):
         hence we flip the UH
         https://programmer.group/pytorch-learning-conv1d-conv2d-and-conv3d.html
         view
-
         x: [batch, var, time]
         UH:[batch, var, uhLen]
         batch needs to be accommodated by channels and we make use of groups
@@ -132,7 +129,7 @@ class HBVMul(torch.nn.Module):
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
-                initmodel = HBVMul(args).to(args['device'])
+                initmodel = HBVMulTDET(args).to(args['device'])
                 Qsinit, SNOWPACK, MELTWATER, SM, SUZ, SLZ = initmodel(xinit, c_hydro_model, params_raw, args,
                                                                       muwts=None, warm_up=0, init=True, routing=False,
                                                                       comprout=False, conv_params_hydro=None)
@@ -160,11 +157,9 @@ class HBVMul(torch.nn.Module):
 
         if args['pet_module'] == 'potet_hamon':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args['nmul'])
-            # PET = get_potet(
-            #     args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
-            # )     # mm/day
-            raise NotImplementedError
-
+            PET = get_potet(
+                args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
+            )  # mm/day
         elif args['pet_module'] == 'potet_hargreaves':
             day_of_year = x_hydro_model[warm_up:, :, vars.index('dayofyear')].unsqueeze(-1).repeat(1, 1, nmul)
             lat = c_hydro_model[:, vars_c.index('lat')].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
@@ -188,8 +183,19 @@ class HBVMul(torch.nn.Module):
 
         Nstep, Ngrid = P.size()
 
-        # Apply correction factor to precipitation
-        # P = parPCORR.repeat(Nstep, 1) * P
+
+        # # deal with the dynamic parameters and dropout to reduce overfitting of dynamic para
+        # parstaFull = parAllTrans[staind, :, :, :].unsqueeze(0).repeat([Nstep, 1, 1, 1])  # static para matrix
+        # parhbvFull = torch.clone(parstaFull)
+        # # create probability mask for each parameter on the basin dimension
+        # pmat = torch.ones([1, Ngrid, 1])*dydrop
+        # for ix in tdlst:
+        #     staPar = parstaFull[:, :, ix-1, :]
+        #     dynPar = parAllTrans[:, :, ix-1, :]
+        #     drmask = torch.bernoulli(pmat).detach_().to(parhbvFull)  # to drop dynamic parameters as static in some basins
+        #     comPar = dynPar*(1-drmask) + staPar*drmask
+        #     parhbvFull[:, :, ix-1, :] = comPar
+
 
         # Initialize time series of model variables
         Qsimmu = (torch.zeros(Pm.size(), dtype=torch.float32) + 0.001).to(args['device'])
@@ -204,6 +210,7 @@ class HBVMul(torch.nn.Module):
         tosoil_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args['device'])
         PERC_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args['device'])
         SWE_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args['device'])
+        capillary_sim = (torch.zeros(Pm.size(), dtype=torch.float32)).to(args['device'])
 
         # Do static parameters
         params_dict = dict()
@@ -215,10 +222,10 @@ class HBVMul(torch.nn.Module):
         # (Drops dynamic params for some basins (based on ratio), and substitutes
         # them for a static params, which is set to the value of the param on the
         # last day of data.
-        if len(args['dy_params']['HBV']) > 0:
+        if len(args['dy_params']['HBV_capillary']) > 0:
             params_dict_raw_dy = dict()
             pmat = torch.ones([Ngrid, 1]) * args['dy_drop']
-            for i, key in enumerate(args['dy_params']['HBV']):
+            for i, key in enumerate(args['dy_params']['HBV_capillary']):
                 drmask = torch.bernoulli(pmat).detach_().to(args['device'])
                 dynPar = params_dict_raw[key]
                 staPar = params_dict_raw[key][-1, :, :].unsqueeze(0).repeat([dynPar.shape[0], 1, 1])
@@ -227,12 +234,12 @@ class HBVMul(torch.nn.Module):
         for t in range(Nstep):
             # Treat dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args['dy_params']['HBV']:  ## it is a dynamic parameter
+                if key in args['dy_params']['HBV_capillary']:  ## it is a dynamic parameter
                     # params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
-                    # To drop dynamic parameters as static in some basins
+                      # to drop dynamic parameters as static in some basins
                     params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
 
-            # Separate precipitation into liquid and solid components
+                # Separate precipitation into liquid and solid components
             PRECIP = Pm[t, :, :]  # need to check later, seems repeating with line 52
             RAIN = torch.mul(PRECIP, (mean_air_temp[t, :, :] >= params_dict['parTT']).type(torch.float32))
             SNOW = torch.mul(PRECIP, (mean_air_temp[t, :, :] < params_dict['parTT']).type(torch.float32))
@@ -263,15 +270,18 @@ class HBVMul(torch.nn.Module):
             excess = SM - params_dict['parFC']
             excess = torch.clamp(excess, min=0.0)
             SM = torch.clamp(SM - excess, min=nearzero)
-            # parBETAET only has effect when it is a dynamic parameter (=1 otherwise).
-            evapfactor = (SM / (params_dict['parLP'] * params_dict['parFC']))
-            if 'parBETAET' in params_dict:
-                evapfactor = evapfactor ** params_dict['parBETAET']
+
+            # NOTE: Different from HBVmul. Add an ET shape parameter parBETAET. this param can be static or dynamic
+            evapfactor = (SM / (params_dict['parLP'] * params_dict['parFC'])) ** params_dict['parBETAET']
             evapfactor = torch.clamp(evapfactor, min=0.0, max=1.0)
             ETact = PET[t, :, :] * evapfactor
             ETact = torch.min(SM, ETact)
             AET[t, :, :] = ETact
             SM = torch.clamp(SM - ETact, min=nearzero)  # SM can not be zero for gradient tracking.
+            capillary = torch.min(SLZ, params_dict['parC'] * SLZ * (1.0 - torch.clamp(SM / params_dict['parFC'], max=1.0)))
+
+            SM = torch.clamp(SM + capillary, min=nearzero)
+            SLZ = torch.clamp(SLZ - capillary, min=nearzero)
 
             # Groundwater boxes
             SUZ = SUZ + recharge + excess
@@ -295,6 +305,7 @@ class HBVMul(torch.nn.Module):
             tosoil_sim[t, :, :] = tosoil
             PERC_sim[t, :, :] = PERC
             SWE_sim[t, :, :] = SNOWPACK
+            capillary_sim[t, :, :] = capillary
 
         # get the primary average
         if muwts is None:
@@ -358,5 +369,6 @@ class HBVMul(torch.nn.Module):
                         evapfactor=evapfactor_sim.mean(-1, keepdim=True),
                         tosoil=tosoil_sim.mean(-1, keepdim=True),
                         percolation=PERC_sim.mean(-1, keepdim=True),
-                        SWE=SWE_sim.mean(-1, keepdim=True)
+                        SWE=SWE_sim.mean(-1, keepdim=True),
+                        capillary=capillary_sim.mean(-1, keepdim=True)
                         )

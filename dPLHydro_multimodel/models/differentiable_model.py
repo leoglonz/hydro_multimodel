@@ -1,5 +1,6 @@
 import torch.nn
 from models.hydro_models.HBV.HBVmul import HBVMul
+from models.hydro_models.HBV.hbv_capillary import HBVMulTDET
 from models.hydro_models.marrmot_PRMS.prms_marrmot import prms_marrmot
 from models.hydro_models.marrmot_PRMS_gw0.prms_marrmot_gw0 import \
     prms_marrmot_gw0
@@ -26,6 +27,8 @@ class dPLHydroModel(torch.nn.Module):
         # hydro_model_initialization
         if self.model_name == 'HBV':
             self.hydro_model = HBVMul(self.config)
+        elif self.model_name == "HBV_capillary":
+            self.hydro_model = HBVMulTDET(self.config)
         elif self.model_name == 'marrmot_PRMS':
             self.hydro_model = prms_marrmot()
         elif self.model_name == 'marrmot_PRMS_gw0':

@@ -303,16 +303,34 @@ class prms_marrmot(torch.nn.Module):
         GAD_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
         ea_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
         qres_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
+        
         # do static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
             if key not in args["dy_params"]['marrmot_PRMS']:  ## it is a static parameter
                 params_dict[key] = params_dict_raw[key][-1, :, :]
-        for t in range(Ndays):
+
+        # Do dynamic parameters based on dydrop ratio.
+        # (Drops dynamic params for some basins (based on ratio), and substitutes
+        # them for a static params, which is set to the value of the param on the
+        # last day of data.
+        if len(args['dy_params']['marrmot_PRMS']) > 0:
+            params_dict_raw_dy = dict()
+            pmat = torch.ones([Ngrid, 1]) * args["dy_drop"]
+            for i, key in enumerate(args['dy_params']['marrmot_PRMS']):
+                drmask = torch.bernoulli(pmat).detach_().to(args["device"])
+                dynPar = params_dict_raw[key]
+                staPar = params_dict_raw[key][-1, :, :].unsqueeze(0).repeat([dynPar.shape[0], 1, 1])
+                params_dict_raw_dy[key] = dynPar * (1 - drmask) + staPar * drmask
+                
+        for t in range(Nstep):
             # do dynamic parameters
             for key in params_dict_raw.keys():
-                if key in args["dy_params"]['marrmot_PRMS']:  ## it is a dynamic parameter
-                    params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
+                if key in args['dy_params']['marrmot_PRMS']:  ## it is a dynamic parameter
+                    # params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
+                    # Drop dynamic parameters as static in some basins
+                    params_dict[key] = params_dict_raw_dyn[key][warm_up + t, :, :]
+            
             scn = params_dict["fscn"] * params_dict["scx"]
             remx = (1 - params_dict["flz"]) * params_dict["stot"]
             smax = params_dict["flz"] * params_dict["stot"]
