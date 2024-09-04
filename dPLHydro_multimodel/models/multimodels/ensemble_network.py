@@ -6,7 +6,7 @@ from typing import Dict, List
 from conf.config import Config
 from core.calc.RangeBoundLoss import RangeBoundLoss
 from core.utils.utils import find_shared_keys
-from models.loss_functions.get_loss_function import get_loss_func
+from models.loss_functions import get_loss_function
 from models.neural_networks.lstm_models import CudnnLstmModel
 
 
@@ -57,7 +57,7 @@ class EnsembleWeights(torch.nn.Module):
             raise FileNotFoundError(f"Model file {model_path} was not found.")
         
     def init_loss_func(self, obs: np.float32) -> None:
-        self.loss_func = get_loss_func(self.config['weighting_nn'],
+        self.loss_func = get_loss_function(self.config['weighting_nn'],
                                        obs).to(self.config['device'])
 
     def init_optimizer(self) -> None:

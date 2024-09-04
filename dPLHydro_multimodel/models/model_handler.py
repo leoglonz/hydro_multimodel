@@ -2,7 +2,7 @@ import os
 
 import torch.nn
 from models.differentiable_model import dPLHydroModel
-from models.loss_functions.get_loss_function import get_loss_func
+from models.loss_functions import get_loss_function
 
 
 class ModelHandler(torch.nn.Module):
@@ -78,7 +78,7 @@ class ModelHandler(torch.nn.Module):
             raise FileNotFoundError(f"Model file {model_path} was not found. Check configurations.")
 
     def init_loss_func(self, obs) -> None:
-        self.loss_func = get_loss_func(self.config, obs)
+        self.loss_func = get_loss_function(self.config, obs)
         self.loss_func = self.loss_func.to(self.config['device'])
 
     def init_optimizer(self) -> None:

@@ -8,6 +8,7 @@ import xarray as xr
 from tqdm import tqdm
 
 
+
 def calc_stat_basinnorm(y: np.ndarray, c: np.ndarray, config: Dict[str, Any]) -> List[float]:
     """
     Taken from the calStatsbasinnorm function of hydroDL.
@@ -75,40 +76,39 @@ def calculate_statistics(x: np.ndarray) -> List[float]:
 
 
 # TODO: Eventually replace calculate_statistics with the version below.
-def calculate_statistics_dmc(data: xr.Dataset, column: str = "time", row: str = "gage_id") -> Dict[str, torch.Tensor]:
-    """
-    Calculate statistics for the data in a similar manner to calStat from hydroDL.
+# def calculate_statistics_dmc(data: xr.Dataset, column: str = "time", row: str = "gage_id") -> Dict[str, torch.Tensor]:
+#     """
+#     Calculate statistics for the data in a similar manner to calStat from hydroDL.
 
-    :param data: xarray Dataset
-    :param column: Name of the column for calculations
-    :param row: Name of the row for calculations
-    :return: Dictionary with statistics
-    """
-    statistics = {}
-    p_10 = data.quantile(0.1, dim=column)
-    p_90 = data.quantile(0.9, dim=column)
-    mean = data.mean(dim=column)
-    std = data.std(dim=column)
-    col_names = data[row].values.tolist()
-    for idx, col in enumerate(
-        tqdm(col_names, desc="\rCalculating statistics", ncols=140, ascii=True)
-    ):
-        col_str = str(col)
-        statistics[col_str] = torch.tensor(
-            data=[
-                p_10.streamflow.values[idx],
-                p_90.streamflow.values[idx],
-                mean.streamflow.values[idx],
-                std.streamflow.values[idx],
-            ]
-        )
-    return statistics
+#     :param data: xarray Dataset
+#     :param column: Name of the column for calculations
+#     :param row: Name of the row for calculations
+#     :return: Dictionary with statistics
+#     """
+#     statistics = {}
+#     p_10 = data.quantile(0.1, dim=column)
+#     p_90 = data.quantile(0.9, dim=column)
+#     mean = data.mean(dim=column)
+#     std = data.std(dim=column)
+#     col_names = data[row].values.tolist()
+#     for idx, col in enumerate(
+#         tqdm(col_names, desc="\rCalculating statistics", ncols=140, ascii=True)
+#     ):
+#         col_str = str(col)
+#         statistics[col_str] = torch.tensor(
+#             data=[
+#                 p_10.streamflow.values[idx],
+#                 p_90.streamflow.values[idx],
+#                 mean.streamflow.values[idx],
+#                 std.streamflow.values[idx],
+#             ]
+#         )
+#     return statistics
 
 
 def calculate_statistics_gamma(x: np.ndarray) -> List[float]:
     """
-    Taken from the calStatgamma function of hydroDL.
-    For daily streamflow and precipitation.
+    Taken from the cal_stat_gamma function of hydroDL.
 
     Calculate gamma statistics for streamflow and precipitation data.
 
@@ -152,7 +152,7 @@ def calculate_statistics_all(config: Dict[str, Any], x: np.ndarray, c: np.ndarra
     # Forcing stats
     var_list = config['observations']['var_t_nn']
     for k, var in enumerate(var_list):
-        if var == 'prcp(mm/day)':
+        if var in config['use_log_norm']:
             stat_dict[var] = calculate_statistics_gamma(x[:, :, k])
         elif var in ['00060_Mean', 'combine_discharge']:
             stat_dict[var] = calc_stat_basinnorm(x[:, :, k: k + 1], x, config)
@@ -165,14 +165,14 @@ def calculate_statistics_all(config: Dict[str, Any], x: np.ndarray, c: np.ndarra
         stat_dict[var] = calculate_statistics(c[:, k])
 
     # Save all stats.
-    stat_file = os.path.join(config['output_dir'], 'Statistics_basinnorm.json')
+    stat_file = os.path.join(config['output_dir'], 'statistics_basinnorm.json')
     with open(stat_file, 'w') as f:
         json.dump(stat_dict, f, indent=4)
 
 
 def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_norm: bool) -> np.ndarray:
     """
-    Taken from the transNorm function of hydroDL.
+    Taken from the trans_norm function of hydroDL.
     
     Transform normalization for the given data.
 
@@ -182,7 +182,7 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
     :param to_norm: Whether to normalize or de-normalize
     :return: Transformed data
     """
-    stat_file = os.path.join(config['output_dir'], 'Statistics_basinnorm.json')
+    stat_file = os.path.join(config['output_dir'], 'statistics_basinnorm.json')
     with open(stat_file, 'r') as f:
         stat_dict = json.load(f)
 
@@ -195,12 +195,12 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
 
         if to_norm:
             if len(x.shape) == 3:
-                if var in ['prcp(mm/day)', '00060_Mean', 'combine_discharge']:
+                if var in config['use_log_norm']: # 'prcp(mm/day)', '00060_Mean', 'combine_discharge
                     x_temp[:, :, k] = np.log10(np.sqrt(x_temp[:, :, k]) + 0.1)
                 out[:, :, k] = (x_temp[:, :, k] - stat[2]) / stat[3]
 
             elif len(x.shape) == 2:
-                if var in ['prcp(mm/day)', '00060_Mean', 'combine_discharge']:
+                if var in config['use_log_norm']:
                     x_temp[:, k] = np.log10(np.sqrt(x_temp[:, k]) + 0.1)
                 out[:, k] = (x_temp[:, k] - stat[2]) / stat[3]
             else:
@@ -209,12 +209,11 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
         else:
             if len(x.shape) == 3:
                 out[:, :, k] = x_temp[:, :, k] * stat[3] + stat[2]
-                if var in ['prcp(mm/day)', '00060_Mean', 'combine_discharge']:
+                if var in config['use_log_norm']:
                     out[:, :, k] = (np.power(10, out[:, :, k]) - 0.1) ** 2
-
             elif len(x.shape) == 2:
                 out[:, k] = x_temp[:, k] * stat[3] + stat[2]
-                if var in ['prcp(mm/day)', '00060_Mean', 'combine_discharge']:
+                if var in config['use_log_norm']:
                     out[:, k] = (np.power(10, out[:, k]) - 0.1) ** 2
             else:
                 raise ValueError("Incorrect input dimensions. x array must have 2 or 3 dimensions.")
