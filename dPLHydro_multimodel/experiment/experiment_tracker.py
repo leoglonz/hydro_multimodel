@@ -1,3 +1,8 @@
+"""
+Track and record metrics during an experiment.
+
+From Tadd Bindas (dMC) 2024.
+"""
 import json
 import logging
 from abc import ABC, abstractmethod

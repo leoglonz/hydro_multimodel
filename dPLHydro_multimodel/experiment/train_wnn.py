@@ -1,3 +1,7 @@
+"""
+For frozen pNN multimodel ensembles: Train a weighting neural network (wNN) to
+dynamically ensemble pre-trained differentiable models.
+"""
 import logging
 import time
 from typing import Dict, Any

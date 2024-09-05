@@ -1,0 +1,53 @@
+name: conus_3200_merit
+data_folder: /data/yxs275/CONUS_data/FromGAGEII/generate_for_CONUS_3200/gages/dataCONUS3200/
+gage_info: /data/yxs275/CONUS_data/CONUS_for_NH_training/gages_3000_merit_info.csv
+attributes: /data/yxs275/CONUS_data/attributes/CONUS_3254/attributes_haoyu/attributes_haoyu.csv
+shape_ids: /data/yxs275/CONUS_data/FromGAGEII/generate_for_CONUS_3200/shapeID_str_lst.npy
+
+area_info:
+merit_idx:
+
+var_t_nn: [
+  P,
+  Temp,
+  PET,
+]
+var_c_nn: [
+  ETPOT_Hargr,
+  FW,
+  HWSD_clay,
+  HWSD_gravel,
+  HWSD_sand,
+  HWSD_silt, 
+  NDVI,
+  Porosity,
+  SoilGrids1km_clay,
+  SoilGrids1km_sand,
+  SoilGrids1km_silt,
+  T_clay,
+  T_gravel,
+  T_sand,
+  T_silt,
+  aridity,
+  glaciers,
+  meanP,
+  meanTa,
+  meanelevation,
+  meanslope,
+  permafrost,
+  permeability,
+  seasonality_P,
+  seasonality_PET,
+  snow_fraction,
+  snowfall_fraction
+  ]
+
+
+var_t_hydro_model: [
+  P,
+  Temp,
+  PET,
+]
+var_c_hydro_model: [
+  area,
+]

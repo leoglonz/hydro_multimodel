@@ -38,8 +38,9 @@ class ModeEnum(str, Enum):
     train = "train"
     test = "test"
     train_test = "train_test"
-    train_wnn_only = "train_wnn_only"
-    test_bmi = "test_bmi"
+    train_wnn_only = "train_wnn"
+    train_conus = "train_conus"
+    # test_bmi = "test_bmi"
 
 
 class EnsembleEnum(str, Enum):

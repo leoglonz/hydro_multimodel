@@ -1,5 +1,5 @@
 """
-Test a pytorch model.
+Vanilla testing/validation for differentiable models & multimodel ensembles.
 """
 import logging
 import os

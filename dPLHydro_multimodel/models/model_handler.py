@@ -7,10 +7,21 @@ from models.loss_functions import get_loss_function
 
 class ModelHandler(torch.nn.Module):
     """
-    Streamlines handling and instantiation of multiple differentiable hydrology
-    models in parallel.
+    Streamlines instantiation and handling of differentiable models &
+    multimodel ensembles.
 
-    Also capable of running a single hydro model.
+    Basic functions include managing: 
+    - high-level model init
+    - optimizer
+    - loss function(s)
+    - high-level forwarding
+
+    NOTE: In addition to interfacing with experiments, this handler is a plugin
+    for BMI. All PMI-interfaced models must ultimately use this handler if they
+    are to be BMI compatible.
+
+    NOTE: optimizer must be initialized within handler, not externally, so that
+    it can be wrapped by the BMI (NextGen compatibility).
     """
     def __init__(self, config):
         super(ModelHandler, self).__init__()
@@ -23,18 +34,18 @@ class ModelHandler(torch.nn.Module):
         Initialize and store each differentiable hydro model and optimizer in
         the multimodel.
         """
-        self.model_dict = dict()
+        self.model_dict = {}
 
-        ### TODO: Modularize these experiment modes so that people can more easily insert their own custom experiments
-        ### (unless they just decide to edit the train.py file)
         if (self.config['ensemble_type'] == 'none') and (len(self.config['hydro_models']) > 1):
-            raise ValueError("Multiple hydro models given, but ensemble type is not specified. Check configurations.")
-        elif self.config['mode'] == 'train_wnn_only':
-            # Reinitialize trained model(s).
+            raise ValueError("Multiple hydro models given, but ensemble type not specified. Check config.")
+        
+        elif self.config['mode'] == 'train_wnn':
+            # Reinitialize trained models for wNN training.
             for mod in self.config['hydro_models']:
                 load_path = self.config['checkpoint'][mod]
                 self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
                 self.model_dict[mod].zero_grad()
+
         elif self.config['use_checkpoint']:
             # Reinitialize trained model(s).
             self.all_model_params = []
@@ -45,13 +56,12 @@ class ModelHandler(torch.nn.Module):
 
                 self.model_dict[mod].zero_grad()
                 self.model_dict[mod].train()
-
-            # Note: optimizer init must be within this handler, and not called
-            # externally, so that it can be wrapped by a CSDMS BMI (NextGen comp.)
             self.init_optimizer()
-        elif self.config['mode'] in ['test', 'bmi_forward']:
+
+        elif self.config['mode'] in ['test']:
             for mod in self.config['hydro_models']:
                 self.load_model(mod)
+
         else:
             # Initialize differentiable hydrology model(s) and bulk optimizer.
             self.all_model_params = []
@@ -85,11 +95,13 @@ class ModelHandler(torch.nn.Module):
         self.optim = torch.optim.Adadelta(self.all_model_params, lr=self.config['learning_rate'])
 
     def forward(self, dataset_dict_sample, eval=False):        
-        # Batch running of the differentiable models in parallel
+        """
+        Batch forward one or more differentiable hydrology models.
+        """
         self.flow_out_dict = dict()
         self.dataset_dict_sample = dataset_dict_sample
 
-        # Forward each diff hydro model.
+        # Forward each model.
         for mod in self.model_dict:
             if eval:
                 self.model_dict[mod].eval()  # For testing.
@@ -98,7 +110,6 @@ class ModelHandler(torch.nn.Module):
                 # torch.set_grad_enabled(True)
             else:
                 self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
-
         return self.flow_out_dict
 
     def calc_loss(self, loss_dict) -> None:

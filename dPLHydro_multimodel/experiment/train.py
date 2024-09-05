@@ -1,5 +1,5 @@
 """
-Train a pytorch model.
+Vanilla training for differentiable models & multimodel ensembles.
 """
 import logging
 import time
@@ -103,13 +103,10 @@ class TrainModel:
             else:
                 wnn_loss = 0
             
-            # NOTE: double check loss calculations are correct after refactor.
-            # Losses for wNN and dPLH should be added to ep_loss_dict at each
-            # `calc_loss` call.
             total_loss = hydro_loss + wnn_loss
             total_loss.backward()
             optim.step()
-            optim.zero_grad() # set_to_none=True actually increases runtimes.
+            optim.zero_grad()  # NOTE: set_to_none=True actually increases runtimes.
 
             print("Batch loss: ", total_loss.item())
             # print("loss dict", ep_loss_dict)
