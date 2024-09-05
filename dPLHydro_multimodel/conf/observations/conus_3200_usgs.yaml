@@ -1,0 +1,50 @@
+name: conus_3200_usgs
+gage_info: None
+forcing_path: /data/yxs275/CONUS_data/FromGAGEII/generate_for_CONUS_3200/allBasin_localDaymet.npy
+attr_path: /data/yxs275/CONUS_data/attributes/CONUS_3254/attributes_haoyu.csv
+
+var_t_nn: [
+  'prcp(mm/day)',
+  'tmax(C)',
+  'tmin(C)',
+]
+var_c_nn: [
+  # 'area',
+  'ETPOT_Hargr',
+  'FW',
+  'HWSD_clay',
+  'HWSD_gravel',
+  'HWSD_sand',
+  'HWSD_silt', 
+  'NDVI',
+  'Porosity',
+  'SoilGrids1km_clay',
+  'SoilGrids1km_sand',
+  'SoilGrids1km_silt',
+  'T_clay',
+  'T_gravel',
+  'T_sand',
+  'T_silt',
+  'aridity',
+  'glaciers',
+  'meanP',
+  'meanTa',
+  'meanelevation',
+  'meanslope',
+  'permafrost',
+  'permeability',
+  'seasonality_P',
+  'seasonality_PET',
+  'snow_fraction',
+  'snowfall_fraction'
+  ]
+
+
+var_t_hydro_model: [
+  'prcp(mm/day)',
+  'tmax(C)',
+  'tmin(C)',
+]
+var_c_hydro_model: [
+  'area',
+]

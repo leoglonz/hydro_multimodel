@@ -95,10 +95,22 @@ def create_output_dirs(config) -> dict:
     else:
         ensemble_state = config['ensemble_type']
     
-    # Add dir for model name(s).
-    mod_names = ""
+    # Add dir for
+    #  1. model name(s)
+    #  2. static or dynamic parametrization
+    #  3. loss functions per model.
+    mod_names = ''
+    dy_params = ''
+    loss_fns = ''
     for mod in config['hydro_models']:
         mod_names += mod + "_"
+
+        for param in config['dy_params'][mod]:
+            dy_params += param + '_'
+        
+        loss_fns += config['loss_function'] + '_'
+
+
 
     # Add dir with hyperparam spec.
     out_folder = config['pnn_model'] + \
@@ -107,20 +119,15 @@ def create_output_dirs(config) -> dict:
              '_B' + str(config['batch_size']) + \
              '_H' + str(config['hidden_size']) + \
              '_n' + str(config['nmul']) + \
-             '_' + str(config['random_seed'])
-
-    # Add a dir for static or dynamic parametrization.
-    dy_params = ''
-    for mod in config['hydro_models']:
-        for param in config['dy_params'][mod]:
-            dy_params += param + '_'
+             '_' + str(config['random_seed']) 
 
     # If any model in ensemble is dynamic, whole ensemble is dynamic.
     dy_state = 'static_para' if dy_params.replace('_','') == '' else 'dynamic_para'
-
+    
+    # Add a dir for loss functions.
     # ---- Combine all dirs ---- #
     output_dir = config['output_dir']
-    full_path = os.path.join(output_dir, train_period, forcings, ensemble_state, out_folder, mod_names, dy_state)
+    full_path = os.path.join(output_dir, train_period, forcings, ensemble_state, out_folder, mod_names, loss_fns, dy_state)
 
     if dy_state == 'dynamic_para':
         full_path = os.path.join(full_path, dy_params)

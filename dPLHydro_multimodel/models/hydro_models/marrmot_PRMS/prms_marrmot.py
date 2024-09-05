@@ -323,13 +323,13 @@ class prms_marrmot(torch.nn.Module):
                 staPar = params_dict_raw[key][-1, :, :].unsqueeze(0).repeat([dynPar.shape[0], 1, 1])
                 params_dict_raw_dy[key] = dynPar * (1 - drmask) + staPar * drmask
                 
-        for t in range(Nstep):
+        for t in range(Ndays):
             # do dynamic parameters
             for key in params_dict_raw.keys():
                 if key in args['dy_params']['marrmot_PRMS']:  ## it is a dynamic parameter
                     # params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
                     # Drop dynamic parameters as static in some basins
-                    params_dict[key] = params_dict_raw_dyn[key][warm_up + t, :, :]
+                    params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
             
             scn = params_dict["fscn"] * params_dict["scx"]
             remx = (1 - params_dict["flz"]) * params_dict["stot"]
