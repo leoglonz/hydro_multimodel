@@ -52,7 +52,7 @@ loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-nmul: 16
+nmul: 4 # HBV1.0: 16 | HBV2.0: 4
 warm_up: 365
 rho: 365
 batch_size: 100

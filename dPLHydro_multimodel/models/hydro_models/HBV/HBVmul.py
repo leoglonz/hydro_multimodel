@@ -6,8 +6,10 @@ import torch.nn.functional as F
 
 class HBVMul(torch.nn.Module):
     """
-    HBV Model Pytorch version (dynamic and static param capable) adapted from
+    Multi-component HBV Model Pytorch version (dynamic and static param capable) adapted from
     dPL_Hydro_SNTEMP @ Farshid Rahmani.
+
+    Supports optional Evapotranspiration parameter ET.
 
     Modified from the original numpy version from Beck et al., 2020
     (http://www.gloh2o.org/hbv/), which runs the HBV-light hydrological model

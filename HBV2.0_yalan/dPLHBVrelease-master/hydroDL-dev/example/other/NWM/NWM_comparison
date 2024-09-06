@@ -1,0 +1,136 @@
+import sys
+from pathlib import Path
+
+# Construct an absolute path by going up two directories from this script's location
+absolute_path = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(absolute_path))
+
+import zarr
+import numpy as np
+import pandas as pd
+import json
+import xarray as xr
+
+
+from hydroDL.post import  stat
+
+
+from hydroDL.model import crit
+from hydroDL.data import scale
+
+comparison_timespan = pd.date_range('1995-10-01',f'2010-09-30', freq='d')
+
+water_loss_v6_forward = "/projects/mhpi/yxs275/model/water_loss_model/"+'/dPL_local_daymet_new_attr_water_loss_v6v14_random_batch_filled_data_dynamic_K0/exp_EPOCH100_BS100_RHO365_HS164_MUL14_HS24096_MUL24_trainBuff365_test/'
+water_loss_v6_forward_root_zone = zarr.open_group(water_loss_v6_forward+'simulation', mode = 'r')
+
+
+water_loss_v6_forward_simulation = water_loss_v6_forward_root_zone['Qs'][:,:]
+water_loss_v6_forward_observations = water_loss_v6_forward_root_zone['runoff'][:,:]
+
+
+water_loss_v6_forward_time = pd.date_range('1992-10-01',f'2010-09-30', freq='d')
+
+
+idx_start = water_loss_v6_forward_time.get_loc(comparison_timespan[0])
+idx_end = water_loss_v6_forward_time.get_loc(comparison_timespan[-1])+1
+
+water_loss_v6_forward_simulation_selected = water_loss_v6_forward_simulation[:,idx_start:idx_end]
+water_loss_v6_forward_observations_selected = water_loss_v6_forward_observations[:,idx_start:idx_end]
+
+
+water_loss_v6_forward_gage = water_loss_v6_forward_root_zone['COMID'][:]
+
+gageint = [int(x) for x in water_loss_v6_forward_gage]
+attribute_file = '/projects/mhpi/yxs275/Data/attributes_haoyu/attributes_haoyu.csv'
+attributeALL_df = pd.read_csv(attribute_file,index_col=0)
+attributeALL_df = attributeALL_df.sort_values(by='id')
+attributeALL_df = attributeALL_df[attributeALL_df['id'].isin(gageint)]
+
+basin_area = np.expand_dims(attributeALL_df["area"].values,axis = 1)  ## Basin area for unit convert
+
+
+test_gageids = [x.zfill(8) for x in water_loss_v6_forward_gage]
+
+NWM_simulation = np.full((water_loss_v6_forward_simulation_selected.shape),np.nan)
+
+
+NWM_path = '/projects/mhpi/data/NWM/noaa-nwm-retrospective-3-0-pds/CONUS/daily_simulation/'
+
+
+NWM_timespan = pd.date_range('1979-02-01',f'2023-02-01', freq='d')
+
+NWM_start = NWM_timespan.get_loc(comparison_timespan[0])
+NWM_end = NWM_timespan.get_loc(comparison_timespan[-1])+1
+
+valid_idx = []
+
+for gageidx, gage in enumerate(test_gageids):
+    try:
+        NWM_gage_root = zarr.open_group(NWM_path+gage, mode = 'r')
+        NWM_simulation[gageidx,:] = NWM_gage_root['Qs_NWM'][0,NWM_start:NWM_end]*0.009999999776482582/0.0283168 
+        valid_idx.append(gageidx)
+    except:
+        print("gage ", gage, 'does not exist')
+        
+
+water_loss_v6_forward_simulation_selected = water_loss_v6_forward_simulation_selected[np.array(valid_idx),:]
+water_loss_v6_forward_observations_selected = water_loss_v6_forward_observations_selected[np.array(valid_idx),:]
+
+NWM_runoff = scale._basin_norm(
+                        np.expand_dims(NWM_simulation[np.array(valid_idx), :],axis = -1) , basin_area[np.array(valid_idx),:], to_norm=True
+                    )  ## from ft^3/s to mm/day
+
+obs = scale._basin_norm(
+                        np.expand_dims(water_loss_v6_forward_observations_selected,axis = -1) , basin_area[np.array(valid_idx),:], to_norm=False
+                    )  ## from mm/day to ft^3/s
+
+evaDict = [stat.statError(water_loss_v6_forward_simulation_selected[:,:], water_loss_v6_forward_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+
+print("water_loss_v6_forward model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+
+
+evaDict = [stat.statError(NWM_runoff[:,:,0], water_loss_v6_forward_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+
+print("NWM model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+
+for i in range(24):
+    dataset = xr.open_dataset(f'/projects/mhpi/data/NWM/noaa-nwm-retrospective-3-0-pds/19950101{str(i).zfill(2)}00.CHRTOUT_DOMAIN1')
+    if i == 0:
+        streamflow_19951001= dataset['streamflow'][63337]
+    else:
+
+        streamflow_19951001 = streamflow_19951001 + dataset['streamflow'][63337]
+
+
+streamflow_19951001 = streamflow_19951001.values/24
+    

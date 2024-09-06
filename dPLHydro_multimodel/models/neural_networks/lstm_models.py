@@ -7,13 +7,6 @@ from torch.nn import Parameter
 
 
 
-
-
-
-
-
-
-
 class CudnnLstm(torch.nn.Module):
     def __init__(self, *, inputSize, hiddenSize, dr=0.5, drMethod="drW"):
         super(CudnnLstm, self).__init__()

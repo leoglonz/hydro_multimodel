@@ -1,0 +1,209 @@
+import sys
+from pathlib import Path
+
+# Construct an absolute path by going up two directories from this script's location
+absolute_path = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(absolute_path))
+from hydroDL.data import scale
+from hydroDL.post import plot, stat
+import numpy as np
+import pandas as pd
+import os
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
+from matplotlib.ticker import FormatStrFormatter
+from matplotlib.patches import Rectangle
+
+
+
+attribute_file = '/projects/mhpi/yxs275/Data/attributes_haoyu/attributes_haoyu.csv'
+shapeID_str_lst= np.load("/projects/mhpi/yxs275/Data/generate_for_CONUS_3200/shapeID_str_lst.npy")
+
+test_span = pd.date_range('1995-10-01',f'2010-09-30', freq='d')
+
+attributeALL_df = pd.read_csv(attribute_file,index_col=0)
+attributeALL_df = attributeALL_df.sort_values(by='id')
+
+
+
+basin_area_3200 = np.expand_dims(attributeALL_df["area"].values,axis = 1)
+aridity_3200 = np.expand_dims(attributeALL_df["aridity"].values,axis = 1)
+idLst_new = attributeALL_df["id"].values
+
+idLst_old = [int(id) for id in shapeID_str_lst]
+[C, ind1, SubInd_id] = np.intersect1d(idLst_new, idLst_old, return_indices=True)
+if(not (idLst_new==np.array(idLst_old)[SubInd_id]).all()):
+   raise Exception("Ids of subset gage do not match with id in the attribtue file")
+
+
+data_folder = "/projects/mhpi/yxs275/Data/generate_for_CONUS_3200/gages/dataCONUS3200/"
+streamflow_test_3200 = np.load(data_folder+"test_flow.npy")
+streamflow_test_3200 = streamflow_test_3200[SubInd_id,:,:]
+
+streamflow_trans_3200 = scale._basin_norm(
+                        streamflow_test_3200[:, :, 0 :  1].copy(), basin_area_3200, to_norm=True
+                    )
+
+test_obs_3200 = streamflow_trans_3200[:,:,0]
+
+
+
+
+
+
+gage_info_file_selected_from_merit = "/projects/mhpi/data/MERIT/gage_information/formatted_gage_csvs/gages_3000_merit_info.csv"
+gage_info_from_merit = pd.read_csv(gage_info_file_selected_from_merit)
+
+
+gage_info_from_merit = gage_info_from_merit.sort_values(by='STAID')
+gageIDs_from_merit = gage_info_from_merit['STAID'].values
+
+attributeALL_df  = attributeALL_df[attributeALL_df['id'].isin(gageIDs_from_merit)]
+
+
+
+
+basin_area_2800 = np.expand_dims(attributeALL_df["area"].values,axis = 1)
+aridity_2800 = np.expand_dims(attributeALL_df["aridity"].values,axis = 1)
+idLst_new = attributeALL_df["id"].values
+
+idLst_old = [int(id) for id in shapeID_str_lst]
+[C, ind1, SubInd_id] = np.intersect1d(idLst_new, idLst_old, return_indices=True)
+if(not (idLst_new==np.array(idLst_old)[SubInd_id]).all()):
+   raise Exception("Ids of subset gage do not match with id in the attribtue file")
+
+data_folder = "/projects/mhpi/yxs275/Data/generate_for_CONUS_3200/gages/dataCONUS3200/"
+streamflow_test_2800 = np.load(data_folder+"test_flow.npy")
+streamflow_test_2800 = streamflow_test_2800[SubInd_id,:,:]
+
+streamflow_trans_2800 = scale._basin_norm(
+                        streamflow_test_2800[:, :, 0 :  1].copy(), basin_area_2800, to_norm=True
+                    )
+
+test_obs_2800 = streamflow_trans_2800[:,:,0]
+
+
+def bias_meanflowratio_calc(pred,target):
+    ngrid,nt = pred.shape
+    Bias = np.full(ngrid, np.nan)
+    meanflowratio = np.full(ngrid, np.nan)
+    for k in range(0, ngrid):
+        x = pred[k, :]
+        y = target[k, :]
+        ind = np.where(np.logical_and(~np.isnan(x), ~np.isnan(y)))[0]
+        if ind.shape[0] > 0:
+            xx = x[ind]
+            yy = y[ind]
+            Bias[k] = (np.sum(xx)-np.sum(yy))/(np.sum(yy)+0.00001)
+            meanflowratio[k]  = np.sum(xx)/(np.sum(yy)+0.00001)
+
+    return Bias, meanflowratio
+
+
+
+NSE_no_Log_folder = "/projects/mhpi/yxs275/model/" + '/dPL_local_daymet_new_attr_NSEloss_no_log/exp_EPOCH100_BS100_RHO365_HS512_trainBuff365/'
+
+dataPred_NSE_no_Log = pd.read_csv(  NSE_no_Log_folder+"/out0", dtype=np.float32, header=None).values
+bias_pred_NSE_no_Log,_= bias_meanflowratio_calc(dataPred_NSE_no_Log[:,-test_obs_2800.shape[1]:], test_obs_2800)
+
+
+NSE_Log_folder = "/projects/mhpi/yxs275/model/" + '/dPL_local_daymet_new_attr_NSEloss/exp_EPOCH50_BS100_RHO365_HS512_trainBuff365/'
+
+dataPred_NSE_Log = pd.read_csv(  NSE_Log_folder+"/out0", dtype=np.float32, header=None).values
+bias_pred_NSE_Log,_= bias_meanflowratio_calc(dataPred_NSE_Log[:,-test_obs_3200.shape[1]:], test_obs_3200)
+
+
+RMSE_Log_folder = "/projects/mhpi/yxs275/model/" + '/dPL_local_daymet_new_attr/exp_EPOCH50_BS100_RHO365_HS512_trainBuff365/'
+
+dataPred_RMSE_Log = pd.read_csv(  RMSE_Log_folder+"/out0", dtype=np.float32, header=None).values
+bias_pred_RMSE_Log,_= bias_meanflowratio_calc(dataPred_RMSE_Log[:,-test_obs_3200.shape[1]:], test_obs_3200)
+
+
+
+
+nbin = 4
+lower_bound = 0
+upper_bound = 24000
+#bins = np.linspace(lower_bound, upper_bound, nbin + 1)
+bin_length = (upper_bound - lower_bound) / (nbin-1)
+bins =np.array([0,8000,16000,24000,32000])
+bins_split =np.array([0,0.75,1.2,2.0,7])
+
+
+
+aridity_bin_index_2800 = np.digitize(aridity_2800[:,0], bins_split)
+aridity_bin_index_3200 = np.digitize(aridity_3200[:,0], bins_split)
+
+plt.rcParams.update({'font.size': 22})
+fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+labels = []
+for bin_i in range(len(bins)-1):
+    labels.append(f'{bins_split[bin_i]}~{bins_split[bin_i+1]}')
+
+plot1 = ax.boxplot( [ bias_pred_NSE_no_Log[np.where(aridity_bin_index_2800 == i)][~np.isnan(bias_pred_NSE_no_Log[np.where(aridity_bin_index_2800 == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+1*bin_length/4.0,patch_artist=True,boxprops=dict(facecolor="pink", color="k") ,widths = bin_length/6)
+plot2 = ax.boxplot( [ bias_pred_NSE_Log[np.where(aridity_bin_index_3200 == i)][~np.isnan(bias_pred_NSE_Log[np.where(aridity_bin_index_3200 == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+2*bin_length/4.0,patch_artist=True,boxprops=dict(facecolor="lightblue", color="k") ,widths = bin_length/6)
+plot3 = ax.boxplot( [ bias_pred_RMSE_Log[np.where(aridity_bin_index_3200 == i)][~np.isnan(bias_pred_RMSE_Log[np.where(aridity_bin_index_3200 == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+3*bin_length/4.0,patch_artist=True,boxprops=dict(facecolor="red", color="k") ,widths = bin_length/6)
+
+for whisker in plot1['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot1['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot1['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot1['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+
+for whisker in plot2['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot2['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot2['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot2['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+
+for whisker in plot3['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot3['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot3['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot3['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+
+
+y_upper = 1.01
+y_lower = -1.0
+yrange = y_upper-y_lower
+# for i in range(1,nbin+1):
+
+#     num = len(area_selected[np.where(area_bin_index == i)])
+#     ax.text(bin_length/4.0+(i-1)*bin_length+lower_bound,y_upper-0.08*(y_upper-y_lower), f'{num} sites')
+
+
+ax.add_patch( Rectangle(( 700, y_lower+0.05*yrange), 1000, yrange*0.05,  fc = "pink",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1900, y_lower+0.05*yrange, r"NSE loss w/o log transform")
+ax.add_patch( Rectangle(( 700, y_lower+0.15*yrange), 1000, yrange*0.05,  fc = "lightblue",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1900, y_lower+0.15*yrange, r"NSE loss w/ log transform")
+ax.add_patch( Rectangle(( 700, y_lower+0.25*yrange), 1000, yrange*0.05,  fc = "red",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1900, y_lower+0.25*yrange, r"RMSE  loss w/ log transform")
+
+ax.set_ylabel("Relative total bias")
+ax.set_xlabel(r"Aridity")
+
+ax.set_yticks(np.arange(y_lower,y_upper,0.2))
+ax.set_ylim([y_lower,y_upper])
+ax.set_xlim([lower_bound,upper_bound+bin_length])
+ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+# ax.vlines([-0.5,0,0.5], -2, 4,color ="k",linestyles='--',lw = 1.5)
+ax.hlines([0], 0, 100000,color ="k",linestyles='--',lw = 1.5)
+ax.vlines(np.arange(lower_bound+bin_length,upper_bound+bin_length,bin_length), y_lower,y_upper,color ="k",linestyles='--',lw = 2.5)
+tick_positions = np.arange(lower_bound, upper_bound+bin_length, bin_length) + bin_length / 2
+ax.set_xticks(tick_positions)
+#ax.set_xticks(np.arange(lower_bound,upper_bound+bin_length,bin_length)+bin_length/2,labels)
+ax.set_xticklabels(labels)
+
+plt.savefig("boxplot_bias_area_across_versions.png", dpi=300)
+plt.show(block=True)
+
+print("Done")

@@ -4,7 +4,7 @@ gage_info: /data/yxs275/CONUS_data/CONUS_for_NH_training/gages_3000_merit_info.c
 attributes: /data/yxs275/CONUS_data/attributes/CONUS_3254/attributes_haoyu/attributes_haoyu.csv
 shape_ids: /data/yxs275/CONUS_data/FromGAGEII/generate_for_CONUS_3200/shapeID_str_lst.npy
 
-area_info:
+uparea_info:
 merit_idx:
 
 var_t_nn: [
@@ -13,6 +13,7 @@ var_t_nn: [
   PET,
 ]
 var_c_nn: [
+  uparea,
   ETPOT_Hargr,
   FW,
   HWSD_clay,
@@ -42,12 +43,6 @@ var_c_nn: [
   snowfall_fraction
   ]
 
-
-var_t_hydro_model: [
-  P,
-  Temp,
-  PET,
-]
-var_c_hydro_model: [
-  area,
+water_loss_params: [
+  uparea
 ]

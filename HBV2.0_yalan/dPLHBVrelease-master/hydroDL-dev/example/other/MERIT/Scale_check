@@ -1,0 +1,167 @@
+import xarray as xr
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
+from matplotlib.patches import Rectangle
+import zarr
+def bias_meanflowratio_calc(pred,target):
+    ngrid,nt = pred.shape    
+    Bias = np.full(ngrid, np.nan)
+    meanflowratio = np.full(ngrid, np.nan)
+    for k in range(0, ngrid):
+        x = pred[k, :]
+        y = target[k, :]
+        ind = np.where(np.logical_and(~np.isnan(x), ~np.isnan(y)))[0]
+        if ind.shape[0] > 0:
+            xx = x[ind]
+            yy = y[ind]
+            Bias[k] = (np.sum(xx)-np.sum(yy))/(np.sum(yy)+0.00001)
+            meanflowratio[k]  = np.sum(xx)/(np.sum(yy)+0.00001)
+
+    return Bias, meanflowratio
+
+def annual_bias_meanflowratio_calc(pred,target, yearstart, yearsend, time_allyear):
+    Bias_ = 0
+
+    mean_ = 0
+
+    for year in range(yearstart,yearsend):
+        time_year = pd.date_range(f'{year}-10-01', f'{year+1}-09-30', freq='d')
+        idx_start = time_allyear.get_loc(time_year[0])
+        idx_end = time_allyear.get_loc(time_year[-1])
+
+        year_Bias_,year_mean_ = bias_meanflowratio_calc(pred[:,idx_start:idx_end+1],target[:,idx_start:idx_end+1])
+
+        Bias_ = Bias_ + year_Bias_
+
+        mean_ = mean_+year_mean_
+
+    nyear = yearsend-yearstart
+    Bias_ = Bias_/nyear
+
+
+    mean_ = mean_/nyear
+    return Bias_,mean_
+
+
+water_loss_v3_forward = "/projects/mhpi/yxs275/model/water_loss_model/"+'/dPL_local_daymet_new_attr_water_loss_v3_correct_Ai/exp_EPOCH50_BS100_RHO365_HS512_trainBuff365/'
+water_loss_v3_forward_root_zone = zarr.open_group(water_loss_v3_forward+'simulation', mode = 'r')
+
+water_loss_v3_forward_Qr = water_loss_v3_forward_root_zone['Qr'][:,:]
+water_loss_v3_forward_Tr = water_loss_v3_forward_root_zone['Q0'][:,:]
+
+water_loss_v3_forward_gage = water_loss_v3_forward_root_zone['COMID'][:]
+water_loss_v3_forward_time = pd.date_range('1980-10-01',f'2010-09-30', freq='d')
+
+
+water_loss_v3_forward_atrr_root_zone = zarr.open_group(water_loss_v3_forward+'attr', mode = 'r')
+gage_area = water_loss_v3_forward_atrr_root_zone['area'][:]
+
+
+water_loss_v3_Qprime = "/projects/mhpi/yxs275/DM_output/" + '/dPL_local_daymet_new_attr_water_loss_v3_correct_Ai_epoch50_1980-2010_unique/CONUS_gage_all'
+simulationroot = zarr.open_group(water_loss_v3_Qprime, mode='r')
+water_loss_v3_Qprime_gage = simulationroot['gage'][:]
+
+[C, Ind, SubInd] = np.intersect1d(water_loss_v3_forward_gage, water_loss_v3_Qprime_gage, return_indices=True)
+if((np.array(water_loss_v3_Qprime_gage)[SubInd]!=water_loss_v3_forward_gage[Ind]).all()):
+   raise Exception("NSE forward and selected gage Id does not match")
+
+
+water_loss_v3_Qprime = simulationroot['simulation_data']
+
+
+water_loss_v3_Q0prime = "/projects/mhpi/yxs275/DM_output/" + '/dPL_local_daymet_new_attr_water_loss_v3_correct_Ai_epoch50_1980-2010_unique/CONUS_gage_all_Q0'
+simulationroot = zarr.open_group(water_loss_v3_Q0prime, mode='r')
+
+water_loss_v3_Q0prime = simulationroot['simulation_data']
+
+
+water_loss_v3_forward_Qr = water_loss_v3_forward_Qr[Ind]
+water_loss_v3_forward_Tr = water_loss_v3_forward_Tr[Ind]
+gage_area = gage_area[Ind]
+
+water_loss_v3_Qprime = water_loss_v3_Qprime[SubInd]
+water_loss_v3_Q0prime = water_loss_v3_Q0prime[SubInd]
+
+Qr_annual_bias,_ =  annual_bias_meanflowratio_calc(water_loss_v3_forward_Qr,water_loss_v3_Qprime, 1981, 2010, water_loss_v3_forward_time)
+Tr_annual_bias,_ =  annual_bias_meanflowratio_calc(water_loss_v3_forward_Tr,water_loss_v3_Q0prime, 1981, 2010, water_loss_v3_forward_time)
+
+
+
+
+
+nbin = 5
+lower_bound = 0
+upper_bound = 32000
+#bins = np.linspace(lower_bound, upper_bound, nbin + 1)
+bin_length = (upper_bound - lower_bound) / (nbin-1)
+bins =np.array([0,8000,16000,24000,32000,100000])
+bins_split =np.array([0,500,1000,2000,5000,1000000])
+
+area_bin_index = np.digitize(gage_area, bins_split)
+plt.rcParams.update({'font.size': 22})
+fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+labels = []
+for bin_i in range(len(bins)-1):
+    labels.append(f'{bins_split[bin_i]}~{bins_split[bin_i+1]}')
+
+plot1 = ax.boxplot( [ Qr_annual_bias[np.where(area_bin_index == i)][~np.isnan(Qr_annual_bias[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+2*bin_length/6.0,patch_artist=True,boxprops=dict(facecolor="aliceblue", color="k") ,widths = bin_length/6)
+plot2 = ax.boxplot( [ Tr_annual_bias[np.where(area_bin_index == i)][~np.isnan(Tr_annual_bias[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+4*bin_length/6.0,patch_artist=True,boxprops=dict(facecolor="mediumpurple", color="k"),widths = bin_length/6 )
+
+
+for whisker in plot1['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot1['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot1['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot1['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+for whisker in plot2['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot2['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot2['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot2['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+
+
+
+
+
+y_upper = 100
+y_lower = -100
+yrange = y_upper-y_lower
+for i in range(1,nbin+1):
+
+    num = len(gage_area[np.where(area_bin_index == i)])
+    ax.text(bin_length/4.0+(i-1)*bin_length+lower_bound,y_upper-0.1*(y_upper-y_lower), f'{num} sites')
+
+ax.add_patch( Rectangle(( 700, y_lower+0.3*yrange),200, yrange*0.05,  fc = "aliceblue",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1000,y_lower+0.3*yrange, r"HBV part")
+ax.add_patch( Rectangle(( 700, y_lower+0.2*yrange), 200, yrange*0.05,  fc = "mediumpurple",  ec ='k',ls = "--" , lw = 2) )
+ax.text(1000, y_lower+0.2*yrange, r"Regional flow")
+
+
+ax.set_ylabel("Annal bias (mm/year)")
+ax.set_xlabel(r"Drainage area (km$^2$)")
+
+ax.set_yticks(np.arange(y_lower,y_upper,20))
+ax.set_ylim([y_lower,y_upper])
+ax.set_xlim([lower_bound,upper_bound+bin_length])
+ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+ax.hlines(0, 0, 1000000,color ="k",linestyles='--',lw = 1.5)
+# ax.vlines([-0.5,0,0.5], -2, 4,color ="k",linestyles='--',lw = 1.5)
+ax.vlines(np.arange(lower_bound+bin_length,upper_bound+bin_length,bin_length), y_lower,y_upper,color ="k",linestyles='--',lw = 2.5)
+tick_positions = np.arange(lower_bound, upper_bound+bin_length, bin_length) + bin_length / 2
+ax.set_xticks(tick_positions)
+#ax.set_xticks(np.arange(lower_bound,upper_bound+bin_length,bin_length)+bin_length/2,labels)
+ax.set_xticklabels(labels)
+
+plt.savefig("boxplot_bias_Q_Tr_area.png", dpi=300)
+plt.show(block=True)
+
+print("Done")
+

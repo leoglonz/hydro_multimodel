@@ -5,9 +5,10 @@ import torch.nn.functional as F
 
 class HBVMulTDET(torch.nn.Module):
     """
-    HBV Model Pytorch version (dynamic and static param capable) adapted from
+    Multi-component HBV Model Pytorch version (dynamic and static param capable) adapted from
     dPL_Hydro_SNTEMP @ Farshid Rahmani.
-
+    
+    Adds an ET shape parameter for the original ET equation; otherwise the same as HBVMul().
     Modified from the original numpy version from Beck et al., 2020
     (http://www.gloh2o.org/hbv/), which runs the HBV-light hydrological model
     (Seibert, 2005).
@@ -121,7 +122,7 @@ class HBVMulTDET(torch.nn.Module):
         out = param * (bounds[1] - bounds[0]) + bounds[0]
         return out
 
-    def forward(self, x_hydro_model, c_hydro_model, params_raw, args, muwts=None, warm_up=0,init=False, routing=False, comprout=False, conv_params_hydro=None):
+    def forward(self, x_hydro_model, c_hydro_model, params_raw, args, muwts=None, warm_up=0, init=False, routing=False, comprout=False, conv_params_hydro=None):
         nearzero = args['nearzero']
         nmul = args['nmul']
 
@@ -134,14 +135,14 @@ class HBVMulTDET(torch.nn.Module):
                                                                       muwts=None, warm_up=0, init=True, routing=False,
                                                                       comprout=False, conv_params_hydro=None)
         else:
-            # Without buff time, initialize state variables with zeros
+            # Without warm-up, initialize state variables with zeros
             Ngrid = x_hydro_model.shape[1]
             SNOWPACK = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
             MELTWATER = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
             SM = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
             SUZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
             SLZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(args['device'])
-            # ETact = (torch.zeros([Ngrid,mu], dtype=torch.float32) + 0.001).cuda()
+            # ETact = (torch.zeros([Ngrid,mu], dtype=torch.float32) + 0.001).to(args['device'])
 
         # Parameters
         params_dict_raw = dict()
@@ -151,6 +152,7 @@ class HBVMulTDET(torch.nn.Module):
 
         vars = args['observations']['var_t_hydro_model']
         vars_c = args['observations']['var_c_hydro_model']
+
         P = x_hydro_model[warm_up:, :, vars.index('prcp(mm/day)')]
         Pm = P.unsqueeze(2).repeat(1, 1, nmul)
         mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(2).repeat(1, 1, nmul)
@@ -239,7 +241,7 @@ class HBVMulTDET(torch.nn.Module):
                       # to drop dynamic parameters as static in some basins
                     params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
 
-                # Separate precipitation into liquid and solid components
+            # Separate precipitation into liquid and solid components
             PRECIP = Pm[t, :, :]  # need to check later, seems repeating with line 52
             RAIN = torch.mul(PRECIP, (mean_air_temp[t, :, :] >= params_dict['parTT']).type(torch.float32))
             SNOW = torch.mul(PRECIP, (mean_air_temp[t, :, :] < params_dict['parTT']).type(torch.float32))
@@ -271,7 +273,7 @@ class HBVMulTDET(torch.nn.Module):
             excess = torch.clamp(excess, min=0.0)
             SM = torch.clamp(SM - excess, min=nearzero)
 
-            # NOTE: Different from HBVmul. Add an ET shape parameter parBETAET. this param can be static or dynamic
+            # NOTE: Different from HBVmul. Add an ET shape parameter parBETAET. This param can be static or dynamic
             evapfactor = (SM / (params_dict['parLP'] * params_dict['parFC'])) ** params_dict['parBETAET']
             evapfactor = torch.clamp(evapfactor, min=0.0, max=1.0)
             ETact = PET[t, :, :] * evapfactor
@@ -307,7 +309,7 @@ class HBVMulTDET(torch.nn.Module):
             SWE_sim[t, :, :] = SNOWPACK
             capillary_sim[t, :, :] = capillary
 
-        # get the primary average
+        # Get the primary average
         if muwts is None:
             Qsimave = Qsimmu.mean(-1)
         else:

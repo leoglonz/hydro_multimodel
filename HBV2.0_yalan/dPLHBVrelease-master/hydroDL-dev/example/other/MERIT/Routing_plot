@@ -1,0 +1,997 @@
+import sys
+from pathlib import Path
+
+# Construct an absolute path by going up two directories from this script's location
+absolute_path = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(absolute_path))
+
+from datetime import datetime
+import xarray as xr
+import numpy as np
+import pandas as pd
+import json
+import matplotlib.pyplot as plt
+from pathlib import Path
+import scipy.stats
+from hydroDL.post import  stat
+from matplotlib.ticker import FormatStrFormatter
+from matplotlib.patches import Rectangle
+import zarr
+from hydroDL.data import scale,PET
+
+def bias_meanflowratio_calc(pred,target):
+    ngrid,nt = pred.shape    
+    Bias = np.full(ngrid, np.nan)
+    meanflowratio = np.full(ngrid, np.nan)
+    for k in range(0, ngrid):
+        x = pred[k, :]
+        y = target[k, :]
+        ind = np.where(np.logical_and(~np.isnan(x), ~np.isnan(y)))[0]
+        if ind.shape[0] > 0:
+            xx = x[ind]
+            yy = y[ind]
+            Bias[k] = (np.sum(xx)-np.sum(yy))/(np.sum(yy)+0.00001)
+            meanflowratio[k]  = np.sum(xx)/(np.sum(yy)+0.00001)
+
+    return Bias, meanflowratio
+
+
+
+def NSE_calc(pred,target):
+    ngrid,nt = pred.shape    
+    NSE = np.full(ngrid, np.nan)
+    for k in range(0, ngrid):
+        x = pred[k, :]
+        y = target[k, :]
+        ind = np.where(np.logical_and(~np.isnan(x), ~np.isnan(y)))[0]
+        if ind.shape[0] > 0:
+            xx = x[ind]
+            yy = y[ind]
+            yymean = yy.mean()
+            SST = np.sum((yy-yymean)**2)
+            SSRes = np.sum((yy-xx)**2)
+            NSE[k] = 1-SSRes/SST
+
+    return NSE
+
+
+
+def annual_bias_meanflowratio_calc(pred,target, yearstart, yearsend, time_allyear):
+    Bias_ = 0
+
+    mean_ = 0
+
+    for year in range(yearstart,yearsend):
+        time_year = pd.date_range(f'{year}-10-01', f'{year+1}-09-30', freq='d')
+        idx_start = time_allyear.get_loc(time_year[0])
+        idx_end = time_allyear.get_loc(time_year[-1])
+
+        year_Bias_,year_mean_ = bias_meanflowratio_calc(pred[:,idx_start:idx_end+1],target[:,idx_start:idx_end+1])
+
+        Bias_ = Bias_ + year_Bias_
+
+        mean_ = mean_+year_mean_
+
+    nyear = yearsend-yearstart
+    Bias_ = Bias_/nyear
+
+
+    mean_ = mean_/nyear
+    return Bias_,mean_
+    
+##Read Routing simulations
+#path_to_zarr_routed = Path("/projects/mhpi/tbindas/dMC-dev/runs/trained_models/2024-03-14_05-31-55/zarr_data/1981-10-01_1995-09-30_validation_data")
+#path_to_zarr_routed = Path("/projects/mhpi/tbindas/dMC-dev/runs/trained_models/dMC_v0.4_2024-03-20_19-29-51_merit_conus_v1.1/zarr_data/1981-10-01_1995-09-30_validation")
+
+
+
+water_loss_v3_forward = "/projects/mhpi/yxs275/model/water_loss_model/"+'/dPL_local_daymet_new_attr_water_loss_v3_correct_Ai_start_from_epoch0/exp_EPOCH100_BS100_RHO365_HS512_trainBuff365/'
+
+water_loss_v3_forward_root_zone = zarr.open_group(water_loss_v3_forward+'simulation', mode = 'r')
+
+water_loss_v3_forward_simulation = water_loss_v3_forward_root_zone['Qr'][:,:]
+water_loss_v3_forward_observations = water_loss_v3_forward_root_zone['runoff'][:,:]
+water_loss_v3_forward_gage = water_loss_v3_forward_root_zone['COMID'][:]
+
+
+results_savepath = "/projects/mhpi/yxs275/DM_output/" + '/dPL_local_daymet_new_attr_water_loss_v6v10_random_batch_all_merit_forward/'
+
+
+
+
+# path_to_zarr_routed = Path('/projects/mhpi/tbindas/dMC-dev/runs/dMCv1.0.6-test_gages_3000-merit_conus_v6.14/2024-06-07_09-26-50/zarr_data')  ## daily
+
+# z1_ = xr.open_zarr(path_to_zarr_routed / "zones_74_73_77_78_72_75_71_1995-10-01_2010-09-30_validation")
+# ds_routed = xr.concat([z1_],dim = 'gage_ids')
+
+# gage_ids_large_gage = ds_routed.gage_ids.data
+# Routed_simulation_large_gage = ds_routed.predictions.values/0.0283168 
+
+
+
+
+
+
+
+# # path_to_zarr_routed = Path("/projects/mhpi/hjj5218/project/01.dMC-dev/runs/dMCv1.0.2-test_gages_3000-merit_conus_v3.1/2024-04-25_20-12-21/zarr_data/")
+# #path_to_zarr_routed = Path("/projects/mhpi/tbindas/dMC-dev/runs/dMCv1.0.2-test_gages_3000-merit_conus_v6.10/2024-05-17_10-04-48/zarr_data") ##hourly
+# # path_to_zarr_routed = Path('/projects/mhpi/tbindas/dMC-dev/runs/dMCv1.0.5-test_gages_3000-merit_conus_v6.10/2024-05-28_05-34-23/zarr_data/')  ## daily
+# path_to_zarr_routed = Path( '/projects/mhpi/tbindas/dMC-dev/runs/trained_models/dMC_v1.0.5-beta_2024-06-03_08-03-09/zarr_data')
+# #ds_routed = xr.open_zarr(path_to_zarr_routed)
+
+# z1_ = xr.open_zarr(path_to_zarr_routed / "zones_74_1995-10-01_2010-09-30_validation")
+# z2_ = xr.open_zarr(path_to_zarr_routed / "zones_73_1995-10-01_2010-09-30_validation")
+# z3_ = xr.open_zarr(path_to_zarr_routed / "zones_77_1995-10-01_2010-09-30_validation")
+# z4_ = xr.open_zarr(path_to_zarr_routed / "zones_78_72_75_71_1995-10-01_2010-09-30_validation")
+# ds_routed0 = xr.concat([z1_,z2_,z3_,z4_],dim = 'gage_ids')
+# ds_routed = ds_routed0.sel(gage_ids=water_loss_v3_forward_gage)
+
+# gage_ids = ds_routed.gage_ids.data
+time_routed = pd.date_range('1995-10-02',f'2010-09-29', freq='d')
+# Routed_simulation = ds_routed.predictions.values/0.0283168 
+# Routed_observations = ds_routed.observations.values/0.0283168 
+
+
+
+# key_info = [str(x) for x in gage_ids]
+# variables_name = ['Qr','observations']
+# data_routed = [Routed_simulation, Routed_observations]
+
+# data_arrays = {}
+# for idx, var_x in enumerate(variables_name):
+
+#     data_array = xr.DataArray(
+#         data_routed[idx],
+#         dims = ['COMID','time'],
+#         coords = {'COMID':key_info,
+#                     'time':time_routed}
+#     )
+
+#     data_arrays[var_x] = data_array
+
+# xr_dataset = xr.Dataset(data_arrays)
+# xr_dataset.to_zarr(store=results_savepath, group=f'routed_yl_test', mode='w')
+
+water_loss_v3_routed_root_zone = zarr.open_group(results_savepath+'routed_yl_test', mode = 'r')
+water_loss_v3_routed_simulation = water_loss_v3_routed_root_zone['Qr'][:,:]
+water_loss_v3_routed_observations = water_loss_v3_routed_root_zone['observations'][:,:]
+water_loss_v3_routed_gage = water_loss_v3_routed_root_zone['COMID'][:]
+
+
+
+
+water_loss_v3_forward_time = pd.date_range('1980-10-01',f'2010-09-30', freq='d')
+idx_start = water_loss_v3_forward_time.get_loc(time_routed[0])
+idx_end = water_loss_v3_forward_time.get_loc(time_routed[-1])+1
+
+water_loss_v3_forward_atrr_root_zone = zarr.open_group(water_loss_v3_forward+'attr', mode = 'r')
+gage_area = water_loss_v3_forward_atrr_root_zone['area'][:]
+
+[C, Ind, SubInd] = np.intersect1d(water_loss_v3_routed_gage, water_loss_v3_forward_gage, return_indices=True)
+if((np.array(water_loss_v3_forward_gage)[SubInd]!=np.array(water_loss_v3_routed_gage)[Ind]).all()):
+   raise Exception("Forward and routed gage Id does not match")
+
+water_loss_v3_routed_simulation_selected = water_loss_v3_routed_simulation[Ind,:]
+water_loss_v3_routed_observations_selected = water_loss_v3_routed_observations[Ind,:]
+
+
+
+
+water_loss_v3_forward_simulation_selected = water_loss_v3_forward_simulation[SubInd,idx_start:idx_end]
+water_loss_v3_forward_observations_selected = water_loss_v3_forward_observations[SubInd,idx_start:idx_end]
+
+gage_selected = np.array(water_loss_v3_forward_gage)[SubInd]
+gage_area_selected = np.expand_dims(gage_area[SubInd], -1)
+
+
+water_loss_v3_routed_simulation_selected = scale._basin_norm(
+                        np.expand_dims(water_loss_v3_routed_simulation_selected,axis = -1), gage_area_selected, to_norm=True
+                    )  ## from mm/day to ft^3/s
+water_loss_v3_routed_simulation_selected = water_loss_v3_routed_simulation_selected[:,:,0]
+
+
+# [C, Ind_large_gage, SubInd_large_gage] = np.intersect1d(gage_ids_large_gage, water_loss_v3_forward_gage, return_indices=True)
+# gage_area_selected_large_gage  = np.expand_dims(gage_area[SubInd_large_gage], -1)
+
+# water_loss_v3_routed_simulation_selected_large_gage = scale._basin_norm(
+#                         np.expand_dims(Routed_simulation_large_gage[Ind_large_gage,:],axis = -1), gage_area_selected_large_gage, to_norm=True
+#                     )  ## from mm/day to ft^3/s
+# water_loss_v3_routed_simulation_selected_large_gage = water_loss_v3_routed_simulation_selected_large_gage[:,:,0]
+
+# water_loss_v3_forward_observations_selected_large_gage = water_loss_v3_forward_observations[SubInd_large_gage,idx_start:idx_end]
+
+
+
+
+
+water_loss_v3_routed_observations_selected = scale._basin_norm(
+                        np.expand_dims(water_loss_v3_routed_observations_selected,axis = -1), gage_area_selected, to_norm=True
+                    )  ## from mm/day to ft^3/s
+water_loss_v3_routed_observations_selected = water_loss_v3_routed_observations_selected[:,:,0]
+
+
+
+water_loss_v6_forward = "/projects/mhpi/yxs275/model/water_loss_model/"+'/dPL_local_daymet_new_attr_water_loss_v6v14_random_batch_filled_data_dynamic_K0/exp_EPOCH100_BS100_RHO365_HS164_MUL14_HS24096_MUL24_trainBuff365_test/'
+water_loss_v6_forward_root_zone = zarr.open_group(water_loss_v6_forward+'cap_Ac_5000/simulation_cap_Ac_5000', mode = 'r')
+
+water_loss_v6_forward_simulation = water_loss_v6_forward_root_zone['Qs'][:,:]
+water_loss_v6_forward_observations = water_loss_v6_forward_root_zone['runoff'][:,:]
+
+
+water_loss_v6_forward_time = pd.date_range('1992-10-01',f'2010-09-30', freq='d')
+idx_start = water_loss_v6_forward_time.get_loc(time_routed[0])
+idx_end = water_loss_v6_forward_time.get_loc(time_routed[-1])+1
+
+water_loss_v6_forward_simulation_selected = water_loss_v6_forward_simulation[SubInd,idx_start:idx_end]
+water_loss_v6_forward_observations_selected = water_loss_v6_forward_observations[SubInd,idx_start:idx_end]
+
+# water_loss_v6_forward_simulation_selected = scale._basin_norm(
+#                         np.expand_dims(water_loss_v6_forward_simulation_selected,axis = -1), gage_area_selected, to_norm=False
+#                     )  ## from ft^3/s to mm/day
+# water_loss_v6_forward_simulation_selected = water_loss_v6_forward_simulation_selected[:,:,0]
+
+
+
+NSE_forward = "/projects/mhpi/yxs275/model/"+'/LSTM_local_daymet_filled_withNaN_NSE_with_same_forcing_HBV/exp_EPOCH300_BS100_RHO365_HS256_trainBuff365/'
+
+NSE_forward_root_zone = zarr.open_group(NSE_forward+'simulation', mode = 'r')
+NSE_forward_simulation = NSE_forward_root_zone['Qr'][:,:]
+NSE_forward_gage = NSE_forward_root_zone['COMID'][:]
+
+NSE_forward_time = pd.date_range('1980-10-01',f'2010-09-30', freq='d')
+idx_start = NSE_forward_time.get_loc(time_routed[0])
+idx_end = NSE_forward_time.get_loc(time_routed[-1])+1
+
+[C, Ind, SubInd] = np.intersect1d(gage_selected, NSE_forward_gage, return_indices=True)
+if((np.array(NSE_forward_gage)[SubInd]!=gage_selected).all()):
+   raise Exception("NSE forward and selected gage Id does not match")
+
+NSE_forward_simulation_selected = NSE_forward_simulation[SubInd,idx_start:idx_end]
+
+# NSE_forward_simulation_selected = scale._basin_norm(
+#                         np.expand_dims(NSE_forward_simulation_selected,axis = -1), gage_area_selected, to_norm=False
+#                     )  ## from ft^3/s to mm/day
+# NSE_forward_simulation_selected = NSE_forward_simulation_selected[:,:,0]
+
+water_loss_v3_Qprime = "/projects/mhpi/yxs275/DM_output/" + '/dPL_local_daymet_new_attr_water_loss_v3_correct_Ai_start_from_epoch0_1980-2010_unique/CONUS_gage_all'
+simulationroot = zarr.open_group(water_loss_v3_Qprime, mode='r')
+water_loss_v3_Qprime_gage = simulationroot['gage'][:]
+
+water_loss_v3_Qprime = simulationroot['simulation_data']
+[C, Ind, SubInd] = np.intersect1d(gage_selected, water_loss_v3_Qprime_gage, return_indices=True)
+if((np.array(water_loss_v3_Qprime_gage)[SubInd]!=gage_selected).all()):
+   raise Exception("water_loss_v3_Qprime_gage and selected gage Id does not match")
+
+water_loss_v3_Qprime_selected = water_loss_v3_Qprime[SubInd,idx_start:idx_end]
+# water_loss_v3_Qprime_selected = scale._basin_norm(
+#                         np.expand_dims(water_loss_v3_Qprime_selected,axis = -1), gage_area_selected, to_norm=False
+#                     )  ## from ft^3/s to mm/day
+# water_loss_v3_Qprime_selected = water_loss_v3_Qprime_selected[:,:,0]
+
+
+
+
+water_loss_v6_Qprimeprime = "/projects/mhpi/yxs275/DM_output/" + '/dPL_local_daymet_new_attr_water_loss_v6v14_1980-2010_filled_with_MSWEP/CONUS_gage_all'
+simulationroot = zarr.open_group(water_loss_v6_Qprimeprime, mode='r')
+water_loss_v6_Qprimeprime_gage = simulationroot['gage'][:]
+
+water_loss_v6_Qprimeprime = simulationroot['simulation_data']
+[C, Ind, SubInd] = np.intersect1d(gage_selected, water_loss_v6_Qprimeprime_gage, return_indices=True)
+if((np.array(water_loss_v6_Qprimeprime_gage)[SubInd]!=gage_selected).all()):
+   raise Exception("water_loss_v6_Qprime and selected gage Id does not match")
+
+water_loss_v6_Qprimeprime_selected = water_loss_v6_Qprimeprime[SubInd,idx_start:idx_end]
+# water_loss_v6_Qprime_selected = scale._basin_norm(
+#                         np.expand_dims(water_loss_v6_Qprime_selected,axis = -1), gage_area_selected, to_norm=False
+#                     )  ## from ft^3/s to mm/day
+# water_loss_v6_Qprime_selected = water_loss_v6_Qprime_selected[:,:,0]
+
+
+water_loss_v6_Qprime = "/projects/mhpi/yxs275/DM_output/" + '/dPL_local_daymet_new_attr_water_loss_v6v14_1980-2010_filled_with_MSWEP/CONUS_gage_all_Qprime'
+simulationroot = zarr.open_group(water_loss_v6_Qprime, mode='r')
+water_loss_v6_Qprime_gage = simulationroot['gage'][:]
+
+water_loss_v6_Qprime = simulationroot['simulation_data']
+[C, Ind, SubInd] = np.intersect1d(gage_selected, water_loss_v6_Qprime_gage, return_indices=True)
+if((np.array(water_loss_v6_Qprime_gage)[SubInd]!=gage_selected).all()):
+   raise Exception("water_loss_v6_Qprime and selected gage Id does not match")
+
+water_loss_v6_Qprime_selected = water_loss_v6_Qprime[SubInd,idx_start:idx_end]
+
+
+
+
+
+# idx = 940
+# plotTime = pd.date_range('2005-11-25',f'2005-12-09', freq='d')
+# idx_start = time_routed.get_loc(plotTime[0])
+# idx_end = time_routed.get_loc(plotTime[-1])+1
+# # idx = idx_ar[23]
+# fontsize = 18
+# plt.rcParams.update({'font.size': fontsize})
+
+
+# plt.figure(figsize=(10, 6))
+
+# plt.plot(time_routed[idx_start:idx_end],
+#             water_loss_v3_forward_observations_selected[idx,idx_start:idx_end]   ,
+#             label=f'observation ', lw=2,  color='pink')
+
+
+
+# plt.plot(time_routed[idx_start:idx_end],
+#             water_loss_v6_forward_simulation_selected[idx,idx_start:idx_end],
+#             label=f'direct forward flow ', lw=2, color='red')
+
+# plt.plot(time_routed[idx_start:idx_end],
+#             water_loss_v3_routed_simulation_selected[idx,idx_start:idx_end],
+#             label=f'routed flow ', lw=2, color='green')
+
+# plt.plot(time_routed[idx_start:idx_end],
+#             water_loss_v6_Qprime_selected[idx,idx_start:idx_end], label= f'Qprime ', lw=2,
+#             color='blue')
+# plt.plot(time_routed[idx_start:idx_end],
+#     water_loss_v6_Qprimeprime_selected[idx,idx_start:idx_end], label=f'Qprimeprime ', lw=2,
+#     color='lightblue')
+
+# plt.title(f'Gage {gage_selected[idx]}, Catchment area {gage_area_selected[idx]} km$^2$')
+# plt.xlabel('Date')
+# plt.ylabel(r'Runoff (mm/day)')
+# plt.legend()
+# plt.xticks(rotation=45)
+# plt.tight_layout()
+# plt.savefig("Ts_area.png", dpi=300)
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Evaluate metrics
+# pred_df = pd.DataFrame(water_loss_v3_forward_simulation_selected.transpose(), index=time_routed)
+
+# monthly_means_pred = pred_df.resample('5d').mean()
+
+# obs_df = pd.DataFrame(water_loss_v3_forward_observations_selected.transpose(), index=time_routed)
+# monthly_means_obs = obs_df.resample('5d').mean()
+
+# evaDict = [stat.statError(monthly_means_pred.values.transpose(), monthly_means_obs.values.transpose())]
+
+
+# evaDict = [stat.statError(water_loss_v3_routed_simulation_selected_large_gage[:,:], water_loss_v3_forward_observations_selected_large_gage[:,:])]
+# evaDictLst = evaDict
+# keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+# dataBox = list()
+# for iS in range(len(keyLst)):
+#     statStr = keyLst[iS]
+#     temp = list()
+#     for k in range(len(evaDictLst)):
+#         data = evaDictLst[k][statStr]
+#         #data = data[~np.isnan(data)]
+#         temp.append(data)
+#     dataBox.append(temp)
+
+# # print("NSE,KGE, dMax: ", np.nanmedian(dataBox[0][0]),np.nanmedian(dataBox[1][0]))
+# print("water_loss_v6_routed model large gage 'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+#       np.nanmedian(dataBox[0][0]),
+#       np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+#       np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+# NSE_water_loss_v6_routed_large_gage = dataBox[0][0]
+
+# #water_loss_v3_annual_bias,_ =  annual_bias_meanflowratio_calc(water_loss_v3_forward_simulation_selected,water_loss_v3_forward_observations_selected, 1995, 2009, time_routed)
+# water_loss__v6_routed_large_gage_bias,_ =  bias_meanflowratio_calc(water_loss_v3_routed_simulation_selected_large_gage,water_loss_v3_forward_observations_selected)
+
+
+
+
+
+
+
+
+## Evaluate metrics
+
+# pred_df = pd.DataFrame(water_loss_v6_forward_simulation_selected.transpose(), index=time_routed)
+
+# monthly_means_pred = pred_df.resample('5d').mean()
+
+# obs_df = pd.DataFrame(water_loss_v3_forward_observations_selected.transpose(), index=time_routed)
+# monthly_means_obs = obs_df.resample('5d').mean()
+
+# evaDict = [stat.statError(monthly_means_pred.values.transpose(), monthly_means_obs.values.transpose())]
+
+evaDict = [stat.statError(water_loss_v6_forward_simulation_selected[:,:], water_loss_v3_forward_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+# print("NSE,KGE, dMax: ", np.nanmedian(dataBox[0][0]),np.nanmedian(dataBox[1][0]))
+print("water_loss_v6_forward model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+NSE_water_loss_v6 = dataBox[0][0]
+
+#water_loss_v6_annual_bias,_ =  annual_bias_meanflowratio_calc(water_loss_v6_forward_simulation_selected,water_loss_v3_forward_observations_selected, 1995, 2009, time_routed)
+water_loss_v6_bias,_ =  bias_meanflowratio_calc(water_loss_v6_forward_simulation_selected,water_loss_v3_forward_observations_selected)
+
+print("water_loss_v6_bias", np.nanmedian(water_loss_v6_bias))
+
+
+
+
+
+
+
+
+
+
+## Evaluate metrics
+
+# pred_df = pd.DataFrame(NSE_forward_simulation_selected.transpose(), index=time_routed)
+
+# monthly_means_pred = pred_df.resample('5d').mean()
+
+# obs_df = pd.DataFrame(water_loss_v3_forward_observations_selected.transpose(), index=time_routed)
+# monthly_means_obs = obs_df.resample('5d').mean()
+
+# evaDict = [stat.statError(monthly_means_pred.values.transpose(), monthly_means_obs.values.transpose())]
+
+evaDict = [stat.statError(NSE_forward_simulation_selected[:,:], water_loss_v3_forward_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+# print("NSE,KGE, dMax: ", np.nanmedian(dataBox[0][0]),np.nanmedian(dataBox[1][0]))
+print("NSE_forward model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+NSE_NSE = dataBox[0][0]
+
+#NSE_annual_bias,_ =  annual_bias_meanflowratio_calc(NSE_forward_simulation_selected,water_loss_v3_forward_observations_selected, 1995, 2009, time_routed)
+NSE_annual_bias,_ = bias_meanflowratio_calc(NSE_forward_simulation_selected,water_loss_v3_forward_observations_selected)
+
+## Evaluate metrics
+# pred_df = pd.DataFrame(water_loss_v3_routed_simulation_selected.transpose(), index=time_routed)
+
+# monthly_means_pred = pred_df.resample('5d').mean()
+
+# obs_df = pd.DataFrame(water_loss_v3_routed_observations_selected.transpose(), index=time_routed)
+# monthly_means_obs = obs_df.resample('5d').mean()
+
+# evaDict = [stat.statError(monthly_means_pred.values.transpose(), monthly_means_obs.values.transpose())]
+
+evaDict = [stat.statError(water_loss_v3_routed_simulation_selected[:,:], water_loss_v3_routed_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+# print("NSE,KGE, dMax: ", np.nanmedian(dataBox[0][0]),np.nanmedian(dataBox[1][0]))
+print("water_loss_v3_routed model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+NSE_water_loss_v3_routed = dataBox[0][0]
+
+#water_loss_v3_routed_annual_bias,_ =  annual_bias_meanflowratio_calc(water_loss_v3_routed_simulation_selected,water_loss_v3_forward_observations_selected, 1995, 2009, time_routed)
+water_loss_v3_routed_bias,_ = bias_meanflowratio_calc(water_loss_v3_routed_simulation_selected,water_loss_v3_routed_observations_selected)
+
+print("water_loss_v3_routed_bias", np.nanmedian(water_loss_v3_routed_bias))
+
+## Evaluate metrics
+# pred_df = pd.DataFrame(water_loss_v3_Qprime_selected.transpose(), index=time_routed)
+
+# monthly_means_pred = pred_df.resample('5d').mean()
+
+# obs_df = pd.DataFrame(water_loss_v3_routed_observations_selected.transpose(), index=time_routed)
+# monthly_means_obs = obs_df.resample('5d').mean()
+
+# evaDict = [stat.statError(monthly_means_pred.values.transpose(), monthly_means_obs.values.transpose())]
+
+evaDict = [stat.statError(water_loss_v3_Qprime_selected[:,:], water_loss_v3_routed_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+# print("NSE,KGE, dMax: ", np.nanmedian(dataBox[0][0]),np.nanmedian(dataBox[1][0]))
+print("water_loss_v3_Qprim model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+NSE_water_loss_v3_Qprime = dataBox[0][0]
+
+#water_loss_v3_Qprime_annual_bias,_ =  annual_bias_meanflowratio_calc(water_loss_v3_Qprime_selected,water_loss_v3_forward_observations_selected, 1995, 2009, time_routed)
+
+water_loss_v3_Qprime_bias,_ =bias_meanflowratio_calc(water_loss_v3_Qprime_selected,water_loss_v3_routed_observations_selected)
+
+
+
+
+
+
+
+## Evaluate metrics
+# pred_df = pd.DataFrame(water_loss_v6_Qprimeprime_selected.transpose(), index=time_routed)
+
+# monthly_means_pred = pred_df.resample('5d').mean()
+
+# obs_df = pd.DataFrame(water_loss_v3_forward_observations_selected.transpose(), index=time_routed)
+# monthly_means_obs = obs_df.resample('5d').mean()
+
+# evaDict = [stat.statError(monthly_means_pred.values.transpose(), monthly_means_obs.values.transpose())]
+
+evaDict = [stat.statError(water_loss_v6_Qprimeprime_selected[:,:], water_loss_v3_forward_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+# print("NSE,KGE, dMax: ", np.nanmedian(dataBox[0][0]),np.nanmedian(dataBox[1][0]))
+print("water_loss_v6_Qprimprime model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+NSE_water_loss_v6_Qprimeprime = dataBox[0][0]
+
+water_loss_v6_Qprimeprime_bias,_ =bias_meanflowratio_calc(water_loss_v6_Qprimeprime_selected,water_loss_v3_forward_observations_selected)
+
+print("water_loss_v6_Qprimeprime_bias", np.nanmedian(water_loss_v6_Qprimeprime_bias))
+
+
+
+
+# pred_df = pd.DataFrame(water_loss_v6_Qprime_selected.transpose(), index=time_routed)
+
+# monthly_means_pred = pred_df.resample('5d').mean()
+
+# obs_df = pd.DataFrame(water_loss_v3_forward_observations_selected.transpose(), index=time_routed)
+# monthly_means_obs = obs_df.resample('5d').mean()
+
+# evaDict = [stat.statError(monthly_means_pred.values.transpose(), monthly_means_obs.values.transpose())]
+
+evaDict = [stat.statError(water_loss_v6_Qprime_selected[:,:], water_loss_v3_forward_observations_selected[:,:])]
+evaDictLst = evaDict
+keyLst = ['NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE','rdMax','absFLV','absFHV']
+dataBox = list()
+for iS in range(len(keyLst)):
+    statStr = keyLst[iS]
+    temp = list()
+    for k in range(len(evaDictLst)):
+        data = evaDictLst[k][statStr]
+        #data = data[~np.isnan(data)]
+        temp.append(data)
+    dataBox.append(temp)
+
+# print("NSE,KGE, dMax: ", np.nanmedian(dataBox[0][0]),np.nanmedian(dataBox[1][0]))
+print("water_loss_v6_Qprim model'NSE', 'KGE','FLV','FHV', 'lowRMSE', 'highRMSE' ,'rdMax','absFLV','absFHV'",
+      np.nanmedian(dataBox[0][0]),
+      np.nanmedian(dataBox[1][0]), np.nanmedian(dataBox[2][0]), np.nanmedian(dataBox[3][0]),
+      np.nanmedian(dataBox[4][0]), np.nanmedian(dataBox[5][0]), np.nanmedian(dataBox[6][0]), np.nanmedian(dataBox[7][0]), np.nanmedian(dataBox[8][0]))
+
+NSE_water_loss_v6_Qprime = dataBox[0][0]
+water_loss_v6_Qprime_bias,_ =bias_meanflowratio_calc(water_loss_v6_Qprime_selected,water_loss_v3_forward_observations_selected)
+
+print("water_loss_v6_Qprime_bias", np.nanmedian(water_loss_v6_Qprime_bias))
+
+
+def annual_peak_timing_difference_within_window(sim1, sim2, window_size=20):
+
+    num_basins, num_days = sim1.shape
+
+    peak_timing_diff = np.zeros(num_basins)
+
+    for basin in range(num_basins):
+        # Find the global peak for simulation 1 within the year
+        global_peak_day_sim1 = np.argmax(sim1[basin, :])
+
+        # Define the 20-day window around the global peak day
+        window_start = max(0, global_peak_day_sim1 - window_size // 2)
+        window_end = min(num_days, global_peak_day_sim1 + window_size // 2 + 1)
+
+        # Find the peak within the window for both simulations
+        peak_day_sim1 = np.argmax(sim1[basin, window_start:window_end]) + window_start
+        peak_day_sim2 = np.argmax(sim2[basin, window_start:window_end]) + window_start
+
+        peak_timing_diff[basin] = peak_day_sim2 - peak_day_sim1
+
+    return peak_timing_diff
+
+badBasin = np.where((NSE_water_loss_v6-NSE_water_loss_v3_routed)>0.02)[0]
+
+forward_s = water_loss_v6_forward_simulation_selected[badBasin,:]
+routed_s =water_loss_v3_routed_simulation_selected[badBasin,:]
+
+time_routed = pd.date_range('1995-10-02',f'2010-09-29', freq='d')
+
+peak_diff = np.full((len(badBasin), 15), np.nan)
+
+for yearidx , year in enumerate(range(1995, 2010)) :
+    time_year = pd.date_range(f'{year}-10-02',f'{year+1}-09-29', freq='d')
+    idx_start = time_routed.get_loc(time_year[0])
+    idx_end = time_routed.get_loc(time_year[-1])+1
+    peak_diff [:,yearidx] = annual_peak_timing_difference_within_window(forward_s[:,idx_start:idx_end], routed_s[:,idx_start:idx_end], window_size=20)
+    print("year ", year, " is done")
+
+
+peak_diff_avage = np.mean(peak_diff,axis = -1)
+
+nbin = 5
+lower_bound = 0
+upper_bound = 32000
+#bins = np.linspace(lower_bound, upper_bound, nbin + 1)
+bin_length = (upper_bound - lower_bound) / (nbin-1)
+bins =np.array([0,8000,16000,24000,32000,100000])
+bins_split =np.array([0,1000,3000,5000,10000,50000])
+
+area_bin_index = np.digitize(gage_area_selected[badBasin,0], bins_split)
+plt.rcParams.update({'font.size': 22})
+fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+labels = []
+for bin_i in range(len(bins)-1):
+    labels.append(f'{bins_split[bin_i]}~{bins_split[bin_i+1]}')
+
+plot1 = ax.boxplot( [ peak_diff_avage[np.where(area_bin_index == i)][~np.isnan(peak_diff_avage[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+4*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="pink", color="k"),widths = bin_length/7 )
+
+for whisker in plot1['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot1['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot1['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot1['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+
+
+
+y_upper = 6
+y_lower = -6
+yrange = y_upper-y_lower
+for i in range(1,nbin+1):
+
+    num = len(gage_area_selected[badBasin,0][np.where(area_bin_index == i)])
+    ax.text(bin_length/4.0+(i-1)*bin_length+lower_bound,y_upper-0.1*(y_upper-y_lower), f'{num} sites')
+
+
+
+ax.set_ylabel("Average peak time \n difference (routed - forward)")
+ax.set_xlabel(r"Drainage area (km$^2$)")
+
+ax.set_yticks(np.arange(y_lower,y_upper,1))
+ax.set_ylim([y_lower,y_upper])
+ax.set_xlim([lower_bound,upper_bound+bin_length])
+ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+ax.hlines([0], 0, 100000,color ="k",linestyles='--',lw = 1.5)
+ax.vlines(np.arange(lower_bound+bin_length,upper_bound+bin_length,bin_length), y_lower,y_upper,color ="k",linestyles='--',lw = 2.5)
+tick_positions = np.arange(lower_bound, upper_bound+bin_length, bin_length) + bin_length / 2
+ax.set_xticks(tick_positions)
+#ax.set_xticks(np.arange(lower_bound,upper_bound+bin_length,bin_length)+bin_length/2,labels)
+ax.set_xticklabels(labels)
+
+plt.savefig("boxplot_peaktime_area.png", dpi=300)
+plt.show(block=True)
+
+print("Done")
+
+
+nbin = 5
+lower_bound = 0
+upper_bound = 32000
+#bins = np.linspace(lower_bound, upper_bound, nbin + 1)
+bin_length = (upper_bound - lower_bound) / (nbin-1)
+bins =np.array([0,8000,16000,24000,32000,100000])
+bins_split =np.array([0,1000,3000,5000,10000,50000])
+#area_bin_index_large_gage = np.digitize(gage_area_selected_large_gage[:,0], bins_split)
+area_bin_index = np.digitize(gage_area_selected[:,0], bins_split)
+plt.rcParams.update({'font.size': 22})
+fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+labels = []
+for bin_i in range(len(bins)-1):
+    labels.append(f'{bins_split[bin_i]}~{bins_split[bin_i+1]}')
+
+#plot1 = ax.boxplot( [ NSE_water_loss_v3[np.where(area_bin_index == i)][~np.isnan(NSE_water_loss_v3[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+1*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="aliceblue", color="k") ,widths = bin_length/7)
+plot1 = ax.boxplot( [ NSE_NSE[np.where(area_bin_index == i)][~np.isnan(NSE_NSE[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+2*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="pink", color="k"),widths = bin_length/7 )
+plot2 = ax.boxplot( [ NSE_water_loss_v6[np.where(area_bin_index == i)][~np.isnan(NSE_water_loss_v6[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+3*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="red", color="k") ,widths = bin_length/7)
+
+plot3 = ax.boxplot( [ NSE_water_loss_v3_routed[np.where(area_bin_index == i)][~np.isnan(NSE_water_loss_v3_routed[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+4*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="mediumpurple", color="k"),widths = bin_length/7 )
+#plot4 = ax.boxplot( [ NSE_water_loss_v3_Qprime[np.where(area_bin_index == i)][~np.isnan(NSE_water_loss_v3_Qprime[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+4*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="green", color="k"),widths = bin_length/7 )
+plot4 = ax.boxplot( [ NSE_water_loss_v6_Qprime[np.where(area_bin_index == i)][~np.isnan(NSE_water_loss_v6_Qprime[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+5*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="blue", color="k") ,widths = bin_length/7)
+#plot5 = ax.boxplot( [ NSE_water_loss_v6_routed_large_gage[np.where(area_bin_index_large_gage == i)][~np.isnan(NSE_water_loss_v6_routed_large_gage[np.where(area_bin_index_large_gage == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+6*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="orange", color="k") ,widths = bin_length/7)
+
+for whisker in plot1['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot1['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot1['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot1['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+for whisker in plot2['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot2['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot2['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot2['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+for whisker in plot3['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot3['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot3['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot3['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+for whisker in plot4['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot4['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot4['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot4['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+
+
+
+
+y_upper = 1.2
+y_lower = -1
+yrange = y_upper-y_lower
+for i in range(1,nbin+1):
+
+    num = len(gage_area_selected[:,0][np.where(area_bin_index == i)])
+    ax.text(bin_length/4.0+(i-1)*bin_length+lower_bound,y_upper-0.1*(y_upper-y_lower), f'{num} sites')
+
+# ax.add_patch( Rectangle(( 700, y_lower+0.5*yrange),500, yrange*0.05,  fc = "aliceblue",  ec ='k',ls = "-" , lw = 2) )
+# ax.text(1300,y_lower+0.5*yrange, r"direct forward v3 (all model at gage_level)")
+
+ax.add_patch( Rectangle(( 700, y_lower+0.4*yrange), 500, yrange*0.05,  fc = "pink",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0.4*yrange, r"LSTM-CONUS3200 NSE of 0.751")
+
+ax.add_patch( Rectangle(( 700, y_lower+0.3*yrange), 500, yrange*0.05,  fc = "red",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0.3*yrange, r"dHBV-CONUS3200 NSE of 0.759")
+
+ax.add_patch( Rectangle(( 700, y_lower+0.2*yrange), 500, yrange*0.05,  fc = "mediumpurple",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0.2*yrange, r"dHBV+dMC-CONUS3200 NSE of 0.726")
+
+
+ax.add_patch( Rectangle(( 700, y_lower+0.1*yrange), 500, yrange*0.05,  fc = "blue",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0.1*yrange, r"dHBV+dMC-CONUS3200 Q' NSE of 0.70")
+ax.add_patch( Rectangle(( 700, y_lower+0*yrange), 500, yrange*0.05,  fc = "orange",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0*yrange, r"dHBV+dMC-CONUS3200 large gage NSE of 0.686")
+
+
+ax.set_ylabel("Daily NSE")
+ax.set_xlabel(r"Drainage area (km$^2$)")
+
+ax.set_yticks(np.arange(y_lower,y_upper,0.2))
+ax.set_ylim([y_lower,y_upper])
+ax.set_xlim([lower_bound,upper_bound+bin_length])
+ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+# ax.vlines([-0.5,0,0.5], -2, 4,color ="k",linestyles='--',lw = 1.5)
+ax.vlines(np.arange(lower_bound+bin_length,upper_bound+bin_length,bin_length), y_lower,y_upper,color ="k",linestyles='--',lw = 2.5)
+tick_positions = np.arange(lower_bound, upper_bound+bin_length, bin_length) + bin_length / 2
+ax.set_xticks(tick_positions)
+#ax.set_xticks(np.arange(lower_bound,upper_bound+bin_length,bin_length)+bin_length/2,labels)
+ax.set_xticklabels(labels)
+
+plt.savefig("boxplot_NSE_area.png", dpi=300)
+plt.show(block=True)
+
+print("Done")
+
+
+
+
+
+
+
+
+
+
+
+for idx in np.where(area_bin_index==5):
+
+    if ((NSE_water_loss_v6[idx]-NSE_water_loss_v3_routed[idx])>0.2):
+
+        plotTime = pd.date_range('2005-10-10',f'2006-05-20', freq='d')
+        idx_start = time_routed.get_loc(plotTime[0])
+        idx_end = time_routed.get_loc(plotTime[-1])+1
+        # idx = idx_ar[23]
+        fontsize = 18
+        plt.rcParams.update({'font.size': fontsize})
+
+
+        plt.figure(figsize=(10, 6))
+
+        plt.plot(time_routed[idx_start:idx_end],
+                 water_loss_v3_forward_observations_selected[idx,idx_start:idx_end]   ,
+                 label=f'observation ', lw=2,  color='k')
+        
+
+
+        plt.plot(time_routed[idx_start:idx_end],
+                 water_loss_v6_forward_simulation_selected[idx,idx_start:idx_end],
+                 label=f'direct forward flow NSE{NSE_calc(water_loss_v6_forward_simulation_selected[idx:idx+1,:],water_loss_v3_forward_observations_selected[idx:idx+1,:])}', lw=2, color='green')
+
+        plt.plot(time_routed[idx_start:idx_end],
+                 water_loss_v3_routed_simulation_selected_pre[idx,idx_start:idx_end], label= f'Routed flow NSE{NSE_calc(water_loss_v3_routed_simulation_selected_pre[idx:idx+1,:],water_loss_v3_forward_observations_selected[idx:idx+1,:])}', lw=2,
+                 color='red')
+        # plt.plot(time_routed[idx_start:idx_end],
+        #     water_loss_v6_Qprimeprime_selected[idx,idx_start:idx_end], label=f'Qprimeprime NSE{NSE_calc(water_loss_v6_Qprimeprime_selected[idx:idx+1,:],water_loss_v3_forward_observations_selected[idx:idx+1,:])}', lw=2,
+        #     color='blue')
+        plt.title(f'Gage {gage_selected[idx]}, Catchment area {gage_area_selected[idx]} km$^2$')
+        plt.xlabel('Date')
+        plt.ylabel(r'Runoff (mm/day)')
+        plt.legend()
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig("Ts_area.png", dpi=300)
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+nbin = 5
+lower_bound = 0
+upper_bound = 32000
+#bins = np.linspace(lower_bound, upper_bound, nbin + 1)
+bin_length = (upper_bound - lower_bound) / (nbin-1)
+bins =np.array([0,8000,16000,24000,32000,100000])
+bins_split =np.array([0,1000,3000,5000,30000,50000])
+
+area_bin_index = np.digitize(gage_area_selected[:,0], bins_split)
+plt.rcParams.update({'font.size': 22})
+fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+labels = []
+for bin_i in range(len(bins)-1):
+    labels.append(f'{bins_split[bin_i]}~{bins_split[bin_i+1]}')
+
+
+plot1 = ax.boxplot( [ NSE_annual_bias[np.where(area_bin_index == i)][~np.isnan(NSE_annual_bias[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+2*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="pink", color="k"),widths = bin_length/7 )
+plot2 = ax.boxplot( [ water_loss_v6_bias[np.where(area_bin_index == i)][~np.isnan(water_loss_v6_bias[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+3*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="red", color="k") ,widths = bin_length/7)
+
+plot3 = ax.boxplot( [ water_loss_v6_Qprime_bias[np.where(area_bin_index == i)][~np.isnan(water_loss_v6_Qprime_bias[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+4*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="mediumpurple", color="k"),widths = bin_length/7 )
+plot4 = ax.boxplot( [ water_loss_v6_Qprimeprime_bias[np.where(area_bin_index == i)][~np.isnan(water_loss_v6_Qprimeprime_bias[np.where(area_bin_index == i)])] for i in range(1,nbin+1) ], vert=True,showfliers=False, positions=bins[:-1]+5*bin_length/7.0,patch_artist=True,boxprops=dict(facecolor="blue", color="k") ,widths = bin_length/7)
+
+
+
+for whisker in plot1['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot1['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot1['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot1['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+for whisker in plot2['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot2['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot2['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot2['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+for whisker in plot3['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot3['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot3['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot3['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+for whisker in plot4['whiskers']:
+    whisker.set(ls='-', linewidth=2,color = "k")
+for cap in plot4['caps']:
+    cap.set(ls='-', linewidth=2,color = "k")
+for box in plot4['boxes']:
+    box.set(ls='-', linewidth=2)
+for median in plot4['medians']:
+    median.set(ls='-', linewidth=2,color = "k")
+
+
+
+
+y_upper = 1
+y_lower = -1
+yrange = y_upper-y_lower
+for i in range(1,nbin+1):
+
+    num = len(gage_area_selected[:,0][np.where(area_bin_index == i)])
+    ax.text(bin_length/4.0+(i-1)*bin_length+lower_bound,y_upper-0.1*(y_upper-y_lower), f'{num} sites')
+
+
+ax.add_patch( Rectangle(( 700, y_lower+0.3*yrange), 500, yrange*0.05,  fc = "pink",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0.3*yrange, r"LSTM-CONUS3200 NSE of 0.75")
+
+ax.add_patch( Rectangle(( 700, y_lower+0.2*yrange), 500, yrange*0.05,  fc = "red",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0.2*yrange, r"dHBV-CONUS3200 NSE of 0.759")
+
+ax.add_patch( Rectangle(( 700, y_lower+0.1*yrange), 500, yrange*0.05,  fc = "mediumpurple",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0.1*yrange, r"dHBV+dMC-CONUS3200 Q' NSE of 0.712")
+
+# ax.add_patch( Rectangle(( 700, y_lower+0.2*yrange), 500, yrange*0.05,  fc = "green",  ec ='k',ls = "-" , lw = 2) )
+# ax.text(1300, y_lower+0.2*yrange, r"Qprim v3")
+
+
+ax.add_patch( Rectangle(( 700, y_lower+0*yrange), 500, yrange*0.05,  fc = "blue",  ec ='k',ls = "-" , lw = 2) )
+ax.text(1300, y_lower+0*yrange, r"dHBV+dMC-CONUS3200 Q'' NSE of 0.43")
+
+
+ax.set_ylabel("Relative bias ratio")
+ax.set_xlabel(r"Drainage area (km$^2$)")
+
+ax.set_yticks(np.arange(y_lower,y_upper,0.5))
+ax.set_ylim([y_lower,y_upper])
+ax.set_xlim([lower_bound,upper_bound+bin_length])
+ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+ax.hlines(0, 0, 1000000,color ="k",linestyles='--',lw = 1.5)
+# ax.vlines([-0.5,0,0.5], -2, 4,color ="k",linestyles='--',lw = 1.5)
+ax.vlines(np.arange(lower_bound+bin_length,upper_bound+bin_length,bin_length), y_lower,y_upper,color ="k",linestyles='--',lw = 2.5)
+tick_positions = np.arange(lower_bound, upper_bound+bin_length, bin_length) + bin_length / 2
+ax.set_xticks(tick_positions)
+#ax.set_xticks(np.arange(lower_bound,upper_bound+bin_length,bin_length)+bin_length/2,labels)
+ax.set_xticklabels(labels)
+
+plt.savefig("boxplot_bias_routed_area.png", dpi=300)
+plt.show(block=True)
+
+print("Done")
