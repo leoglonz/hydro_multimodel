@@ -1,6 +1,7 @@
 import torch.nn
 from models.hydro_models.HBV.HBVmul import HBVMul
 from models.hydro_models.HBV.hbv_capillary import HBVMulTDET
+from models.hydro_models.HBV.hbv_waterloss import HBVMulTDET_WaterLoss
 from models.hydro_models.marrmot_PRMS.prms_marrmot import prms_marrmot
 from models.hydro_models.marrmot_PRMS_gw0.prms_marrmot_gw0 import \
     prms_marrmot_gw0
@@ -33,6 +34,8 @@ class dPLHydroModel(torch.nn.Module):
             self.hydro_model = HBVMul(self.config)
         elif self.model_name == "HBV_capillary":
             self.hydro_model = HBVMulTDET(self.config)
+        elif self.model_name == "HBV_water_loss":
+            self.hydro_model = HBVMulTDET_WaterLoss(self.config)
         elif self.model_name == 'marrmot_PRMS':
             self.hydro_model = prms_marrmot()
         elif self.model_name == 'marrmot_PRMS_gw0':
@@ -60,11 +63,11 @@ class dPLHydroModel(torch.nn.Module):
             raise ValueError(self.config['pnn_model'], "is not a valid neural network type.")
 
     def get_nn_model_dim(self) -> None:
-        self.nx1 = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
-        self.ny1 = self.config['nmul'] * (len(self.hydro_model.parameters_bound))
+        self.nx = len(self.config['observations']['var_t_nn'] + self.config['observations']['var_c_nn'])
+        self.ny = self.config['nmul'] * (len(self.hydro_model.parameters_bound))
 
         if self.config['routing_hydro_model'] == True:
-            self.ny1 += len(self.hydro_model.conv_routing_hydro_model_bound)
+            self.ny += len(self.hydro_model.conv_routing_hydro_model_bound)
 
     def breakdown_params(self, params_all) -> None:
         params_dict = dict()
@@ -151,7 +154,7 @@ class dPLHydroModelV2(torch.nn.Module):
         # Get dim of NN models
         self.get_nn_model_dim()
         
-        # NN model initialization
+        # NN model initialization for dynamic attributes.
         # TODO: Set this up as dynamic module import instead.
         if self.config['pnn_model'] == 'LSTM':
             self.NN_model = CudnnLstmModel(nx=self.nx1,
@@ -164,7 +167,7 @@ class dPLHydroModelV2(torch.nn.Module):
             raise ValueError(self.config['pnn_model'], "is not a valid neural network type.")
         
 
-        # Secondary ANN initialization
+        # Secondary ANN initialization for static attributes.
         self.ann_model = AnnModel(nx=self.nx2,
                                   ny=self.ny2,
                                   hiddenSize=self.config['hidden_size_ann'],

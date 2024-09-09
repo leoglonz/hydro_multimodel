@@ -36,8 +36,6 @@ class TrainModel:
         # Initialize differentiable model w/ optimizer.
         self.dplh_model_handler = ModelHandler(self.config).to(self.config['device'])
         
-        exit()
-
     def run(self, experiment_tracker) -> None:
         """
         High-level management of ensemble/non-ensemble model training .
@@ -47,6 +45,8 @@ class TrainModel:
         ## TODO: Fix for CONUS
         self.dataset_dict, self.config = get_data_dict(self.config, train=True)
 
+        exit()
+        
         ngrid_train, minibatch_iter, nt, batch_size = n_iter_nt_ngrid(
             self.config['train_t_range'], self.config, self.dataset_dict['inputs_nn_scaled']
             )

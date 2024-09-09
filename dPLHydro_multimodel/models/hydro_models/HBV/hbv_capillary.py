@@ -246,7 +246,7 @@ class HBVMulTDET(torch.nn.Module):
             RAIN = torch.mul(PRECIP, (mean_air_temp[t, :, :] >= params_dict['parTT']).type(torch.float32))
             SNOW = torch.mul(PRECIP, (mean_air_temp[t, :, :] < params_dict['parTT']).type(torch.float32))
 
-            # Snow
+            # Snow process
             SNOWPACK = SNOWPACK + SNOW
             melt = params_dict['parCFMAX'] * (mean_air_temp[t, :, :] - params_dict['parTT'])
             melt = torch.clamp(melt, min=0.0)
@@ -315,7 +315,7 @@ class HBVMulTDET(torch.nn.Module):
         else:
             Qsimave = (Qsimmu * muwts).sum(-1)
 
-        if routing is True:  # routing
+        if routing is True:
             if comprout is True:
                 # do routing to all the components, reshape the mat to [Time, gage*multi]
                 Qsim = Qsimmu.view(Nstep, Ngrid * nmul)
@@ -330,10 +330,10 @@ class HBVMulTDET(torch.nn.Module):
             routa = tempa.repeat(Nstep, 1).unsqueeze(-1)
             routb = tempb.repeat(Nstep, 1).unsqueeze(-1)
             UH = self.UH_gamma(routa, routb, lenF=15)  # lenF: folter
-            rf = torch.unsqueeze(Qsim, -1).permute([1, 2, 0])   # dim:gage*var*time
+            rf = torch.unsqueeze(Qsim, -1).permute([1, 2, 0])  # dim:gage*var*time
             UH = UH.permute([1, 2, 0])  # dim: gage*var*time
             Qsrout = self.UH_conv(rf, UH).permute([2, 0, 1])
-            # do routing individually for Q0, Q1, and Q2
+            # Do routing individually for Q0, Q1, and Q2.
             rf_Q0 = Q0_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
             Q0_rout = self.UH_conv(rf_Q0, UH).permute([2, 0, 1])
             rf_Q1 = Q1_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
@@ -341,7 +341,7 @@ class HBVMulTDET(torch.nn.Module):
             rf_Q2 = Q2_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
             Q2_rout = self.UH_conv(rf_Q2, UH).permute([2, 0, 1])
 
-            if comprout is True: # Qs is [time, [gage*mult], var] now
+            if comprout is True: # Qs is shape [time, [gage*mult], var]
                 Qstemp = Qsrout.view(Nstep, Ngrid, nmul)
                 if muwts is None:
                     Qs = Qstemp.mean(-1, keepdim=True)
@@ -350,13 +350,13 @@ class HBVMulTDET(torch.nn.Module):
             else:
                 Qs = Qsrout
 
-        else:  # no routing, output the primary average simulations
+        else:  # no routing, output the initial average simulations
             Qs = torch.unsqueeze(Qsimave, -1)  # add a dimension
 
-        if init is True:  # means we are in warm up
+        if init is True: # Output states (i.e., warmup)
             return Qs, SNOWPACK, MELTWATER, SM, SUZ, SLZ
         else:
-            return dict(flow_sim=Qsrout,
+            return dict(flow_sim=Qs,
                         srflow=Q0_rout,
                         ssflow=Q1_rout,
                         gwflow=Q2_rout,

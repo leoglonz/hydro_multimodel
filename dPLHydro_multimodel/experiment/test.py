@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 # SAVE_DATA = False
 # OUT_DATA_SAVE_PATH = '/data/lgl5139/hydro_multimodel/HBV_1.1p/data/yalan_preds/'
 
+import time
 
 
 class TestModel:
@@ -34,6 +35,7 @@ class TestModel:
     initializes all individual models, and runs tests a trained model.
     """
     def __init__(self, config: Config):
+        self.start = time.time()
         self.config = config
 
         # Initializing collection of dPL hydrology models.
@@ -90,26 +92,29 @@ class TestModel:
             # Forward pass for hydrology models.
             hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
 
-            # Compile predictions from each batch.
-            if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
-                # For ensembles w/ wNN: Forward pass for wNN to get ensemble weights.
-                self.ensemble_lstm(dataset_dict_sample, eval=True)
+            # # Compile predictions from each batch.
+            # if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
+            #     # For ensembles w/ wNN: Forward pass for wNN to get ensemble weights.
+            #     self.ensemble_lstm(dataset_dict_sample, eval=True)
 
-                # Ensemble hydrology models using learned weights.
-                ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in ensemble_pred.items()})
-            elif self.config['ensemble_type'] == 'avg':
-                # For 'average' type ensemble: Average model predictions at each
-                # basin for each day.
-                ensemble_pred = model_average(hydro_preds, self.config)
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in ensemble_pred.items()})
-            else:
-                # For single hydrology model.
-                model_name = self.config['hydro_models'][0]
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in hydro_preds[model_name].items()})
+            #     # Ensemble hydrology models using learned weights.
+            #     ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
+            #     batched_preds_list.append({key: tensor.cpu().detach() for key,
+            #                                tensor in ensemble_pred.items()})
+            # elif self.config['ensemble_type'] == 'avg':
+            #     # For 'average' type ensemble: Average model predictions at each
+            #     # basin for each day.
+            #     ensemble_pred = model_average(hydro_preds, self.config)
+            #     batched_preds_list.append({key: tensor.cpu().detach() for key,
+            #                                tensor in ensemble_pred.items()})
+            # else:
+            #     # For single hydrology model.
+            #     model_name = self.config['hydro_models'][0]
+            #     batched_preds_list.append({key: tensor.cpu().detach() for key,
+            #                                tensor in hydro_preds[model_name].items()})
+        
+        print("Forward time: ", self.start - time.time())
+        exit()
         return batched_preds_list
 
     def calc_metrics(self, batched_preds_list: List[Dict[str, torch.Tensor]],
@@ -131,10 +136,10 @@ class TestModel:
         name_list.append('flow')
 
         #######################
-        if SAVE_DATA:
-            ## Added to save prediction and observation data:
-            np.save(OUT_DATA_SAVE_PATH + 'sacsma_dyn_sf_pred.npy',preds_list)
-            np.save(OUT_DATA_SAVE_PATH + 'sacsma_sf_obs.npy',obs_list)
+        # if SAVE_DATA:
+        #     ## Added to save prediction and observation data:
+        #     np.save(OUT_DATA_SAVE_PATH + 'sacsma_dyn_sf_pred.npy',preds_list)
+        #     np.save(OUT_DATA_SAVE_PATH + 'sacsma_sf_obs.npy',obs_list)
         #######################
 
         # Swap axes for shape [basins, days]

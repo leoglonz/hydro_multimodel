@@ -5,7 +5,7 @@ import numpy as np
 
 
 
-class HBVMulTDET_V2(torch.nn.Module):
+class HBVMulTDET_WaterLoss(torch.nn.Module):
     """
     Multi-component HBV Model *2.0* Pytorch version (dynamic and static param
     capable) adapted from Yalan Song.
@@ -16,28 +16,29 @@ class HBVMulTDET_V2(torch.nn.Module):
     (http://www.gloh2o.org/hbv/), which runs the HBV-light hydrological model
     (Seibert, 2005).
     """
-    def __init__(self):
+    def __init__(self, config):
         """Initiate a HBV instance"""
-        super(HBVMulTDET_V2, self).__init__()
-        self.parameters_bound = dict(parBETA=[1,6],
+        super(HBVMulTDET_WaterLoss, self).__init__()
+        # TODO: recombine these to parameter sets and then dynamically manage
+        # which parameters are added to a separated dynamic parameter set.
+        # HBV dynamic vs static water loss terms.
+        self.parameters_bound = dict(parBETA=[1.0, 6.0],
+                                     parFC=[50, 1000],
                                      parK0=[0.05, 0.9],
-                                     parBETAET=[0.3, 5]
-                                    )
-        # Water loss parameters
-        self.wl_parameters_bound = dict(parFC=[50, 1000],
-                                        parK1=[0.01, 0.5],
-                                        parK2=[0.001, 0.2],
-                                        parLP=[0.2, 1],
-                                        parPERC=[0, 10],
-                                        parUZL=[0, 100],
-                                        parTT=[-2.5, 2.5],
-                                        parCFMAX=[0.5, 10],
-                                        parCFR=[0, 0.1],
-                                        parCWH=[0, 0.2],
-                                        parC=[0,1],
-                                        parTRbound=[0,20],
-                                        parAc=[0, 2500]
-                                       )
+                                     parK1=[0.01, 0.5],
+                                     parK2=[0.001, 0.2],
+                                     parLP=[0.2, 1],
+                                     parPERC=[0, 10],
+                                     parUZL=[0, 100],
+                                     parTT=[-2.5, 2.5],
+                                     parCFMAX=[0.5, 10],
+                                     parCFR=[0, 0.1],
+                                     parCWH=[0, 0.2],
+                                     parBETAET=[0.3, 5],
+                                     parC=[0, 1],
+                                     parTRbound=[0,20],
+                                     parAc=[0, 2500]
+                                     )
         self.conv_routing_hydro_model_bound = [
             [0, 2.9],  # routing parameter a
             [0, 6.5]   # routing parameter b
@@ -138,7 +139,9 @@ class HBVMulTDET_V2(torch.nn.Module):
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
-                initmodel = HBVMulTDET_V2(args).to(args['device'])  ## TODO: potentially use HBVMulET like Yalan.
+                ## TODO: potentially use HBVMulET like Yalan unless it can be
+                # adapted into this ver.
+                initmodel = HBVMulTDET_WaterLoss(args).to(args['device'])
                 Qsinit, SNOWPACK, MELTWATER, SM, SUZ, SLZ = initmodel(xinit,
                                                                       c_hydro_model,
                                                                       params_raw,
@@ -206,13 +209,22 @@ class HBVMulTDET_V2(torch.nn.Module):
 
         # Initialize time series of model variables
         Qsimmu = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
-        ETmu = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
-        SWEmu = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
-        # Output the box components of Q
+        ET_sim = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
+        SWE_sim = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
+        
+        # Output the box components of Q.
         Q0_sim = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
         Q1_sim = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
         Q2_sim = (torch.zeros((Nstep,Ngrid), dtype=torch.float32) + 0.001).to(args['device'])
 
+        AET = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
+        recharge_sim = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
+        excs_sim = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
+        evapfactor_sim = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
+        tosoil_sim = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
+        PERC_sim = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
+        SWE_sim = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
+        capillary_sim = (torch.zeros(Nstep,Ngrid, dtype=torch.float32)).to(args['device'])
 
 
 
@@ -229,7 +241,7 @@ class HBVMulTDET_V2(torch.nn.Module):
         # Ai_batch_expand = (torch.from_numpy(np.array(Ai_batch)).to(x)).unsqueeze(0).repeat(Nstep,1)
         # idx_matric_expand = ( torch.from_numpy(idx_matric).to(x)).unsqueeze(0).repeat(Nstep,1,1)  
         Ai_batch_torch = torch.from_numpy(np.array(Ai_batch)).to(x)
-        idx_matric_torch = torch.from_numpy(np.array(idx_mat)).to(x)
+        idx_mat_torch = torch.from_numpy(np.array(idx_mat)).to(x)
         
 
 
@@ -247,7 +259,6 @@ class HBVMulTDET_V2(torch.nn.Module):
          
             # Separate precipitation into liquid and solid components
             PRECIP = Pm[t, :, :]
-
             RAIN = torch.mul(PRECIP, (mean_air_temp[t, :, :] >= params_dict['parTT']).type(torch.float32))
             SNOW = torch.mul(PRECIP, (mean_air_temp[t, :, :] < params_dict['parTT']).type(torch.float32))
 
@@ -283,6 +294,7 @@ class HBVMulTDET_V2(torch.nn.Module):
             evapfactor = torch.clamp(evapfactor, min=0.0, max=1.0)
             ETact = PET[t, :, :] * evapfactor
             ETact = torch.min(SM, ETact)
+            AET[t, :, :] = ETact
             SM = torch.clamp(SM - ETact, min=nearzero)  # SM can not be zero for gradient tracking.
             capillary = torch.min(SLZ, params_dict['parC'] * SLZ * (1.0 - torch.clamp(SM / params_dict['parFC'], max=1.0)))
 
@@ -307,34 +319,49 @@ class HBVMulTDET_V2(torch.nn.Module):
 
             SLZ = torch.clamp(SLZ + regional_flow, min=0.0)
             regional_flow_out =  torch.max(regional_flow, -SLZ)
-
             Q2 = params_dict['parK2'] * SLZ
             SLZ = SLZ - Q2
             Qsimmu[t, :] = (((Q0 + Q1 + Q2).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
             Q0_sim[t, :] = (((regional_flow_out).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
             Q1_sim[t, :] = (((Q1).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
             Q2_sim[t, :] = (((Q2).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
-            ETmu[t, :] = (((ETact).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0) 
-            SWEmu[t, :] = (((SNOWPACK).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+            ET_sim[t, :] = (((ETact).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+
+            recharge_sim[t, :] = (((recharge).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+            excs_sim[t, :] = (((excess).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+            evapfactor_sim[t, :] = (((evapfactor).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+            tosoil_sim[t, :] = (((tosoil).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+            PERC_sim[t, :] = (((PERC).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+            SWE_sim[t, :] = (((SNOWPACK).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
+            capillary_sim[t, :] = (((capillary).mean(-1) * Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0)
 
 
-        if routing is True: # routing
+        if routing is True:
             # scale two routing parameters
-            temp_a0 = self.change_param_range(param=conv_params_hydro[:, 0],
+            tempa_0 = self.change_param_range(param=conv_params_hydro[:, 0],
                                             bounds=self.conv_routing_hydro_model_bound[0])
-            temp_b0 = self.change_param_range(param=conv_params_hydro[:, 1],
+            tempb_0 = self.change_param_range(param=conv_params_hydro[:, 1],
                                             bounds=self.conv_routing_hydro_model_bound[1])
-            tempa =  ((temp_a0* Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0) 
-            tempb =  ((temp_b0* Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0) 
+            tempa =  ((tempa_0* Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0) 
+            tempb =  ((tempb_0* Ai_batch_torch).unsqueeze(-1).repeat(1,Ngrid) * idx_mat_torch).sum(0) 
 
             routa = tempa.repeat(Nstep, 1).unsqueeze(-1)
             routb = tempb.repeat(Nstep, 1).unsqueeze(-1)
             UH = self.UH_gamma(routa, routb, lenF=15)  # lenF: folter
-            rf = torch.unsqueeze(Qsimmu, -1).permute([1, 2, 0])   # dim:gage*var*time
+            rf = torch.unsqueeze(Qsimmu, -1).permute([1, 2, 0])  # dim:gage*var*time
             UH = UH.permute([1, 2, 0])  # dim: gage*var*time
             Qsrout = self.UH_conv(rf, UH).permute([2, 0, 1])
 
-            if comprout is True: # Qs is [time, [gage*mult], var] now
+            #### Do routing individually for Q0, Q1, and Q2 (From Farshid).
+            rf_Q0 = Q0_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
+            Q0_rout = self.UH_conv(rf_Q0, UH).permute([2, 0, 1])
+            rf_Q1 = Q1_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
+            Q1_rout = self.UH_conv(rf_Q1, UH).permute([2, 0, 1])
+            rf_Q2 = Q2_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
+            Q2_rout = self.UH_conv(rf_Q2, UH).permute([2, 0, 1])
+            ####
+
+            if comprout is True: # Qs is shape [time, [gage*mult], var]
                 Qstemp = Qsrout.view(Nstep, Ngrid, nmul)
                 if muwts is None:
                     Qs = Qstemp.mean(-1, keepdim=True)
@@ -343,19 +370,27 @@ class HBVMulTDET_V2(torch.nn.Module):
             else:
                 Qs = Qsrout
 
-        else:  # no routing, output the initial average simulations
-            Qs = torch.unsqueeze(Qsimmu, -1) # add a dimension
+        else:  # No routing, output the initial average simulations
+            Qs = torch.unsqueeze(Qsimmu, -1)  # add a dimension
 
-        if init is True: # output states
+        if init is True: # Output states (i.e., warmup)
             return Qs, SNOWPACK, MELTWATER, SM, SUZ, SLZ
         else:
-            # return Qs
-            Qall = torch.cat((Qs, Q0_sim.unsqueeze(-1), Qsimmu1.unsqueeze(-1), Qsimmu2.unsqueeze(-1), ETmu.unsqueeze(-1), SWEmu.unsqueeze(-1), Qsimmu.unsqueeze(-1)), dim=-1)
             return dict(flow_sim=Qs,
+                        srflow=Q0_rout,
+                        ssflow=Q1_rout,
+                        gwflow=Q2_rout,
+                        AET_hydro=AET.mean(-1, keepdim=True),
                         PET_hydro=PET.mean(-1, keepdim=True),
-                        flow_sim_no_rout=Qsimmu.mean(-1, keepdim=True),
+                        flow_sim_no_rout=Qsimmu.mean(-1, keepdim=True),   
                         srflow_no_rout=Q0_sim.mean(-1, keepdim=True),
                         ssflow_no_rout=Q1_sim.mean(-1, keepdim=True),
                         gwflow_no_rout=Q2_sim.mean(-1, keepdim=True),
-                        SWE=SWEmu.mean(-1, keepdim=True),
-            )
+                        recharge=recharge_sim.mean(-1, keepdim=True),
+                        excs=excs_sim.mean(-1, keepdim=True),
+                        evapfactor=evapfactor_sim.mean(-1, keepdim=True),
+                        tosoil=tosoil_sim.mean(-1, keepdim=True),
+                        percolation=PERC_sim.mean(-1, keepdim=True),
+                        SWE=SWE_sim.mean(-1, keepdim=True),
+                        capillary=capillary_sim.mean(-1, keepdim=True)
+                        )

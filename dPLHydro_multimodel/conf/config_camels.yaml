@@ -1,13 +1,13 @@
 defaults:
     - _self_
     - hydra: settings
-    - observations: conus_3200_merit  # gages2_50, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
+    - observations: camels_671_dp_2024  # gages2_50, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
 
 
 
 ## General Config -------------------------------#
-mode: train_conus   # train, test, train_test, train_wnn_only, train_conus
-ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
+mode: test   # train, test, train_test, train_wnn_only, train_conus
+ensemble_type: free_pnn    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
 random_seed: 0  # 111111
@@ -31,15 +31,15 @@ output_dir: ${data_dir}/${observations.name}/saved_models/debugging/
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV_water_loss]    # HBV, HBV_capillary, HBV_water_loss, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV, marrmot_PRMS, SACSMA_with_snow]    # HBV, HBV_capillary, HBV_water_loss, marrmot_PRMS, SACSMA_with_snow
 ## TODO: ensemble_seeds: [2,6,6]
 dy_params:
     # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs
-    HBV: [parBETA, parBETAET, parK0]
+    HBV: [parBETA, parBETAET]
     HBV_capillary: []
     HBV_water_loss: [parBETA, parBETAET, parK0]
-    marrmot_PRMS: []
-    SACSMA_with_snow: []
+    marrmot_PRMS: [alpha, scx, cgw, resmax, k1, k2]
+    SACSMA_with_snow: [pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs]
 
 dy_drop: 0.0  # 0.0 always dynamic; 1.0 always static
 routing_hydro_model: True
@@ -48,18 +48,18 @@ pet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']    # 00060_Mean, 00010_Mean, BFI_AVE, PET
 use_log_norm: []  #['prcp(mm/day)']  # For applying log normalization. ([] for HBV1.1p)
 
-loss_function: NseLossBatchFlow  # RMSELossFlowComb, NSEsqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
+loss_function: RMSELossFlowComb  # RMSELossFlowComb, NSEsqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
 loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-nmul: 4 # HBV1.0: 16 | HBV2.0: 4
+nmul: 16 # HBV1.0: 16 | HBV2.0: 4
 warm_up: 365
 rho: 365
 batch_size: 100
 epochs: 50
 dropout: 0.5
-hidden_size: 64  # HBV1.0: 256 | HBV2.0: 64
+hidden_size: 256  # HBV1.0: 256 | HBV2.0: 64
 learning_rate: 1.0
 nearzero: 1e-5
 
