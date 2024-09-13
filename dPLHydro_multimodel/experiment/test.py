@@ -35,7 +35,7 @@ class TestModel:
     initializes all individual models, and runs tests a trained model.
     """
     def __init__(self, config: Config):
-        self.start = time.time()
+        # self.start = time.time()
         self.config = config
 
         # Initializing collection of dPL hydrology models.
@@ -92,29 +92,26 @@ class TestModel:
             # Forward pass for hydrology models.
             hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
 
-            # # Compile predictions from each batch.
-            # if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
-            #     # For ensembles w/ wNN: Forward pass for wNN to get ensemble weights.
-            #     self.ensemble_lstm(dataset_dict_sample, eval=True)
+            # Compile predictions from each batch.
+            if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
+                # For ensembles w/ wNN: Forward pass for wNN to get ensemble weights.
+                self.ensemble_lstm(dataset_dict_sample, eval=True)
 
-            #     # Ensemble hydrology models using learned weights.
-            #     ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
-            #     batched_preds_list.append({key: tensor.cpu().detach() for key,
-            #                                tensor in ensemble_pred.items()})
-            # elif self.config['ensemble_type'] == 'avg':
-            #     # For 'average' type ensemble: Average model predictions at each
-            #     # basin for each day.
-            #     ensemble_pred = model_average(hydro_preds, self.config)
-            #     batched_preds_list.append({key: tensor.cpu().detach() for key,
-            #                                tensor in ensemble_pred.items()})
-            # else:
-            #     # For single hydrology model.
-            #     model_name = self.config['hydro_models'][0]
-            #     batched_preds_list.append({key: tensor.cpu().detach() for key,
-            #                                tensor in hydro_preds[model_name].items()})
-        
-        print("Forward time: ", self.start - time.time())
-        exit()
+                # Ensemble hydrology models using learned weights.
+                ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
+                batched_preds_list.append({key: tensor.cpu().detach() for key,
+                                           tensor in ensemble_pred.items()})
+            elif self.config['ensemble_type'] == 'avg':
+                # For 'average' type ensemble: Average model predictions at each
+                # basin for each day.
+                ensemble_pred = model_average(hydro_preds, self.config)
+                batched_preds_list.append({key: tensor.cpu().detach() for key,
+                                           tensor in ensemble_pred.items()})
+            else:
+                # For single hydrology model.
+                model_name = self.config['hydro_models'][0]
+                batched_preds_list.append({key: tensor.cpu().detach() for key,
+                                           tensor in hydro_preds[model_name].items()})
         return batched_preds_list
 
     def calc_metrics(self, batched_preds_list: List[Dict[str, torch.Tensor]],

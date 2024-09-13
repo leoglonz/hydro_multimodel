@@ -1,21 +1,21 @@
 defaults:
     - _self_
     - hydra: settings
-    - observations: conus_3200_merit  # gages2_50, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
+    - observations: camels_671_dp_2024  # gages2_50, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
 
 
 
 ## General Config -------------------------------#
-mode: train_conus   # train, test, train_test, train_wnn_only, train_conus
+mode: train_test   # train, test, train_test, train_wnn_only, train_conus
 ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
 random_seed: 0  # 111111
 device: cuda
-gpu_id: 1  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 5  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
-    start_time: 1980/10/01
+    start_time: tmux ls
     end_time: 1995/10/01
 test:
     start_time: 1995/10/01
@@ -24,22 +24,21 @@ test:
 batch_basins: 25
 
 name: hmm1.3-${observations.name}
-# data_dir: /Users/leoglonz/Desktop/water/data
-# data_dir: F:\code_repos\water\data
+
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs  # Might remove #F:\code_repos\water\hydro_multimodel\dPLHydro_multimodel\runs  
-output_dir: ${data_dir}/${observations.name}/saved_models/debugging/
+output_dir: ${data_dir}/${observations.name}/saved_models/
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV_water_loss]    # HBV, HBV_capillary, HBV_water_loss, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [SACSMA_with_snow]    # HBV, HBV_capillary, HBV_water_loss, marrmot_PRMS, SACSMA_with_snow
 ## TODO: ensemble_seeds: [2,6,6]
 dy_params:
-    # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz rexp, f3, f4, pfree, klzp, klzs
-    HBV: [parBETA, parBETAET, parK0]
-    HBV_capillary: []
+    # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs
+    HBV: [parBETA, parBETAET]
+    HBV_capillary: [parBETA, parBETAET]
     HBV_water_loss: [parBETA, parBETAET, parK0]
-    marrmot_PRMS: []
-    SACSMA_with_snow: []
+    marrmot_PRMS: [alpha, scx, cgw, resmax, k1, k2]
+    SACSMA_with_snow: [pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs]
 
 dy_drop: 0.0  # 0.0 always dynamic; 1.0 always static
 routing_hydro_model: True
@@ -48,22 +47,23 @@ pet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']    # 00060_Mean, 00010_Mean, BFI_AVE, PET
 use_log_norm: []  #['prcp(mm/day)']  # For applying log normalization. ([] for HBV1.1p)
 
-loss_function: NseLossBatchFlow  # RMSELossFlowComb, NSEsqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
+loss_function: NseLossBatchFlow  # RmseLossFlowComb, NseSqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
 loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-nmul: 4 # HBV1.0: 16 | HBV2.0: 4
+nmul: 16 # HBV1.0: 16 | HBV2.0: 4
 warm_up: 365
 rho: 365
 batch_size: 100
 epochs: 50
 dropout: 0.5
-hidden_size: 64  # HBV1.0: 256 | HBV2.0: 64
+hidden_size: 256  # HBV1.0: 256 | HBV2.0: 64
 learning_rate: 1.0
-nearzero: 1e-5
+nearzero: 1e-4
 
 save_epoch: 10
+# test_epoch: 40
 
 weighting_nn:
     dropout: 0.5

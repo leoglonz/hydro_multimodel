@@ -356,7 +356,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
                 if key in args['dy_params']['SACSMA_with_snow']:  ## it is a dynamic parameter
                     # params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
                     # Drop dynamic parameters as static in some basins
-                    params_dict[key] = params_dict_raw_dyn[key][warm_up + t, :, :]
+                    params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
 
             uztwm = params_dict["f1"] * params_dict["smax"]
             uzfwm = torch.clamp(params_dict["f2"] * (params_dict["smax"] - uztwm), min=0.005 / 4)
