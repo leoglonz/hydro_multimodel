@@ -80,7 +80,7 @@ class TrainWNNModel:
                                                     ngrid_train, nt, batch_size)
 
             # Forward pass
-            model_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
+            model_preds = self.dplh_model_handler(dataset_dict_sample, eval=False)
             self.ensemble_lstm(dataset_dict_sample)
         
             total_loss, loss_rb, loss_sf = self.ensemble_lstm.calc_loss(model_preds)

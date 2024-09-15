@@ -215,12 +215,12 @@ class WeightingNNConfig(BaseModel):
     loss_function_weights: LossFunc
 
 
-class Checkpoint(BaseModel):
-    start_epoch: int
-    HBV: str
-    marrmot_PRMS: str
-    SACSMA_with_snow: str
-    weighting_nn: str
+# class Checkpoint(BaseModel):
+#     start_epoch: int
+#     HBV: str
+#     marrmot_PRMS: str
+#     SACSMA_with_snow: str
+#     weighting_nn: str
 
 
 @dataclass
@@ -305,7 +305,7 @@ class Config(BaseModel):
     data_dir: str
     output_dir: str
     use_checkpoint: bool
-    checkpoint: Checkpoint
+    # checkpoint: Checkpoint
 
     # gage_info: str = "not_defined"
     # attr_path: str = "not_defined"

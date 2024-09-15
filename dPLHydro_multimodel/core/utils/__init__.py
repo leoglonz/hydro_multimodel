@@ -182,11 +182,16 @@ def save_outputs(config, preds_list, y_obs, create_dirs=False) -> None:
     if create_dirs: create_output_dirs(config)
 
     for key in preds_list[0].keys():
-        if len(preds_list[0][key].shape) == 3:
-            # May need to flip 1 and 0 to save multimodels.
-            dim = 1
+        if config['ensemble_type'] != 'none':
+            if len(preds_list[0][key].shape) == 3:
+                dim = 0
+            else:
+                dim = 1
         else:
-            dim = 0
+            if len(preds_list[0][key].shape) == 3:
+                dim = 1
+            else:
+                dim = 0
 
         concatenated_tensor = torch.cat([d[key] for d in preds_list], dim=dim)
         file_name = key + ".npy"        

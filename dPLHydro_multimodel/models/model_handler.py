@@ -44,6 +44,11 @@ class ModelHandler(torch.nn.Module):
             for mod in self.config['hydro_models']:
                 load_path = self.config['checkpoint'][mod]
                 self.model_dict[mod] = torch.load(load_path).to(self.config['device'])
+
+                # Overwrite internal config if there is discontinuity:
+                if self.model_dict[mod].config:
+                    self.model_dict[mod].config = self.config
+
                 self.model_dict[mod].zero_grad()
 
         elif self.config['use_checkpoint']:

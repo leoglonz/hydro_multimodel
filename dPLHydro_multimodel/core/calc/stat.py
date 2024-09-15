@@ -15,8 +15,11 @@ def stat_error(pred, target):
     ngrid, nt = pred.shape
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        # Bias
+
+        # debug
         print(pred.shape, target.shape)
+
+        # Bias
         Bias = np.nanmean(pred - target, axis=1)
         # RMSE
         RMSE = np.sqrt(np.nanmean((pred - target) ** 2, axis=1))
