@@ -51,6 +51,6 @@ var_t_hydro_model: [
   'PET_hargreaves(mm/day)'
 ]
 var_c_hydro_model: [
-  'DRAIN_SQKM',
+  'area_gages2',
   'lat'
 ]

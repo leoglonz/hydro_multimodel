@@ -1,59 +1,50 @@
 name: conus_5000_merit
-gage_info: None
-forcing_path: data/yxs275/CONUS_data/conus_merit/forcing/
-attr_path: data/yxs275/CONUS_data/conus_merit/attr/
+data_dir: /data/yxs275/CONUS_data/FromGAGEII/generate_for_CONUS_3200/gages/dataCONUS3200/
+gage_info_path: /data/yxs275/CONUS_data/CONUS_for_NH_training/gages_3000_merit_info.csv
+attr_path: /data/yxs275/CONUS_data/attributes/CONUS_3254/attributes_haoyu/attributes_haoyu.csv
+shape_id_path: /data/yxs275/CONUS_data/FromGAGEII/generate_for_CONUS_3200/shapeID_str_lst.npy
+
+area_info_path: /data/lgl5139/data/conus/conus_3200/area_info.json
+merit_path: ''
+merit_idx_path: /data/lgl5139/data/conus/conus_3200/merit_idx.json
 classification: region
 
-
-# For CONUS.
-# 1. data/yxs275/DPL_HBV/CONUS_3700_data/generate_for_deltaHBV/gages/dataCONUS3700/
-# 2. data/yxs275/CONUS_data/conus_merit  ### Probably this one.
-
-# For merit code
-# 1. vim /data/yxs275/MMM/fromMukesh/merit_map_v3_processing.ipynb
-# 2. 
-
 var_t_nn: [
-  'prcp(mm/day)',
-  'tmax(C)',
-  'tmin(C)',
+  P,
+  Temp,
+  PET,
 ]
 var_c_nn: [
-  'aridity',
-  'meanP',
-  'ETPOT_Hargr',
-  'NDVI',
-  'FW',
-  'meanslope',
-  'SoilGrids1km_sand',
-  'SoilGrids1km_clay',
-  'SoilGrids1km_silt',
-  'glaciers',
-  'HWSD_clay',
-  'HWSD_gravel',
-  'HWSD_sand',
-  'HWSD_silt',
-  'meanelevation',
-  'meanTa',
-  'permafrost',
-  'permeability',
-  'seasonality_P',
-  'seasonality_PET',
-  'snow_fraction',
-  'snowfall_fraction',
-  'T_clay',
-  'T_gravel',
-  'T_sand',
-  'T_silt',
-  'Porosity',
-  'catchsize'
-]
+  uparea,
+  ETPOT_Hargr,
+  FW,
+  HWSD_clay,
+  HWSD_gravel,
+  HWSD_sand,
+  HWSD_silt, 
+  NDVI,
+  Porosity,
+  SoilGrids1km_clay,
+  SoilGrids1km_sand,
+  SoilGrids1km_silt,
+  T_clay,
+  T_gravel,
+  T_sand,
+  T_silt,
+  aridity,
+  glaciers,
+  meanP,
+  meanTa,
+  meanelevation,
+  meanslope,
+  permafrost,
+  permeability,
+  seasonality_P,
+  seasonality_PET,
+  snow_fraction,
+  snowfall_fraction
+  ]
 
-var_t_hydro_model: [
-  'prcp(mm/day)',
-  'tmax(C)',
-  'tmin(C)',
-]
-var_c_hydro_model: [
-  'catchsize',
+water_loss_params: [
+  uparea
 ]

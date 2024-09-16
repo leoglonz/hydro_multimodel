@@ -425,8 +425,6 @@ class HBVMulTDET_water_loss(torch.nn.Module):
 
 
         if routOpt is True: # routing
-
-
             # scale two routing parameters
             tempa0 = routscaLst[0][0] + rtwts[:,0]*(routscaLst[0][1]-routscaLst[0][0])
             tempb0 = routscaLst[1][0] + rtwts[:,1]*(routscaLst[1][1]-routscaLst[1][0])

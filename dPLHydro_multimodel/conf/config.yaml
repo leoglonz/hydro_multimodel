@@ -6,11 +6,11 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: test   # train, test, train_test, train_wnn, train_conus
+mode: train   # train, test, train_test, train_wnn, train_conus
 ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
-random_seed: 0  # 111111
+random_seed: 111111  # 0, 111111
 device: cuda
 gpu_id: 7  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
@@ -27,18 +27,18 @@ name: hmm1.3-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs  # Might remove #F:\code_repos\water\hydro_multimodel\dPLHydro_multimodel\runs  
-output_dir: ${data_dir}/${observations.name}/saved_models/
+output_dir: ${data_dir}/${observations.name}/debugging
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [SACSMA_with_snow]    # HBV, HBV_capillary, HBV_water_loss, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV]    # HBV, HBV_capillary, HBV_water_loss, marrmot_PRMS, SACSMA_with_snow
 ## TODO: ensemble_seeds: [2,6,6]
 dy_params:
     # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs
     HBV: [parBETA, parBETAET]
-    HBV_capillary: [parBETA, parBETAET, parK0]
+    # HBV_capillary: [parBETA, parBETAET, parK0]
     # HBV_water_loss: [parBETA, parBETAET, parK0]
-    marrmot_PRMS: [alpha, scx, cgw, resmax, k1, k2]
+    marrmot_PRMS: []
     SACSMA_with_snow: []
 
 dy_drop: 0.0  # 0.0 always dynamic; 1.0 always static

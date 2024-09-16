@@ -108,9 +108,7 @@ key_info = [str(x) for x in idLst_new]
 
 
 with open('/projects/mhpi/yxs275/tools/extrect_merit_in_basin/'+'area_info.json') as f:
-    area_info = json.load(f)
-
-save_path_merit_path = '/projects/mhpi/yxs275/Data/merit_data_in_gages_3000_merit_filled_train/CONUS2800'
+    area_info = json.loa = '/projects/mhpi/yxs275/Data/merit_data_in_gages_3000_merit_filled_train/CONUS2800'
 
 with open('/projects/mhpi/yxs275/Data/merit_data_in_gages_3000_merit_filled_train/' + 'merit_idx.json') as f:
     merit_idx = json.load(f)
@@ -244,7 +242,7 @@ if os.path.exists(out) is False:
 
 with open(out+'/dapengscaler_stat.json','w') as f: 
     json.dump(stat_dict, f)
-
+ 
 # KFold for spatial test
 # fold_number = 1
 # # Define the number of folds (K)
