@@ -98,9 +98,10 @@ class dPLHydroModel(torch.nn.Module):
             dataset_dict_sample['c_hydro_model'],
             params_dict['hydro_params_raw'],
             self.config,
+            muwts=None,
             warm_up=self.config['warm_up'],
             routing=self.config['routing_hydro_model'],
-            conv_params_hydro=params_dict['conv_params_hydro']
+            conv_params_hydro=params_dict['conv_params_hydro']  # == rtwts = routpara, Yalan
         )
         # Baseflow index percentage
         ## Using two deep groundwater buckets: gwflow & bas_shallow

@@ -116,7 +116,7 @@ def calculate_statistics_gamma(x: np.ndarray) -> List[float]:
     :return: List of statistics [10th percentile, 90th percentile, mean, std]
     """
     a = x.flatten()
-    b = a[(~np.isnan(a)) & (a != -999999)]
+    b = a[(~np.isnan(a))]  # & (a != -999999)]
     b = np.log10(
         np.sqrt(b) + 0.1
     )  # Some tranformation to change gamma characteristics, add 0.1 for 0 values.
@@ -182,11 +182,12 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
     :param to_norm: Whether to normalize or de-normalize
     :return: Transformed data
     """
+    # Load in the statistics for forcings.
     stat_file = os.path.join(config['output_dir'], 'statistics_basinnorm.json')
     with open(stat_file, 'r') as f:
         stat_dict = json.load(f)
 
-    var_lst = [var_lst] if isinstance(var_lst, str) else var_lst
+    var_lst = [var_lst] if isinstance(var_lst, str) else var_lst  # Enforce list format
     out = np.zeros(x.shape)
     x_temp = x.copy()
     
@@ -196,13 +197,13 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
         if to_norm:
             if len(x.shape) == 3:
                 if var in config['use_log_norm']: # 'prcp(mm/day)', '00060_Mean', 'combine_discharge
-                    x_temp[:, :, k] = np.log10(np.sqrt(x_temp[:, :, k]) + 0.1)
-                out[:, :, k] = (x_temp[:, :, k] - stat[2]) / stat[3]
+                    x[:, :, k] = np.log10(np.sqrt(x[:, :, k]) + 0.1)
+                out[:, :, k] = (x[:, :, k] - stat[2]) / stat[3]
 
             elif len(x.shape) == 2:
                 if var in config['use_log_norm']:
-                    x_temp[:, k] = np.log10(np.sqrt(x_temp[:, k]) + 0.1)
-                out[:, k] = (x_temp[:, k] - stat[2]) / stat[3]
+                    x[:, k] = np.log10(np.sqrt(x[:, k]) + 0.1)
+                out[:, k] = (x[:, k] - stat[2]) / stat[3]
             else:
                 raise ValueError("Incorrect input dimensions. x array must have 2 or 3 dimensions.")
         

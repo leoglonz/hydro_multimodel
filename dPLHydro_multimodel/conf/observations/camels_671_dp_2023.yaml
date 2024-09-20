@@ -1,11 +1,13 @@
+# Use this for comparing to CAMELS benchmarks on MHPI page.
 name: camels_671_dp_2023
 gage_info: None
-forcing_path: F:\code_repos\water\data\Camels\camels_671_2023113_prep\camels_671_dp_20231113.feather #/scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/camels_671_dp_20231113.feather
-attr_path:  F:\code_repos\water\data\Camels\camels_671_2023113_prep\attr_camels_all_sep14_2023.feather #/scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/attr_camels_all_sep14_2023.feather
+forcing_path: /scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/camels_671_dp_20231113.feather
+attr_path:  /scratch/fzr5082/PGML_STemp_results/inputs/PRMS_SNTEMP/dataset_20231113/attr_camels_all_sep14_2023.feather
 
 var_t_nn: [
   'prcp(mm/day)',
   'tmean(C)',
+  # 'dayl(s)',
   'PET_hargreaves(mm/day)'
 ]
 var_c_nn: [
@@ -51,6 +53,6 @@ var_t_hydro_model: [
   'PET_hargreaves(mm/day)'
 ]
 var_c_hydro_model: [
-  'area_gages2',
+  # 'area_gages2',
   'lat'
 ]

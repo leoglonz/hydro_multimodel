@@ -141,7 +141,7 @@ class CudnnLstmModel(torch.nn.Module):
         self.lstm = CudnnLstm(inputSize=hiddenSize, hiddenSize=hiddenSize, dr=dr)
         
         self.linearOut = torch.nn.Linear(hiddenSize, ny)
-        self.activation_sigmoid = torch.nn.Sigmoid()
+        # self.activation_sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, doDropMC=False, dropoutFalse=False):
         x0 = F.relu(self.linearIn(x))

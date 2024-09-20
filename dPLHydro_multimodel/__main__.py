@@ -6,6 +6,11 @@ import logging
 import time
 from typing import Any, Dict, Union, Tuple
 
+import numpy as np
+import random
+import torch
+import os
+
 import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
@@ -36,7 +41,8 @@ def main(cfg: DictConfig) -> None:
         experiment_tracker = ExperimentTracker(cfg=config)
 
         # Set device, dtype, output directories, and random seed.
-        randomseed_config()
+        randomseed_config(config.random_seed)
+
         config.device, config.dtype = set_system_spec(config.gpu_id)
         config_dict = create_output_dirs(config_dict)
 
@@ -101,6 +107,8 @@ def run_experiment(config: Config, config_dict: Dict[str, Any], experiment_track
     """
     experiment_handler = build_handler(config, config_dict)
     experiment_handler.run(experiment_tracker=experiment_tracker)
+
+
 
 if __name__ == "__main__":
     main()

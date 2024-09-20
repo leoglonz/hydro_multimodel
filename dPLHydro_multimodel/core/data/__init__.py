@@ -34,7 +34,7 @@ def random_index(ngrid: int, nt: int, dim_subset: Tuple[int, int],
                  warm_up: int = 0) -> Tuple[np.ndarray, np.ndarray]:
     batch_size, rho = dim_subset
     i_grid = np.random.randint(0, ngrid, size=batch_size)
-    i_t = np.random.randint(warm_up, nt - rho, size=batch_size)  # or 0+warm_up?
+    i_t = np.random.randint(0 + warm_up, nt - rho, size=batch_size)
     return i_grid, i_t
 
 
@@ -58,6 +58,7 @@ def select_subset(config: Dict,
                   i_grid: np.ndarray,
                   i_t: np.ndarray,
                   rho: int,
+                  *,
                   c: Optional[np.ndarray] = None,
                   tuple_out: bool = False,
                   has_grad: bool = False,
@@ -67,6 +68,12 @@ def select_subset(config: Dict,
     Select a subset of input array.
     """
     nx = x.shape[-1]
+    nt = x.shape[0]
+    if x.shape[0] == len(i_grid):   #hack
+        i_grid = np.arange(0,len(i_grid))  # hack
+    if nt <= rho:
+        i_t.fill(0)
+
     batch_size = i_grid.shape[0]
 
     if i_t is not None:

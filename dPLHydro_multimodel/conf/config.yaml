@@ -1,7 +1,7 @@
 defaults:
     - _self_
     - hydra: settings
-    - observations: camels_671_dp_2024  # gages2_50, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
+    - observations: camels_671_yalan  # gages2_50, camels_671_yalan, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
 
 
 

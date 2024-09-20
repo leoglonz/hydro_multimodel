@@ -91,7 +91,7 @@ class DataFrame_dataset(Data_Reader):
             dfMain = pd.read_csv(self.inputfile)
             dfC = pd.read_csv(self.inputfile_attr)
         elif inputfile.endswith('.feather'):
-            dfMain = pd.read_feather(self.inputfile)
+            sdfMain = pd.read_feather(self.inputfile)
             dfC = pd.read_feather(self.inputfile_attr)
         else:
             print("data type is not supported")
@@ -215,9 +215,9 @@ class choose_class_to_read_dataset():
         self.args = args
         self.trange = trange
         self.data_path = data_path
-        self.get_dataset_class()
+        self._get_dataset_class()
         
-    def get_dataset_class(self) -> None:
+    def _get_dataset_class(self) -> None:
         if self.data_path.endswith(".feather") or self.data_path.endswith(".csv"):
             self.read_data = DataFrame_dataset(args=self.args, tRange=self.trange, data_path=self.data_path)
         elif self.data_path.endswith(".npy") or self.data_path.endswith(".pt"):
@@ -225,25 +225,53 @@ class choose_class_to_read_dataset():
 
 
 def load_data(config, t_range=None):
+    """
+    Load data into dictionaries for pNN and hydro model.
+    """
     if t_range == None:
         t_range = config['t_range']
 
     out_dict = dict()
-    forcing_dataset_class = choose_class_to_read_dataset(config, t_range, config['observations']['forcing_path'])
-    # getting inputs for neural network:
-    out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_nn'])
-    out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_nn'])
-    obs_raw = forcing_dataset_class.read_data.getDataTs(config, varLst=config['target'])
+
+    if config['observations']['name'] == 'camels_671_yalan':
+        ## NOTE: This is a temporary addition to validate HBV models against Yalan's
+        ## implementations. Using the same data extraction as her.
+        with open('/data/yxs275/CAMELS/training_file', 'rb') as f:
+            import pickle
+            forcing_train, target_train, attr_train = pickle.load(f)
+        
+        startYear =1980
+        endYear = 1995
+        AllTime = pd.date_range('1980-10-01', f'2014-09-30', freq='d')
+        newTime = pd.date_range(f'{startYear}-10-01', f'{endYear}-09-30', freq='d')
+
+        index_start = AllTime.get_loc(newTime[0])
+        index_end = AllTime.get_loc(newTime[-1]) + 1
+
+        out_dict['x_nn'] = np.transpose(forcing_train[:,index_start:index_end], (1,0,2))
+        out_dict['c_nn'] = attr_train[:,index_start:index_end]
+        obs_raw = np.transpose(target_train[:,index_start:index_end], (1,0,2))
+
+        out_dict['x_hydro_model'] = out_dict['x_nn']
+        out_dict['c_hydro_model'] = out_dict['c_nn']  # just a placeholder.
+    
+    else:
+        forcing_dataset_class = choose_class_to_read_dataset(config, t_range, config['observations']['forcing_path'])
+        # getting inputs for neural network:
+        out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_nn'])
+        out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_nn'])
+        obs_raw = forcing_dataset_class.read_data.getDataTs(config, varLst=config['target'])
+
+        out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_hydro_model'])
+        out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_hydro_model'])
+    
     # Streamflow unit conversion.
     if '00060_Mean' in config['target']:
         out_dict['obs'] = converting_flow_from_ft3_per_sec_to_mm_per_day(config,
-                                                                         out_dict['c_nn'],
-                                                                         obs_raw)
+                                                                        out_dict['c_nn'],
+                                                                        obs_raw)
     else:
         out_dict['obs'] = obs_raw
-    
-    out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_hydro_model'])
-    out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_hydro_model'])
 
     return out_dict
 
@@ -285,10 +313,13 @@ def get_data_dict(config, train=False):
         dataset_dict = load_data(config, config['test_t_range'])
 
     # Normalization
-    x_nn_scaled = trans_norm(config, dataset_dict['x_nn'],
+    x_nn_scaled = trans_norm(config, dataset_dict['x_nn'].copy(),
                              var_lst=config['observations']['var_t_nn'], to_norm=True)
-    c_nn_scaled = trans_norm(config, dataset_dict['c_nn'],
+    x_nn_scaled[x_nn_scaled != x_nn_scaled] = 0  # Remove nans
+
+    c_nn_scaled = trans_norm(config, dataset_dict['c_nn'].copy(),
                              var_lst=config['observations']['var_c_nn'], to_norm=True)
+    c_nn_scaled[c_nn_scaled != c_nn_scaled] = 0  # Remove nans
     c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
 
     dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)

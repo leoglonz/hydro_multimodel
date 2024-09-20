@@ -5,7 +5,7 @@ import re
 import os
 import sys
 
-sys.path.append('/dPLHydro_multimodel')
+sys.path.append('/dPLHydro_multimodel/')
 
 
 
@@ -34,7 +34,8 @@ def get_loss_function(args, obs):
     """
     loss_function = args['loss_function']
     file_name = camel_to_snake(loss_function)
-    file_path = os.path.join('models', 'loss_functions', f"{file_name}.py")
+    ## TODO: change `./../models` back to `models`.
+    file_path = os.path.join('/data/lgl5139/hydro_multimodel/dPLHydro_multimodel/models', 'loss_functions', f"{file_name}.py")
 
     # Load the module dynamically.
     spec = importlib.util.spec_from_file_location(loss_function, file_path)
