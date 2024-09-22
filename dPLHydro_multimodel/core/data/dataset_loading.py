@@ -91,7 +91,7 @@ class DataFrame_dataset(Data_Reader):
             dfMain = pd.read_csv(self.inputfile)
             dfC = pd.read_csv(self.inputfile_attr)
         elif inputfile.endswith('.feather'):
-            sdfMain = pd.read_feather(self.inputfile)
+            dfMain = pd.read_feather(self.inputfile)
             dfC = pd.read_feather(self.inputfile_attr)
         else:
             print("data type is not supported")
@@ -248,9 +248,9 @@ def load_data(config, t_range=None):
         index_start = AllTime.get_loc(newTime[0])
         index_end = AllTime.get_loc(newTime[-1]) + 1
 
-        out_dict['x_nn'] = np.transpose(forcing_train[:,index_start:index_end], (1,0,2))
-        out_dict['c_nn'] = attr_train[:,index_start:index_end]
-        obs_raw = np.transpose(target_train[:,index_start:index_end], (1,0,2))
+        out_dict['x_nn'] = np.transpose(forcing_train[:,index_start:index_end], (1,0,2))  # Forcings
+        out_dict['c_nn'] = attr_train[:,index_start:index_end]  # Attributes
+        out_dict['obs'] = np.transpose(target_train[:,index_start:index_end], (1,0,2))  # Observation target
 
         out_dict['x_hydro_model'] = out_dict['x_nn']
         out_dict['c_hydro_model'] = out_dict['c_nn']  # just a placeholder.
@@ -260,19 +260,11 @@ def load_data(config, t_range=None):
         # getting inputs for neural network:
         out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_nn'])
         out_dict['c_nn'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_nn'])
-        obs_raw = forcing_dataset_class.read_data.getDataTs(config, varLst=config['target'])
+        out_dict['obs'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['target'])
 
         out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_hydro_model'])
         out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_hydro_model'])
     
-    # Streamflow unit conversion.
-    if '00060_Mean' in config['target']:
-        out_dict['obs'] = converting_flow_from_ft3_per_sec_to_mm_per_day(config,
-                                                                        out_dict['c_nn'],
-                                                                        obs_raw)
-    else:
-        out_dict['obs'] = obs_raw
-
     return out_dict
 
 
@@ -313,17 +305,26 @@ def get_data_dict(config, train=False):
         dataset_dict = load_data(config, config['test_t_range'])
 
     # Normalization
-    x_nn_scaled = trans_norm(config, dataset_dict['x_nn'].copy(),
+    x_nn_scaled = trans_norm(config, np.swapaxes(dataset_dict['x_nn'], 1, 0).copy(),
                              var_lst=config['observations']['var_t_nn'], to_norm=True)
     x_nn_scaled[x_nn_scaled != x_nn_scaled] = 0  # Remove nans
 
-    c_nn_scaled = trans_norm(config, dataset_dict['c_nn'].copy(),
-                             var_lst=config['observations']['var_c_nn'], to_norm=True)
+    c_nn_scaled = trans_norm(config, dataset_dict['c_nn'],
+                             var_lst=config['observations']['var_c_nn'], to_norm=True) ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
     c_nn_scaled[c_nn_scaled != c_nn_scaled] = 0  # Remove nans
     c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
 
     dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
     del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
+    
+    # Streamflow unit conversion.
+    #### MOVED FROM LOAD_DATA
+    if '00060_Mean' in config['target']:
+        dataset_dict['obs'] = converting_flow_from_ft3_per_sec_to_mm_per_day(
+            config,
+            dataset_dict['c_nn'],
+            dataset_dict['obs']
+        )
 
     return dataset_dict, config
 

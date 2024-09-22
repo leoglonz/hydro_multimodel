@@ -9,18 +9,25 @@ from tqdm import tqdm
 
 
 
-def calc_stat_basinnorm(y: np.ndarray, c: np.ndarray, config: Dict[str, Any]) -> List[float]:
+def calc_stat_basinnorm(x: np.ndarray, c: np.ndarray, config: Dict[str, Any]) -> List[float]:
     """
     Taken from the calStatsbasinnorm function of hydroDL.
     For daily streamflow normalized by basin area and precipitation.
 
-    :param y: streamflow data to be normalized
+    :param x:  data to be normalized
     :param c: forcing + attr numpy matrix
     :param config: config file
     :return: statistics to be used for flow normalization
     """
-    y[y == (-999)] = np.nan
-    y[y < 0] = 0
+    # x = np.swapaxes(x[:, :, 0:1], 1,0)  ## NOTE: swap axes back to match original PMI. This affects calculations...
+
+    x[x == (-999)] = np.nan
+    x[x < 0] = 0
+
+    nd = len(x.shape)
+    if nd == 3 and x.shape[2] == 1:
+        x = x[:, :, 0]  # Unsqueeze the original 3 dim matrix
+
     attr_list = config['observations']['var_c_nn']
 
     if 'DRAIN_SQKM' in attr_list:
@@ -29,25 +36,19 @@ def calc_stat_basinnorm(y: np.ndarray, c: np.ndarray, config: Dict[str, Any]) ->
         area_name = 'area_gages2'
     else:
         raise ValueError("Unsupported area name.")
-    basinarea = c[:, attr_list.index(area_name)]
-
-    if 'PPTAVG_BASIN' in attr_list:
-        p_mean_name = 'PPTAVG_BASIN'
-    elif 'p_mean' in attr_list:
-        p_mean_name = 'p_mean'
-    else:
-        raise ValueError("Unsupported p_mean name.")
-    meanprep = c[:, attr_list.index(p_mean_name)]
-
-    temparea = np.repeat(np.expand_dims(basinarea, axis=(1,2)), y.shape[0]).reshape(y.shape)
-    tempprep = np.repeat(np.expand_dims(meanprep, axis=(1, 2)), y.shape[0]).reshape(y.shape)
     
-    flowua = (y * 0.0283168 * 3600 * 24) / (
-        (temparea * 10**6) * (tempprep * 10**-2) / 365
-    )  # unit (m^3/day)/(m^3/day)
+    c_inv = np.swapaxes(c, 1, 0)  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
+    basin_area = c[:, attr_list.index(area_name)][:, np.newaxis]
+    temparea = np.tile(basin_area, (1, x.shape[1]))
+
+    # flow = (x * 0.0283168 * 3600 * 24) / (
+    #     (temparea * (10**6)) * (tempprep * 10 ** (-3))
+    # )  # (m^3/day)/(m^3/day)
+
+    flow = (x * 0.0283168 * 3600 * 24) / (temparea * (10 ** 6)) * 10 ** 3
 
     # Apply tranformation to change gamma characteristics, add 0.1 for 0 values.
-    a = flowua.flatten()
+    a = flow.flatten()
     b = np.log10( np.sqrt(a[~np.isnan(a)]) + 0.1)
 
     p10, p90 = np.percentile(b, [10,90]).astype(float)
@@ -65,8 +66,15 @@ def calculate_statistics(x: np.ndarray) -> List[float]:
     :param x: Input data
     :return: List of statistics [10th percentile, 90th percentile, mean, std]
     """
-    a = x.flatten()
+    if len(x.shape) > 1:
+        a = np.swapaxes(x, 1, 0).flatten()  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
+    else:
+        a = x.flatten()  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
+
     b = a[(~np.isnan(a)) & (a != -999999)]
+    if b.size == 0:
+        b = np.array([0])
+
     p10, p90 = np.percentile(b, [10,90]).astype(float)
     mean = np.mean(b).astype(float)
     std = np.std(b).astype(float)
@@ -115,16 +123,15 @@ def calculate_statistics_gamma(x: np.ndarray) -> List[float]:
     :param x: Input data
     :return: List of statistics [10th percentile, 90th percentile, mean, std]
     """
-    a = x.flatten()
+    a = np.swapaxes(x, 1, 0).flatten()  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
     b = a[(~np.isnan(a))]  # & (a != -999999)]
     b = np.log10(
         np.sqrt(b) + 0.1
-    )  # Some tranformation to change gamma characteristics, add 0.1 for 0 values.
+    )  # Transform to change gamma characteristics, add 0.1 for 0 values.
 
     p10, p90 = np.percentile(b, [10,90]).astype(float)
     mean = np.mean(b).astype(float)
     std = np.std(b).astype(float)
-    # if std < 0.001: std = 1
 
     return [p10, p90, mean, max(std, 0.001)]
 
@@ -145,17 +152,19 @@ def calculate_statistics_all(config: Dict[str, Any], x: np.ndarray, c: np.ndarra
     # Target stats
     for i, target_name in enumerate(config['target']):
         if target_name == '00060_Mean':
-            stat_dict[config['target'][i]] = calc_stat_basinnorm(y[:, :, i:i+1], c, config)
+            stat_dict[config['target'][i]] = calc_stat_basinnorm(
+                np.swapaxes(y[:, :, i:i+1], 1,0).copy(), c, config
+            )  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
         else:
-            stat_dict[config['target'][i]] = calculate_statistics(y[:, :, i:i+1])
+            stat_dict[config['target'][i]] = calculate_statistics(
+                np.swapaxes(y[:, :, i:i+1], 1,0)
+            )  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
 
     # Forcing stats
     var_list = config['observations']['var_t_nn']
     for k, var in enumerate(var_list):
         if var in config['use_log_norm']:
             stat_dict[var] = calculate_statistics_gamma(x[:, :, k])
-        elif var in ['00060_Mean', 'combine_discharge']:
-            stat_dict[var] = calc_stat_basinnorm(x[:, :, k: k + 1], x, config)
         else:
             stat_dict[var] = calculate_statistics(x[:, :, k])
 
@@ -189,7 +198,7 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
 
     var_lst = [var_lst] if isinstance(var_lst, str) else var_lst  # Enforce list format
     out = np.zeros(x.shape)
-    x_temp = x.copy()
+    xtemp = x
     
     for k, var in enumerate(var_lst):
         stat = stat_dict[var]
@@ -199,7 +208,6 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
                 if var in config['use_log_norm']: # 'prcp(mm/day)', '00060_Mean', 'combine_discharge
                     x[:, :, k] = np.log10(np.sqrt(x[:, :, k]) + 0.1)
                 out[:, :, k] = (x[:, :, k] - stat[2]) / stat[3]
-
             elif len(x.shape) == 2:
                 if var in config['use_log_norm']:
                     x[:, k] = np.log10(np.sqrt(x[:, k]) + 0.1)
@@ -209,17 +217,20 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
         
         else:
             if len(x.shape) == 3:
-                out[:, :, k] = x_temp[:, :, k] * stat[3] + stat[2]
+                out[:, :, k] = x[:, :, k] * stat[3] + stat[2]
                 if var in config['use_log_norm']:
                     out[:, :, k] = (np.power(10, out[:, :, k]) - 0.1) ** 2
             elif len(x.shape) == 2:
-                out[:, k] = x_temp[:, k] * stat[3] + stat[2]
+                out[:, k] = x[:, k] * stat[3] + stat[2]
                 if var in config['use_log_norm']:
                     out[:, k] = (np.power(10, out[:, k]) - 0.1) ** 2
             else:
                 raise ValueError("Incorrect input dimensions. x array must have 2 or 3 dimensions.")
 
-    return out
+    if len(out.shape) < 3:
+        return out
+    else:
+        return np.swapaxes(out, 1, 0) ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
 
 
 def init_norm_stats(config: Dict[str, Any], x_NN: np.ndarray, c_NN: np.ndarray, y: np.ndarray) -> None:

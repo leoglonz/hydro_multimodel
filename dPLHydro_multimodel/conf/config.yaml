@@ -1,7 +1,7 @@
 defaults:
     - _self_
     - hydra: settings
-    - observations: camels_671_yalan  # gages2_50, camels_671_yalan, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
+    - observations: camels_531_yalan  # gages2_50, camels_671_yalan, camels_671_dp_2024, camels_671_dp_2023, conus_3200_merit, conus_5000_merit
 
 
 
@@ -42,6 +42,7 @@ dy_params:
     SACSMA_with_snow: []
 
 dy_drop: 0.0  # 0.0 always dynamic; 1.0 always static
+static_index: -1  # Which timestep to use for static params.
 routing_hydro_model: True
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
 pet_dataset_name: PET_hargreaves(mm/day)

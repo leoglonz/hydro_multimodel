@@ -98,6 +98,7 @@ class dPLHydroModel(torch.nn.Module):
             dataset_dict_sample['c_hydro_model'],
             params_dict['hydro_params_raw'],
             self.config,
+            static_idx=self.config['static_index'],
             muwts=None,
             warm_up=self.config['warm_up'],
             routing=self.config['routing_hydro_model'],
