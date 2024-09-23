@@ -1,6 +1,7 @@
 name: camels_531_yalan
 gage_info: /data/yxs275/CAMELS/CAMELS_to_ICDS/gageid.npy
 training_filepath: /data/yxs275/CAMELS/training_file
+subset_path: /data/lgl5139/data/camels/Sub531ID.txt
 
 var_t_nn: [
   'prcp(mm/day)',

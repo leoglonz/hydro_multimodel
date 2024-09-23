@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import torch
+import json
 
 from core.utils.Dates import Dates
 from core.utils.time import trange_to_array
@@ -233,28 +234,41 @@ def load_data(config, t_range=None):
 
     out_dict = dict()
 
-    if config['observations']['name'] == 'camels_671_yalan':
-        ## NOTE: This is a temporary addition to validate HBV models against Yalan's
-        ## implementations. Using the same data extraction as her.
+    if config['observations']['name'] in ['camels_671_yalan', 'camels_531_yalan']:
+        ## NOTE: This is a temporary addition to validate HBV models against
+        ## Yalan's implementations. Using the same data extraction for CAMELS.
         with open('/data/yxs275/CAMELS/training_file', 'rb') as f:
             import pickle
             forcing_train, target_train, attr_train = pickle.load(f)
         
-        startYear =1980
-        endYear = 1995
+        startYear = str(config['train_t_range'][0])[:4]
+        endYear = str(config['train_t_range'][1])[:4]
         AllTime = pd.date_range('1980-10-01', f'2014-09-30', freq='d')
         newTime = pd.date_range(f'{startYear}-10-01', f'{endYear}-09-30', freq='d')
-
+        
         index_start = AllTime.get_loc(newTime[0])
         index_end = AllTime.get_loc(newTime[-1]) + 1
 
         out_dict['x_nn'] = np.transpose(forcing_train[:,index_start:index_end], (1,0,2))  # Forcings
-        out_dict['c_nn'] = attr_train[:,index_start:index_end]  # Attributes
+        out_dict['c_nn'] = attr_train # Attributes
         out_dict['obs'] = np.transpose(target_train[:,index_start:index_end], (1,0,2))  # Observation target
+        
+        ## For running a subset (531 basins) of CAMELS.
+        if config['observations']['name'] == 'camels_531_yalan':
+            gage_info = np.load(config['observations']['gage_info'])
 
+            with open(config['observations']['subset_path'], 'r') as f:
+                selected_camels = json.load(f)
+
+            [C, Ind, subset_idx] = np.intersect1d(selected_camels, gage_info, return_indices=True)
+
+            out_dict['x_nn'] = out_dict['x_nn'][:, subset_idx, :]
+            out_dict['c_nn'] = out_dict['c_nn'][subset_idx, :]
+            out_dict['obs'] = out_dict['obs'][:, subset_idx, :]
+            
         out_dict['x_hydro_model'] = out_dict['x_nn']
         out_dict['c_hydro_model'] = out_dict['c_nn']  # just a placeholder.
-    
+
     else:
         forcing_dataset_class = choose_class_to_read_dataset(config, t_range, config['observations']['forcing_path'])
         # getting inputs for neural network:
@@ -290,8 +304,7 @@ def get_data_dict(config, train=False):
 
     train: bool, specifies whether data is for training.
     """
-    ### TODO: modify for merit/CONUS
-    # Get date range.
+    # Get date range
     config['train_t_range'] = Dates(config['train'], config['rho']).date_to_int()
     config['test_t_range'] = Dates(config['test'], config['rho']).date_to_int()
     config['t_range'] = [config['train_t_range'][0], config['test_t_range'][1]]
