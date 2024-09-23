@@ -1,7 +1,7 @@
 import torch.nn
-from models.hydro_models.HBV.HBVmul import HBVMul
-from models.hydro_models.HBV.hbv_capillary import HBVMulTDET
-from models.hydro_models.HBV.hbv_waterloss import HBVMulTDET_WaterLoss
+from models.hydro_models.HBV.HBVmul import HBVMulTDET as HBV
+from models.hydro_models.HBV.hbv_capillary import HBVMulTDET as HBVcap
+from models.hydro_models.HBV.hbv_waterloss import HBVMulTDET_WaterLoss as HBV_WL
 from models.hydro_models.marrmot_PRMS.prms_marrmot import prms_marrmot
 from models.hydro_models.marrmot_PRMS_gw0.prms_marrmot_gw0 import \
     prms_marrmot_gw0
@@ -31,11 +31,11 @@ class dPLHydroModel(torch.nn.Module):
         # Hydro model initialization
         # TODO: Set this up as dynamic module import instead.
         if self.model_name == 'HBV':
-            self.hydro_model = HBVMul(self.config)
+            self.hydro_model = HBV(self.config)
         elif self.model_name == "HBV_capillary":
-            self.hydro_model = HBVMulTDET(self.config)
+            self.hydro_model = HBVcap(self.config)
         elif self.model_name == "HBV_water_loss":
-            self.hydro_model = HBVMulTDET_WaterLoss(self.config)
+            self.hydro_model = HBV_WL(self.config)
         elif self.model_name == 'marrmot_PRMS':
             self.hydro_model = prms_marrmot()
         elif self.model_name == 'marrmot_PRMS_gw0':
@@ -136,9 +136,11 @@ class dPLHydroModelV2(torch.nn.Module):
         # Hydro model initialization
         # TODO: Set this up as dynamic module import instead.
         if self.model_name == 'HBV':
-            self.hydro_model = HBVMul(self.config)
+            self.hydro_model = HBV(self.config)
         elif self.model_name == "HBV_capillary":
-            self.hydro_model = HBVMulTDET(self.config)
+            self.hydro_model = HBVcap(self.config)
+        elif self.model_name == "HBV_water_loss":
+            self.hydro_model = HBV_WL(self.config)
         elif self.model_name == 'marrmot_PRMS':
             self.hydro_model = prms_marrmot()
         elif self.model_name == 'marrmot_PRMS_gw0':

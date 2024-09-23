@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 
-class HBVMul(torch.nn.Module):
+class HBVMulTDET(torch.nn.Module):
     """
     Multi-component HBV Model Pytorch version (dynamic and static param capable) adapted from
     dPL_Hydro_SNTEMP @ Farshid Rahmani.
@@ -17,7 +17,7 @@ class HBVMul(torch.nn.Module):
     (Seibert, 2005).
     """
     def __init__(self, config):
-        super(HBVMul, self).__init__()
+        super(HBVMulTDET, self).__init__()
         self.parameters_bound = dict(parBETA=[1.0, 6.0],
                                      parFC=[50, 1000],
                                      parK0=[0.05, 0.9],
@@ -137,7 +137,7 @@ class HBVMul(torch.nn.Module):
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
-                initmodel = HBVMul(config).to(config['device'])
+                initmodel = HBVMulTDET(config).to(config['device'])
                 Qsinit, SNOWPACK, MELTWATER, SM, SUZ, SLZ = initmodel(
                     xinit,
                     c_hydro_model,
@@ -152,24 +152,17 @@ class HBVMul(torch.nn.Module):
                     conv_params_hydro=conv_params_hydro
                 )
         else:
-            # Without buff time, initialize state variables with zeros
+            # Without warm-up, initialize state variables with zeros.
             Ngrid = x_hydro_model.shape[1]
             SNOWPACK = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(config['device'])
             MELTWATER = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(config['device'])
             SM = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(config['device'])
             SUZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(config['device'])
             SLZ = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.001).to(config['device'])
-            # ETact = (torch.zeros([Ngrid,mu], dtype=torch.float32) + 0.001).cuda()
 
         # Parameters
         params_dict_raw = dict()
         for num, param in enumerate(self.parameters_bound.keys()):
-            # if init:
-            #     params_dict_raw[param] = self.change_param_range(
-            #         param=params_raw[ :, num, :],
-            #         bounds=self.parameters_bound[param]
-            #     )
-            # else:
             params_dict_raw[param] = self.change_param_range(
                 param=params_raw[:, :, num, :],
                 bounds=self.parameters_bound[param]
@@ -186,7 +179,7 @@ class HBVMul(torch.nn.Module):
         vars_c = config['observations']['var_c_hydro_model']  # Attribute var names
         P = x_hydro_model[warm_up:, :, vars.index('prcp(mm/day)')]  # Precipitation
         T = x_hydro_model[warm_up:, :, vars.index('tmean(C)')]  # Mean air temp
-        
+
         # Expand dims to accomodate for nmul models.
         Pm = P.unsqueeze(2).repeat(1, 1, nmul)
         Tm = T.unsqueeze(2).repeat(1, 1, nmul)
@@ -195,8 +188,8 @@ class HBVMul(torch.nn.Module):
         if config['pet_module'] == 'potet_hamon':
             # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=config['nmul'])
             # PET = get_potet(
-            #     config=config, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
-            # )     # mm/day
+            #     config=config, mean_air_temp=Tm, dayl=dayl, hamon_coef=PET_coef
+            # )  # mm/day
             raise NotImplementedError
 
         elif config['pet_module'] == 'potet_hargreaves':
@@ -209,7 +202,7 @@ class HBVMul(torch.nn.Module):
             # PET_coef converts PET to Actual ET.
             PET = get_potet(config=config, tmin=Tminf, tmax=Tmaxf, tmean=Tm, lat=lat,
                             day_of_year=day_of_year)
-        
+
         elif config['pet_module'] == 'dataset':
             # AET = PET_coef * PET
             # PET_coef converts PET to Actual ET
@@ -259,8 +252,8 @@ class HBVMul(torch.nn.Module):
             for key in dy_params:
                 params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
 
-            # Separate precipitation into liquid and solid components
-            PRECIP = Pm[t, :, :]  # need to check later, seems repeating with line 52
+            # Separate precipitation into liquid and solid components.
+            PRECIP = Pm[t, :, :]
             RAIN = torch.mul(PRECIP, (Tm[t, :, :] >= params_dict['parTT']).type(torch.float32))
             SNOW = torch.mul(PRECIP, (Tm[t, :, :] < params_dict['parTT']).type(torch.float32))
 
@@ -288,7 +281,7 @@ class HBVMul(torch.nn.Module):
             # Soil and evaporation -------------------------------
             soil_wetness = (SM / params_dict['parFC']) ** params_dict['parBETA']
             # soil_wetness[soil_wetness < 0.0] = 0.0
-            # soil_wetness[soil_wetness > 1.0] = 1.0    
+            # soil_wetness[soil_wetness > 1.0] = 1.0
             soil_wetness = torch.clamp(soil_wetness, min=0.0, max=1.0)
             recharge = (RAIN + tosoil) * soil_wetness
 
@@ -302,9 +295,9 @@ class HBVMul(torch.nn.Module):
             if 'parBETAET' in params_dict:
                 evapfactor = evapfactor ** params_dict['parBETAET']
             evapfactor = torch.clamp(evapfactor, min=0.0, max=1.0)
-            ET_actual = PETm[t, :, :] * evapfactor
-            ET_actual = torch.min(SM, ET_actual)
-            SM = torch.clamp(SM - ET_actual, min=nearzero)  # SM can not be zero for gradient tracking.
+            ETact = PETm[t, :, :] * evapfactor
+            ETact = torch.min(SM, ETact)
+            SM = torch.clamp(SM - ETact, min=nearzero)  # SM != 0 for grad tracking.
 
             # Groundwater boxes -------------------------------
             SUZ = SUZ + recharge + excess
@@ -322,7 +315,7 @@ class HBVMul(torch.nn.Module):
             Q0_sim[t, :, :] = Q0
             Q1_sim[t, :, :] = Q1
             Q2_sim[t, :, :] = Q2
-            AET[t, :, :] = ET_actual
+            AET[t, :, :] = ETact
             SWE_sim[t, :, :] = SNOWPACK
 
             recharge_sim[t, :, :] = recharge
@@ -359,7 +352,7 @@ class HBVMul(torch.nn.Module):
             )
             rout_a = temp_a.repeat(Nstep, 1).unsqueeze(-1)
             rout_b = temp_b.repeat(Nstep, 1).unsqueeze(-1)
-            
+
             UH = self.UH_gamma(rout_a, rout_b, lenF=15)  # lenF: folter
             rf = torch.unsqueeze(Qsim, -1).permute([1, 2, 0])  # [gages,vars,time]
             UH = UH.permute([1, 2, 0])  # [gages,vars,time]
@@ -405,7 +398,7 @@ class HBVMul(torch.nn.Module):
                         ssflow_no_rout=Q1_sim.mean(-1, keepdim=True),
                         gwflow_no_rout=Q2_sim.mean(-1, keepdim=True),
                         recharge=recharge_sim.mean(-1, keepdim=True),
-                        excs=excs_sim .mean(-1, keepdim=True),
+                        excs=excs_sim.mean(-1, keepdim=True),
                         evapfactor=evapfactor_sim.mean(-1, keepdim=True),
                         tosoil=tosoil_sim.mean(-1, keepdim=True),
                         percolation=PERC_sim.mean(-1, keepdim=True),
