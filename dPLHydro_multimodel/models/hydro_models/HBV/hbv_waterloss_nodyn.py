@@ -1,4 +1,11 @@
-class HBVMulV2(torch.nn.Module):
+import torch
+from models.pet_models.potet import get_potet
+import torch.nn.functional as F
+import numpy as np
+
+
+
+class HBVMulTDET_WaterLoss(torch.nn.Module):
     """
     Multi-component HBV Model *2.0* Pytorch version (dynamic and static param
     capable) adapted from Yalan Song.
@@ -10,7 +17,7 @@ class HBVMulV2(torch.nn.Module):
     (Seibert, 2005).
     """
     def __init__(self, config):
-        super(HBVMulV2, self).__init__()
+        super(HBVMulTDET_WaterLoss, self).__init__()
         self.parameters_bound1 = dict(parBETA=[1,6],
                                       parK0=[0.05, 0.9],
                                       parBETAET=[0.3, 5]

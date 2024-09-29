@@ -1,8 +1,6 @@
 import math
-
 import pandas as pd
 import torch
-# from functorch import vmap, jacrev, jacfwd, vjp
 import torch.nn.functional as F
 from models.pet_models.potet import get_potet
 
@@ -37,12 +35,13 @@ class prms_marrmot(torch.nn.Module):
             [0, 2.9],  # routing parameter a
             [0, 6.5]   # routing parameter b
         ]
+        # PET_coef for converting PET to AET (added by Farshid)
         self.PET_coef_bound = [
-            [0.01, 1]  # PET_coef -> for converting PET to AET  ( Farshid added this param to the model)
+            [0.01, 1]
         ]
 
-    def source_flow_calculation(self, args, flow_out, c_NN, after_routing=True):
-        varC_NN = args["var_c_nn"]
+    def source_flow_calculation(self, config, flow_out, c_NN, after_routing=True):
+        varC_NN = config["var_c_nn"]
         if "DRAIN_SQKM" in varC_NN:
             area_name = "DRAIN_SQKM"
         elif "area_gages2" in varC_NN:
@@ -54,22 +53,22 @@ class prms_marrmot(torch.nn.Module):
                 0], 1, 1)
         # flow calculation. converting mm/day to m3/sec
         if after_routing == True:
-            srflow = (1000 / 86400) * area * (flow_out["srflow"]).repeat(1, 1, args["nmul"])  # Q_t - gw - ss
-            ssflow = (1000 / 86400) * area * (flow_out["ssflow"]).repeat(1, 1, args["nmul"])  # ras
-            gwflow = (1000 / 86400) * area * (flow_out["gwflow"]).repeat(1, 1, args["nmul"])
+            srflow = (1000 / 86400) * area * (flow_out["srflow"]).repeat(1, 1, config["nmul"])  # Q_t - gw - ss
+            ssflow = (1000 / 86400) * area * (flow_out["ssflow"]).repeat(1, 1, config["nmul"])  # ras
+            gwflow = (1000 / 86400) * area * (flow_out["gwflow"]).repeat(1, 1, config["nmul"])
         else:
-            srflow = (1000 / 86400) * area * (flow_out["srflow_no_rout"]).repeat(1, 1, args["nmul"])  # Q_t - gw - ss
-            ssflow = (1000 / 86400) * area * (flow_out["ssflow_no_rout"]).repeat(1, 1, args["nmul"])  # ras
-            gwflow = (1000 / 86400) * area * (flow_out["gwflow_no_rout"]).repeat(1, 1, args["nmul"])
+            srflow = (1000 / 86400) * area * (flow_out["srflow_no_rout"]).repeat(1, 1, config["nmul"])  # Q_t - gw - ss
+            ssflow = (1000 / 86400) * area * (flow_out["ssflow_no_rout"]).repeat(1, 1, config["nmul"])  # ras
+            gwflow = (1000 / 86400) * area * (flow_out["gwflow_no_rout"]).repeat(1, 1, config["nmul"])
         # srflow = torch.clamp(srflow, min=0.0)  # to remove the small negative values
         # ssflow = torch.clamp(ssflow, min=0.0)
         # gwflow = torch.clamp(gwflow, min=0.0)
         return srflow, ssflow, gwflow
     def multi_comp_semi_static_params(
-        self, params, param_no, args, interval=30, method="average"
+        self, params, param_no, config, interval=30, method="average"
     ):
         # seperate the piece for each interval
-        nmul = args["nmul"]
+        nmul = config["nmul"]
         param = params[:, :, param_no * nmul : (param_no + 1) * nmul]
         no_basins, no_days = param.shape[0], param.shape[1]
         interval_no = math.floor(no_days / interval)
@@ -115,9 +114,9 @@ class prms_marrmot(torch.nn.Module):
         new_param = torch.cat(param_name_list, 1)
         return new_param
 
-    def param_bounds(self, params, num, args, bounds):
-        nmul = args["nmul"]
-        if num in args["static_params_list_prms"]:
+    def param_bounds(self, params, num, config, bounds):
+        nmul = config["nmul"]
+        if num in config["static_params_list_prms"]:
             out_temp = (
                     params[:, -1, num * nmul: (num + 1) * nmul]
                     * (bounds[1] - bounds[0])
@@ -127,16 +126,16 @@ class prms_marrmot(torch.nn.Module):
                 params.shape[0], params.shape[1], nmul
             )
 
-        elif num in args["semi_static_params_list_prms"]:
+        elif num in config["semi_static_params_list_prms"]:
             out_temp = self.multi_comp_semi_static_params(
                 params,
                 num,
-                args,
-                interval=args["interval_for_semi_static_param_prms"][
-                    args["semi_static_params_list_prms"].index(num)
+                config,
+                interval=config["interval_for_semi_static_param_prms"][
+                    config["semi_static_params_list_prms"].index(num)
                 ],
-                method=args["method_for_semi_static_param_prms"][
-                    args["semi_static_params_list_prms"].index(num)
+                method=config["method_for_semi_static_param_prms"][
+                    config["semi_static_params_list_prms"].index(num)
                 ],
             )
             out = (
@@ -171,20 +170,22 @@ class prms_marrmot(torch.nn.Module):
         return w
 
     def UH_conv(self, x, UH, viewmode=1):
-        # UH is a vector indicating the unit hydrograph
-        # the convolved dimension will be the last dimension
-        # UH convolution is
-        # Q(t)=\integral(x(\tao)*UH(t-\tao))d\tao
-        # conv1d does \integral(w(\tao)*x(t+\tao))d\tao
-        # hence we flip the UH
-        # https://programmer.group/pytorch-learning-conv1d-conv2d-and-conv3d.html
-        # view
-        # x: [batch, var, time]
-        # UH:[batch, var, uhLen]
-        # batch needs to be accommodated by channels and we make use of groups
-        # https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
-        # https://pytorch.org/docs/stable/nn.functional.html
+        """
+        UH is a vector indicating the unit hydrograph
+        the convolved dimension will be the last dimension
+        UH convolution is
+        Q(t)=\integral(x(\tao)*UH(t-\tao))d\tao
+        conv1d does \integral(w(\tao)*x(t+\tao))d\tao
+        hence we flip the UH
+        https://programmer.group/pytorch-learning-conv1d-conv2d-and-conv3d.html
+        view
 
+        x: [batch, var, time]
+        UH:[batch, var, uhLen]
+        batch needs to be accommodated by channels and we make use of groups
+        https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
+        https://pytorch.org/docs/stable/nn.functional.html
+        """
         mm = x.shape;
         nb = mm[0]
         m = UH.shape[-1]
@@ -200,7 +201,6 @@ class prms_marrmot(torch.nn.Module):
         return y.view(mm)
 
     def param_bounds_2D(self, params, num, bounds, ndays, nmul):
-
         out_temp = (
                 params[:, num * nmul: (num + 1) * nmul]
                 * (bounds[1] - bounds[0])
@@ -215,140 +215,166 @@ class prms_marrmot(torch.nn.Module):
         out = param * (bounds[1] - bounds[0]) + bounds[0]
         return out
 
-    def forward(self, x_hydro_model, c_hydro_model, params_raw, args,  warm_up=0, init=False, routing=True, conv_params_hydro=None):
-        NEARZERO = args["nearzero"]
-        nmul = args["nmul"]
-        vars = args['observations']["var_t_hydro_model"]
-        vars_c = args['observations']["var_c_hydro_model"]
+    def forward(self, x_hydro_model, c_hydro_model, params_raw, config, static_idx=-1,
+                warm_up=0, init=False, routing=False, conv_params_hydro=None):
+        nearzero = config['nearzero']
+        nmul = config['nmul']
+
+        vars = config['observations']["var_t_hydro_model"]
+        vars_c = config['observations']["var_c_hydro_model"]
+
+        # Initialization
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
                 # paramsinit = params[:, :warm_up, :]
                 # PET_coefinit = PET_coef[:, :warm_up, :]
-                warm_up_model = prms_marrmot().to(args["device"])
+                initmodel = prms_marrmot().to(config["device"])
                 Q_init, snow_storage, XIN_storage, RSTOR_storage, \
                     RECHR_storage, SMAV_storage, \
-                    RES_storage, GW_storage = warm_up_model(xinit, c_hydro_model, params_raw, args,
-                                                            warm_up=0, init=True, routing=False,
-                                                            conv_params_hydro=None)
+                    RES_storage, GW_storage = initmodel(
+                        xinit,
+                        c_hydro_model,
+                        params_raw,
+                        config,
+                        static_idx=warm_up-1,
+                        warm_up=0,
+                        init=True,
+                        routing=False,
+                        conv_params_hydro=None
+                    )
         else:
+            # Without warm-up, initialize state variables with zeros.
+            Ngrid = x_hydro_model.shape[1]
 
             # snow storage
-            snow_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
-                                       device=args["device"]) + 0.001
+            snow_storage = torch.zeros([Ngrid, nmul], dtype=torch.float32,
+                                       device=config["device"]) + 0.001
             # interception storage
-            XIN_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
-                                      device=args["device"]) + 0.001
+            XIN_storage = torch.zeros([Ngrid, nmul], dtype=torch.float32,
+                                      device=config["device"]) + 0.001
             # RSTOR storage
-            RSTOR_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
-                                        device=args["device"]) + 0.001
+            RSTOR_storage = torch.zeros([Ngrid, nmul], dtype=torch.float32,
+                                        device=config["device"]) + 0.001
             # storage in upper soil moisture zone
-            RECHR_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
-                                        device=args["device"]) + 0.001
+            RECHR_storage = torch.zeros([Ngrid, nmul], dtype=torch.float32,
+                                        device=config["device"]) + 0.001
             # storage in lower soil moisture zone
-            SMAV_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
-                                       device=args["device"]) + 0.001
+            SMAV_storage = torch.zeros([Ngrid, nmul], dtype=torch.float32,
+                                       device=config["device"]) + 0.001
             # storage in runoff reservoir
-            RES_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
-                                      device=args["device"]) + 0.001
+            RES_storage = torch.zeros([Ngrid, nmul], dtype=torch.float32,
+                                      device=config["device"]) + 0.001
             # GW storage
-            GW_storage = torch.zeros([x_hydro_model.shape[1], nmul], dtype=torch.float32,
-                                     device=args["device"]) + 0.001
+            GW_storage = torch.zeros([Ngrid, nmul], dtype=torch.float32,
+                                     device=config["device"]) + 0.001
 
-        ## parameters for prms_marrmot. there are 18 parameters in it
-        ## parameters for prms_marrmot. there are 18 parameters in it. we take all params and make the changes
-        # inside the for loop
+        # Parameters
         params_dict_raw = dict()
         for num, param in enumerate(self.parameters_bound.keys()):
-            params_dict_raw[param] = self.change_param_range(param=params_raw[:, :, num, :],
-                                                             bounds=self.parameters_bound[param])
+            params_dict_raw[param] = self.change_param_range(
+                param=params_raw[:, :, num, :],
+                bounds=self.parameters_bound[param]
+            )
 
-        # PWT_coef , for converting PET to AET
-        # PET_coef = self.change_param_range(param=PET_param,
-        #                                                  bounds=self.PET_coef_bound[0])
-        #################
-        # inputs
-        Precip = (x_hydro_model[warm_up:, :, vars.index("prcp(mm/day)")].unsqueeze(-1).repeat(1, 1, nmul))
-        mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(-1).repeat(1, 1, nmul)
-        Ndays, Ngrid = Precip.shape[0], Precip.shape[1]
+        # List of params to be made dynamic.
+        if init:
+            # Run all static for warmup.
+            dy_params = []
+        else:
+            dy_params = config['dy_params']['marrmot_PRMS']
 
-        if args["pet_module"] == "potet_hamon":
-            # dayl = (x_hydro_model[warm_up:, :, vars.index("dayl(s)")].unsqueeze(-1).repeat(1, 1, nmul))
-            # PET = get_potet(args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef)     # mm/day
+        P = x_hydro_model[warm_up:, :, vars.index('prcp(mm/day)')]  # Precipitation
+        T = x_hydro_model[warm_up:, :, vars.index('tmean(C)')]  # Mean air temp
+
+        # Expand dims to accomodate for nmul models.
+        Pm = P.unsqueeze(2).repeat(1, 1, nmul)
+        Tm = T.unsqueeze(2).repeat(1, 1, nmul)
+
+        # Get PET data.
+        if config['pet_module'] == 'potet_hamon':
+            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=config['nmul'])
+            # PET = get_potet(
+            #     config=config, mean_air_temp=Tm, dayl=dayl, hamon_coef=PET_coef
+            # )  # mm/day
             raise NotImplementedError
-        elif args["pet_module"] == "potet_hargreaves":
-            day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
-            lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(Precip.shape[0], 1, nmul)
-            Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(-1).repeat(1, 1, nmul)
-            Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(-1).repeat(1, 1, nmul)
-            PET = get_potet(args=args, tmin=Tminf, tmax=Tmaxf,
-                            tmean=mean_air_temp, lat=lat,
+
+        elif config['pet_module'] == 'potet_hargreaves':
+            day_of_year = x_hydro_model[warm_up:, :, vars.index('dayofyear')].unsqueeze(-1).repeat(1, 1, nmul)
+            lat = c_hydro_model[:, vars_c.index('lat')].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
+            Tmaxf = x_hydro_model[warm_up:, :, vars.index('tmax(C)')].unsqueeze(2).repeat(1, 1, nmul)
+            Tminf = x_hydro_model[warm_up:, :, vars.index('tmin(C)')].unsqueeze(2).repeat(1, 1, nmul)
+
+            # AET = PET_coef * PET 
+            # PET_coef converts PET to Actual ET.
+            PET = get_potet(config=config, tmin=Tminf, tmax=Tmaxf, tmean=Tm, lat=lat,
                             day_of_year=day_of_year)
-            # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
-        elif args["pet_module"] == "dataset":
-            # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args["pet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
+
+        elif config['pet_module'] == 'dataset':
+            # AET = PET_coef * PET
+            # PET_coef converts PET to Actual ET
+            PET = x_hydro_model[warm_up:, :, vars.index(config['pet_dataset_name'])]
+
+        PETm = PET.unsqueeze(-1).repeat(1, 1, nmul)
+        Nstep, Ngrid = P.size()
+
         # AET = PET_coef * PET
         # initialize the Q_sim and other fluxes
-        Q_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        sas_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        sro_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        bas_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        ras_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        snk_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        AET = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        inf_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        PC_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        SEP_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        GAD_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        ea_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
-        qres_sim = torch.zeros(Precip.shape, dtype=torch.float32, device=args["device"])
+        Q_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        sas_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        sro_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        bas_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        ras_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        snk_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        AET = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        inf_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        PC_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        SEP_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        GAD_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        ea_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        qres_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
         
-        # do static parameters
+        # Init static parameters
         params_dict = dict()
         for key in params_dict_raw.keys():
-            if key not in args["dy_params"]['marrmot_PRMS']:  ## it is a static parameter
-                params_dict[key] = params_dict_raw[key][-1, :, :]
+            if key not in dy_params: # and len(params_raw.shape) > 2:
+                # Use the last day of data as static parameter's value.
+                params_dict[key] = params_dict_raw[key][static_idx, :, :]
 
-        # Do dynamic parameters based on dydrop ratio.
-        # (Drops dynamic params for some basins (based on ratio), and substitutes
-        # them for a static params, which is set to the value of the param on the
-        # last day of data.
-        if len(args['dy_params']['marrmot_PRMS']) > 0:
+        # Init dynamic parameters
+        # (Use a dydrop ratio: fix a probability mask for setting dynamic params
+        # as static in some basins.)
+        if len(dy_params) > 0:
             params_dict_raw_dy = dict()
-            pmat = torch.ones([Ngrid, 1]) * args["dy_drop"]
-            for i, key in enumerate(args['dy_params']['marrmot_PRMS']):
-                drmask = torch.bernoulli(pmat).detach_().to(args["device"])
+            pmat = torch.ones([Ngrid, 1]) * config['dy_drop']
+            for i, key in enumerate(dy_params):
+                drmask = torch.bernoulli(pmat).detach_().to(config['device'])
                 dynPar = params_dict_raw[key]
-                staPar = params_dict_raw[key][-1, :, :].unsqueeze(0).repeat([dynPar.shape[0], 1, 1])
+                staPar = params_dict_raw[key][static_idx, :, :].unsqueeze(0).repeat([dynPar.shape[0], 1, 1])
                 params_dict_raw_dy[key] = dynPar * (1 - drmask) + staPar * drmask
-                
-        for t in range(Ndays):
-            # do dynamic parameters
-            for key in params_dict_raw.keys():
-                if key in args['dy_params']['marrmot_PRMS']:  ## it is a dynamic parameter
-                    # params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
-                    # Drop dynamic parameters as static in some basins
-                    params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
-            
+
+        for t in range(Nstep):
+            # Get dynamic parameter values per timestep.
+            for key in dy_params:
+                params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
+
             scn = params_dict["fscn"] * params_dict["scx"]
             remx = (1 - params_dict["flz"]) * params_dict["stot"]
             smax = params_dict["flz"] * params_dict["stot"]
 
             delta_t = 1  # timestep (day)
-            P = Precip[t, :, :]
-            Ep = PET[t, :, :]
-            T = mean_air_temp[t, :, :]
+            PRECIP = Pm[t, :, :]
+            Ep = PETm[t, :, :]
+            temp = Tm[t, :, :]
 
-            # fluxes
-            flux_ps = torch.mul(P, (T <= params_dict["tt"]).type(torch.float32))
-            flux_pr = torch.mul(P, (T > params_dict["tt"]).type(torch.float32))
+            # Fluxes
+            flux_ps = torch.mul(PRECIP, (temp <= params_dict['tt']).type(torch.float32))
+            flux_pr = torch.mul(PRECIP, (temp > params_dict['tt']).type(torch.float32))
             snow_storage = snow_storage + flux_ps
-            flux_m = torch.clamp(params_dict["ddf"] * (T - params_dict["tt"]), min=0.0)
+            flux_m = torch.clamp(params_dict["ddf"] * (temp - params_dict["tt"]), min=0.0)
             flux_m = torch.min(flux_m, snow_storage/delta_t)
             # flux_m = torch.clamp(flux_m, min=0.0)
-            snow_storage = torch.clamp(snow_storage - flux_m, min=NEARZERO)
-            # snow_storage = torch.clamp(snow_storage, min=NEARZERO)  # to prevent NaN  gradient, it is set to NEARZERO
+            snow_storage = torch.clamp(snow_storage - flux_m, min=nearzero)
 
             flux_pim = flux_pr * (1 - params_dict["beta"])
             flux_psm = flux_pr * params_dict["beta"]
@@ -358,20 +384,20 @@ class prms_marrmot(torch.nn.Module):
             XIN_storage = XIN_storage + flux_pin
             flux_ptf = XIN_storage - params_dict["stor"]
             flux_ptf = torch.clamp(flux_ptf, min=0.0)
-            XIN_storage = torch.clamp(XIN_storage - flux_ptf, min=NEARZERO)
+            XIN_storage = torch.clamp(XIN_storage - flux_ptf, min=nearzero)
             evap_max_in = Ep * params_dict["beta"]   # only can happen in pervious area
             flux_ein = torch.min(evap_max_in, XIN_storage/delta_t)
-            XIN_storage = torch.clamp(XIN_storage - flux_ein, min=NEARZERO)
+            XIN_storage = torch.clamp(XIN_storage - flux_ein, min=nearzero)
 
             flux_mim = flux_m * (1 - params_dict["beta"])
             flux_msm = flux_m * params_dict["beta"]
             RSTOR_storage = RSTOR_storage + flux_mim + flux_pim
             flux_sas = RSTOR_storage - params_dict["retip"]
             flux_sas = torch.clamp(flux_sas, min=0.0)
-            RSTOR_storage = torch.clamp(RSTOR_storage - flux_sas, min=NEARZERO)
+            RSTOR_storage = torch.clamp(RSTOR_storage - flux_sas, min=nearzero)
             evap_max_im = (1 - params_dict["beta"]) * Ep
             flux_eim = torch.min(evap_max_im, RSTOR_storage / delta_t)
-            RSTOR_storage = torch.clamp(RSTOR_storage - flux_eim, min=NEARZERO)
+            RSTOR_storage = torch.clamp(RSTOR_storage - flux_eim, min=nearzero)
 
             sro_lin_ratio = scn + (params_dict["scx"] - scn) * (RECHR_storage / remx)
             sro_lin_ratio = torch.clamp(sro_lin_ratio, min=0.0, max=1.0)
@@ -384,7 +410,7 @@ class prms_marrmot(torch.nn.Module):
             evap_max_a = (RECHR_storage / remx) * (Ep - flux_ein - flux_eim)
             evap_max_a = torch.clamp(evap_max_a, min=0.0)
             flux_ea = torch.min(evap_max_a, RECHR_storage / delta_t)
-            RECHR_storage = torch.clamp(RECHR_storage - flux_ea, min=NEARZERO)
+            RECHR_storage = torch.clamp(RECHR_storage - flux_ea, min=nearzero)
 
             SMAV_storage = SMAV_storage + flux_pc
             flux_excs = SMAV_storage - smax
@@ -392,9 +418,9 @@ class prms_marrmot(torch.nn.Module):
             SMAV_storage = SMAV_storage - flux_excs
             transp = torch.where(RECHR_storage < (Ep - flux_ein - flux_eim),
                                  (SMAV_storage/smax) * (Ep - flux_ein - flux_eim - flux_ea),
-                                 torch.zeros(flux_excs.shape, dtype=torch.float32, device=args["device"]))
+                                 torch.zeros(flux_excs.shape, dtype=torch.float32, device=config["device"]))
             transp = torch.clamp(transp, min=0.0)    # in case Ep - flux_ein - flux_eim - flux_ea was negative
-            SMAV_storage = torch.clamp(SMAV_storage - transp, min=NEARZERO)
+            SMAV_storage = torch.clamp(SMAV_storage - transp, min=nearzero)
 
             flux_sep = torch.min(params_dict["cgw"], flux_excs)
             flux_qres = torch.clamp(flux_excs - flux_sep, min=0.0)
@@ -402,21 +428,21 @@ class prms_marrmot(torch.nn.Module):
             RES_storage = RES_storage + flux_qres
             flux_gad = params_dict["k1"] * ((RES_storage / params_dict['resmax']) ** params_dict["k2"])
             flux_gad = torch.min(flux_gad, RES_storage)
-            RES_storage = torch.clamp(RES_storage - flux_gad, min=NEARZERO)
+            RES_storage = torch.clamp(RES_storage - flux_gad, min=nearzero)
             flux_ras = params_dict["k3"] * RES_storage + params_dict["k4"] * (RES_storage ** 2)
             flux_ras = torch.min(flux_ras, RES_storage)
-            RES_storage = torch.clamp(RES_storage - flux_ras, min=NEARZERO)
+            RES_storage = torch.clamp(RES_storage - flux_ras, min=nearzero)
             # RES_excess = RES_storage - resmax[:, t, :]   # if there is still overflow, it happend in discrete version
             # RES_excess = torch.clamp(RES_excess, min=0.0)
             # flux_ras = flux_ras + RES_excess
-            # RES_storage = torch.clamp(RES_storage - RES_excess, min=NEARZERO)
+            # RES_storage = torch.clamp(RES_storage - RES_excess, min=nearzero)
 
 
             GW_storage = GW_storage + flux_gad + flux_sep
             flux_bas = params_dict["k5"] * GW_storage
-            GW_storage = torch.clamp(GW_storage - flux_bas, min=NEARZERO)
+            GW_storage = torch.clamp(GW_storage - flux_bas, min=nearzero)
             flux_snk = params_dict["k6"] * GW_storage
-            GW_storage = torch.clamp(GW_storage - flux_snk, min=NEARZERO)
+            GW_storage = torch.clamp(GW_storage - flux_snk, min=nearzero)
 
             Q_sim[t, :, :] = (flux_sas + flux_sro + flux_bas + flux_ras)
             sas_sim[t, :, :] = flux_sas
@@ -433,16 +459,20 @@ class prms_marrmot(torch.nn.Module):
             qres_sim[t, :, :] = flux_qres
 
         if routing == True:
-            tempa = self.change_param_range(param=conv_params_hydro[:, 0],
-                                            bounds=self.conv_routing_hydro_model_bound[0])
-            tempb = self.change_param_range(param=conv_params_hydro[:, 1],
-                                            bounds=self.conv_routing_hydro_model_bound[1])
-            routa = tempa.repeat(Ndays, 1).unsqueeze(-1)
-            routb = tempb.repeat(Ndays, 1).unsqueeze(-1)
-            # Q_sim_new = Q_sim.mean(-1, keepdim=True).permute(1,0,2)
-            UH = self.UH_gamma(routa, routb, lenF=15)  # lenF: folter
-            rf = Q_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
-            UH = UH.permute([1, 2, 0])  # dim: gage*var*time
+            temp_a = self.change_param_range(
+                param=conv_params_hydro[:, 0],
+                bounds=self.conv_routing_hydro_model_bound[0]
+            )
+            temp_b = self.change_param_range(
+                param=conv_params_hydro[:, 1],
+                bounds=self.conv_routing_hydro_model_bound[1]
+            )
+            rout_a = temp_a.repeat(Nstep, 1).unsqueeze(-1)
+            rout_b = temp_b.repeat(Nstep, 1).unsqueeze(-1)
+
+            UH = self.UH_gamma(rout_a, rout_b, lenF=15)  # lenF: folter
+            rf = Q_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # [gages,vars,time]
+            UH = UH.permute([1, 2, 0])  # [gages,vars,time]
             Qsrout = self.UH_conv(rf, UH).permute([2, 0, 1])
 
             rf_sas = sas_sim.mean(-1, keepdim=True).permute([1, 2, 0])
@@ -465,7 +495,8 @@ class prms_marrmot(torch.nn.Module):
             Qras_rout = ras_sim.mean(-1, keepdim=True)
 
 
-        if init:  # means we are in warm up. here we just return the storages to be used as initial values
+        if init:
+            # Only return model states for warmup.
             return Qsrout, snow_storage, XIN_storage, RSTOR_storage, \
                 RECHR_storage, SMAV_storage, RES_storage, GW_storage
         else:

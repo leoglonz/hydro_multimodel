@@ -278,6 +278,21 @@ def load_data(config, t_range=None):
 
         out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_hydro_model'])
         out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_hydro_model'])
+        
+        # if config['observations']['name'] == 'camels_531_dp_2024':
+        #     gage_info = np.load(config['observations']['gage_info'])
+
+        #     with open(config['observations']['subset_path'], 'r') as f:
+        #         selected_camels = json.load(f)
+
+        #     [C, Ind, subset_idx] = np.intersect1d(selected_camels, gage_info, return_indices=True)
+
+        #     out_dict['x_nn'] = out_dict['x_nn'][:, subset_idx, :]
+        #     out_dict['c_nn'] = out_dict['c_nn'][subset_idx, :]
+        #     out_dict['obs'] = out_dict['obs'][:, subset_idx, :]
+
+        #     out_dict['x_hydro_model'] = out_dict['x_hydro_model'][:, subset_idx, :]
+        #     out_dict['c_hydro_model'] = out_dict['c_hydro_model'][subset_idx, :]
     
     return out_dict
 

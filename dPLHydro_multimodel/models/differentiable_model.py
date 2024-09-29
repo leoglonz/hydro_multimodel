@@ -1,5 +1,6 @@
 import torch.nn
-from models.hydro_models.HBV.HBVmul import HBVMulTDET as HBV
+from tqdm import trange
+from models.hydro_models.HBV.hbv import HBVMulTDET as HBV
 from models.hydro_models.HBV.hbv_capillary import HBVMulTDET as HBVcap
 from models.hydro_models.HBV.hbv_waterloss import HBVMulTDET_WaterLoss as HBV_WL
 from models.hydro_models.marrmot_PRMS.prms_marrmot import prms_marrmot
@@ -87,9 +88,23 @@ class dPLHydroModel(torch.nn.Module):
         return params_dict
 
     def forward(self, dataset_dict_sample) -> None:
-        params_all = self.NN_model(dataset_dict_sample['inputs_nn_scaled'])
+        # Data loading: either
+        # if self.config['t_range']:
+        #     # a single timestep or
+        #     print( self.config['t_range'])
+        #     # t_range = self.config['t_range']
+        #     seq_mode = self.config['seq_mode']
+        # else:
+        #     # an entire sequence
+        #     t_range = None
+        #     seq_mode = True
 
-        # Breaking down params into different pieces for different models (PET, hydro)
+        params_all = self.NN_model(dataset_dict_sample['inputs_nn_scaled'])
+                                #    ,
+                                #    tRange=t_range,
+                                #    seqMode=True)
+
+        # Separating out predicted parameters from LSTM.
         params_dict = self.breakdown_params(params_all)
         
         # Hydro model
@@ -99,7 +114,6 @@ class dPLHydroModel(torch.nn.Module):
             params_dict['hydro_params_raw'],
             self.config,
             static_idx=self.config['static_index'],
-            muwts=None,
             warm_up=self.config['warm_up'],
             routing=self.config['routing_hydro_model'],
             conv_params_hydro=params_dict['conv_params_hydro']  # == rtwts = routpara, Yalan
@@ -151,9 +165,6 @@ class dPLHydroModelV2(torch.nn.Module):
             self.hydro_model = SACSMA_snow_Mul()
         else:
             raise ValueError(self.model_name, "is not a valid hydrology model.")
-
-
-
 
         # Get dim of NN models
         self.get_nn_model_dim()

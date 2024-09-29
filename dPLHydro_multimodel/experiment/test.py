@@ -54,7 +54,7 @@ class TestModel:
         # Get model predictions and observation data.
         log.info(f"Testing on batches of {self.config['batch_basins']} basins...")
         batched_preds_list = self._get_model_predictions()
-        y_obs = self.dataset_dict['obs'][self.config['warm_up']:, :, :]
+        y_obs = self.dataset_dict['obs'][:, :, :]
 
         log.info(f"Saving model results.")
         save_outputs(self.config, batched_preds_list, y_obs)
@@ -128,6 +128,10 @@ class TestModel:
         # Format streamflow predictions and observations.
         flow_preds = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
         flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
+
+        # Remove warmup days
+        flow_preds = flow_preds[self.config['warm_up']:, :, :]
+
         preds_list.append(flow_preds.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
         name_list.append('flow')

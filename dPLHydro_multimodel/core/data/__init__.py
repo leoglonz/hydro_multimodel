@@ -131,6 +131,7 @@ def take_sample_train(config: Dict,
         'c_hydro_model': torch.tensor(dataset_dictionary['c_hydro_model'][i_grid],
                                        device=config['device'], dtype=torch.float32)
     }
+
     return dataset_sample
 
 

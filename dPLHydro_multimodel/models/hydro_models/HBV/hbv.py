@@ -29,7 +29,8 @@ class HBVMulTDET(torch.nn.Module):
                                      parTT=[-2.5, 2.5],
                                      parCFMAX=[0.5, 10],
                                      parCFR=[0, 0.1],
-                                     parCWH=[0, 0.2])
+                                     parCWH=[0, 0.2]
+                                     )
 
         if 'parBETAET' in config['dy_params']['HBV']:
             self.parameters_bound['parBETAET'] = [0.3, 5]
@@ -167,7 +168,7 @@ class HBVMulTDET(torch.nn.Module):
                 param=params_raw[:, :, num, :],
                 bounds=self.parameters_bound[param]
             )
-        
+
         # List of params to be made dynamic.
         if init:
             # Run all static for warmup.
@@ -376,7 +377,7 @@ class HBVMulTDET(torch.nn.Module):
             else:
                 Qs = Qsrout
 
-        else: 
+        else:
             # No routing, only output the average of all model sims.
             Qs = torch.unsqueeze(Qsimavg, -1)
             Q0_rout = Q1_rout = Q2_rout = None

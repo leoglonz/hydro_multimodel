@@ -132,6 +132,7 @@ class HBVMulTDET(torch.nn.Module):
         nmul = config['nmul']
 
         # Initialization
+        # warm_up = 0  # No warmup for HBV1.1p.
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
@@ -256,7 +257,7 @@ class HBVMulTDET(torch.nn.Module):
             RAIN = torch.mul(PRECIP, (Tm[t, :, :] >= params_dict['parTT']).type(torch.float32))
             SNOW = torch.mul(PRECIP, (Tm[t, :, :] < params_dict['parTT']).type(torch.float32))
 
-            # Snow -------------------------------
+            # Snow -------------------------------s
             SNOWPACK = SNOWPACK + SNOW
             melt = params_dict['parCFMAX'] * (Tm[t, :, :] - params_dict['parTT'])
             # melt[melt < 0.0] = 0.0

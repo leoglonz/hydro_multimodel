@@ -197,8 +197,12 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
         stat_dict = json.load(f)
 
     var_lst = [var_lst] if isinstance(var_lst, str) else var_lst  # Enforce list format
+
+    ## TODO: fix this dataset variable typo. This is a workaround
+    # if 'geol_porosity' in var_lst:
+    #     var_lst[var_lst.index('geol_porosity')] = 'geol_porostiy'
+    
     out = np.zeros(x.shape)
-    xtemp = x
     
     for k, var in enumerate(var_lst):
         stat = stat_dict[var]
