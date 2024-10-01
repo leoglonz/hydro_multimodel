@@ -192,10 +192,10 @@ class ExperimentConfig(BaseModel):
     end_time: str = "1995/09/30"
 
 
-class DynamicConfig(BaseModel):
-    HBV: list
-    marrmot_PRMS: list
-    SACSMA_with_snow: list
+# class DynamicConfig(BaseModel):
+#     HBV: list
+#     marrmot_PRMS: list
+#     SACSMA_with_snow: list
     
 
 class LossFunc(BaseModel):
@@ -268,7 +268,7 @@ class Config(BaseModel):
     pnn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
     ensemble_type: EnsembleEnum = Field(default=EnsembleEnum.none)
-    dy_params: DynamicConfig = Field(default_factory=ExperimentConfig)
+    # dy_params: DynamicConfig = Field(default_factory=ExperimentConfig)
 
     random_seed: int = 0
     device: str = 'cpu'

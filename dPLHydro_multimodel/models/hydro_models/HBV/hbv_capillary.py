@@ -15,7 +15,7 @@ class HBVMulTDET(torch.nn.Module):
     (http://www.gloh2o.org/hbv/), which runs the HBV-light hydrological model
     (Seibert, 2005).
     """
-    def __init__(self, config):
+    def __init__(self):
         super(HBVMulTDET, self).__init__()
         self.parameters_bound = dict(parBETA=[1.0, 6.0],
                                      parFC=[50, 1000],

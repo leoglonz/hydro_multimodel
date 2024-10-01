@@ -10,7 +10,7 @@ import tqdm
 
 from conf.config import Config
 from core.data import n_iter_nt_ngrid, take_sample_train
-from core.data.dataset_loading import get_data_dict
+from core.data.conus_merit_processor import get_data_dict
 from core.utils import save_model
 from models.model_handler import ModelHandler
 from models.multimodels.ensemble_network import EnsembleWeights
@@ -29,9 +29,10 @@ class TrainModel:
     """
     def __init__(self, config: Config):
         self.config = config
-
+        
         if config['ensemble_type'] != 'none':
             raise NotImplementedError("Multimodel ensembling with for CONUS MERIT not supported.")
+
 
         # Initialize differentiable model w/ optimizer.
         self.dplh_model_handler = ModelHandler(self.config).to(self.config['device'])
@@ -42,11 +43,8 @@ class TrainModel:
         """
         log.info(f"Training model: {self.config['name']} | Collecting training data")
 
-        ## TODO: Fix for CONUS
         self.dataset_dict, self.config = get_data_dict(self.config, train=True)
 
-        exit()
-        
         ngrid_train, minibatch_iter, nt, batch_size = n_iter_nt_ngrid(
             self.config['train_t_range'], self.config, self.dataset_dict['inputs_nn_scaled']
             )

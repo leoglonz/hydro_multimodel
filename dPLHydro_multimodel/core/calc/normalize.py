@@ -9,43 +9,37 @@ from tqdm import tqdm
 
 
 
-def calc_stat_basinnorm(x: np.ndarray, c: np.ndarray, config: Dict[str, Any]) -> List[float]:
+def calc_stat_basinnorm(x: np.ndarray, basin_area: np.ndarray, config: Dict[str, Any]) -> List[float]:
     """
-    Taken from the calStatsbasinnorm function of hydroDL.
-    For daily streamflow normalized by basin area and precipitation.
+    From hydroDL.
 
-    :param x:  data to be normalized
-    :param c: forcing + attr numpy matrix
-    :param config: config file
-    :return: statistics to be used for flow normalization
+    Get stats for basin area normalization.
+
+    Parameters
+    ----------
+    x
+        data to be normalized or denormalized
+    basin_area
+        basins' area
+    mean_prep
+        basins' mean precipitation
+    to_norm
+        if true, normalize; else denormalize
+
+    Returns
+    -------
+    np.array
+        normalized or denormalized data
     """
-    # x = np.swapaxes(x[:, :, 0:1], 1,0)  ## NOTE: swap axes back to match original PMI. This affects calculations...
-
     x[x == (-999)] = np.nan
     x[x < 0] = 0
 
     nd = len(x.shape)
     if nd == 3 and x.shape[2] == 1:
         x = x[:, :, 0]  # Unsqueeze the original 3 dim matrix
-
-    attr_list = config['observations']['var_c_nn']
-
-    if 'DRAIN_SQKM' in attr_list:
-        area_name = 'DRAIN_SQKM'
-    elif 'area_gages2' in attr_list:
-        area_name = 'area_gages2'
-    else:
-        raise ValueError("Unsupported area name.")
-    
-    c_inv = np.swapaxes(c, 1, 0)  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
-    basin_area = c[:, attr_list.index(area_name)][:, np.newaxis]
     temparea = np.tile(basin_area, (1, x.shape[1]))
 
-    # flow = (x * 0.0283168 * 3600 * 24) / (
-    #     (temparea * (10**6)) * (tempprep * 10 ** (-3))
-    # )  # (m^3/day)/(m^3/day)
-
-    flow = (x * 0.0283168 * 3600 * 24) / (temparea * (10 ** 6)) * 10 ** 3
+    flow = (x * 0.0283168 * 3600 * 24) / (temparea * (10 ** 6)) * 10 ** 3  # (m^3/day)/(m^3/day)
 
     # Apply tranformation to change gamma characteristics, add 0.1 for 0 values.
     a = flow.flatten()
@@ -136,7 +130,8 @@ def calculate_statistics_gamma(x: np.ndarray) -> List[float]:
     return [p10, p90, mean, max(std, 0.001)]
 
 
-def calculate_statistics_all(config: Dict[str, Any], x: np.ndarray, c: np.ndarray, y: np.ndarray) -> None:
+def calculate_statistics_all(config: Dict[str, Any], x: np.ndarray, c: np.ndarray,
+                             y: np.ndarray, c_all=None) -> None:
     """
     Taken from the calStatAll function of hydroDL.
     
@@ -149,11 +144,24 @@ def calculate_statistics_all(config: Dict[str, Any], x: np.ndarray, c: np.ndarra
     """
     stat_dict = {}
 
+    # Calculate basin area 
+    # NOTE: should probably move to separate function.
+    attr_list = config['observations']['var_c_nn']
+
+    area_name = config['observations']['area_name']
+    
+    if c_all is not None:
+        # Basin area calculation for MERIT.
+        basin_area = np.expand_dims(c_all["area"].values,axis = 1)
+    else:
+        basin_area = c[:, attr_list.index(area_name)][:, np.newaxis]
+
+
     # Target stats
     for i, target_name in enumerate(config['target']):
         if target_name == '00060_Mean':
             stat_dict[config['target'][i]] = calc_stat_basinnorm(
-                np.swapaxes(y[:, :, i:i+1], 1,0).copy(), c, config
+                np.swapaxes(y[:, :, i:i+1], 1,0).copy(), basin_area, config
             )  ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
         else:
             stat_dict[config['target'][i]] = calculate_statistics(
@@ -177,6 +185,67 @@ def calculate_statistics_all(config: Dict[str, Any], x: np.ndarray, c: np.ndarra
     stat_file = os.path.join(config['output_dir'], 'statistics_basinnorm.json')
     with open(stat_file, 'w') as f:
         json.dump(stat_dict, f, indent=4)
+
+
+def basin_norm(
+    x: np.array, basin_area: np.array, to_norm: bool
+) -> np.array:
+    """
+    From HydroDL.
+
+    Normalize or denormalize streamflow data with basin area and mean precipitation.
+
+    The formula is as follows when normalizing (denormalize equation is its inversion):
+
+    .. math:: normalized_x = \frac{x}{area * precipitation}
+
+    Because units of streamflow, area, and precipitation are ft^3/s, km^2 and mm/day, respectively,
+    and we need (m^3/day)/(m^3/day), we transform the equation as the code shows.
+
+    Parameters
+    ----------
+    x
+        data to be normalized or denormalized
+    basin_area
+        basins' area
+    mean_prep
+        basins' mean precipitation
+    to_norm
+        if true, normalize; else denormalize
+
+    Returns
+    -------
+    np.array
+        normalized or denormalized data
+    """
+    nd = len(x.shape)
+    # meanprep = readAttr(gageid, ['q_mean'])
+    if nd == 3 and x.shape[2] == 1:
+        x = x[:, :, 0]  # unsqueeze the original 3 dimension matrix
+    temparea = np.tile(basin_area, (1, x.shape[1]))
+
+    if to_norm is True:
+        # flow = (x * 0.0283168 * 3600 * 24) / (
+        #     (temparea * (10**6)) * (tempprep * 10 ** (-3))
+        # )  # (m^3/day)/(m^3/day)
+
+        flow = (x * 0.0283168 * 3600 * 24) / (temparea * (10 ** 6)) * 10 ** 3
+
+    else:
+        # flow = (
+        #     x
+        #     * ((temparea * (10**6)) * (tempprep * 10 ** (-3)))
+        #     / (0.0283168 * 3600 * 24)
+        # )
+        flow = (
+            x
+            * ((temparea * (10**6)) * (10 ** (-3)))
+            / (0.0283168 * 3600 * 24)
+        )
+
+    if nd == 3:
+        flow = np.expand_dims(flow, axis=2)
+    return flow
 
 
 def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_norm: bool) -> np.ndarray:
@@ -237,7 +306,8 @@ def trans_norm(config: Dict[str, Any], x: np.ndarray, var_lst: List[str], *, to_
         return np.swapaxes(out, 1, 0) ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
 
 
-def init_norm_stats(config: Dict[str, Any], x_NN: np.ndarray, c_NN: np.ndarray, y: np.ndarray) -> None:
+def init_norm_stats(config: Dict[str, Any], x_NN: np.ndarray, c_NN: np.ndarray,
+                    y: np.ndarray, c_NN_all=None) -> None:
     """
     Initialize normalization statistics and save them to a file.
 
@@ -250,5 +320,5 @@ def init_norm_stats(config: Dict[str, Any], x_NN: np.ndarray, c_NN: np.ndarray, 
     stat_file = os.path.join(stats_directory, 'statistics_basinnorm.json')
 
     if not os.path.isfile(stat_file):
-        calculate_statistics_all(config, x_NN, c_NN, y)
+        calculate_statistics_all(config, x_NN, c_NN, y, c_NN_all)
         

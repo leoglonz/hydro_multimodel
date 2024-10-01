@@ -16,7 +16,7 @@ class HBVMulTDET_WaterLoss(torch.nn.Module):
     (http://www.gloh2o.org/hbv/), which runs the HBV-light hydrological model
     (Seibert, 2005).
     """
-    def __init__(self, config):
+    def __init__(self):
         """Initiate a HBV instance"""
         super(HBVMulTDET_WaterLoss, self).__init__()
         # TODO: recombine these to parameter sets and then dynamically manage

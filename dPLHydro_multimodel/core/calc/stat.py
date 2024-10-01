@@ -16,9 +16,6 @@ def stat_error(pred, target):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
 
-        # debug
-        print(pred.shape, target.shape)
-
         # Bias
         Bias = np.nanmean(pred - target, axis=1)
         # RMSE

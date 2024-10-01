@@ -135,6 +135,36 @@ def take_sample_train(config: Dict,
     return dataset_sample
 
 
+def take_sample_train_merit(config: Dict,
+                    dataset_dictionary: Dict[str, np.ndarray], 
+                    ngrid_train: int,
+                    nt: int,
+                    batch_size: int
+                    ) -> Dict[str, torch.Tensor]:
+    """
+    Select random sample of data for training batch.
+    """
+    dim_subset = (batch_size, config['rho'])
+    i_grid, i_t = random_index(ngrid_train, nt, dim_subset, warm_up=config['warm_up'])
+    dataset_sample = {
+        'iGrid': i_grid,
+        'inputs_nn_scaled': select_subset(
+            config, dataset_dictionary['inputs_nn_scaled'], i_grid, i_t,
+            config['rho'], has_grad=False, warm_up=config['warm_up']
+        ),
+        'c_nn': torch.tensor(dataset_dictionary['c_nn'][i_grid],
+                            device=config['device'], dtype=torch.float32),
+        'obs': select_subset(config, dataset_dictionary['obs'], i_grid, i_t,
+                            config['rho'], warm_up=config['warm_up'])[config['warm_up']:],
+        'x_hydro_model': select_subset(config, dataset_dictionary['x_hydro_model'],
+                                    i_grid, i_t, config['rho'], warm_up=config['warm_up']),
+        'c_hydro_model': torch.tensor(dataset_dictionary['c_hydro_model'][i_grid],
+                                    device=config['device'], dtype=torch.float32)
+    }
+
+    return dataset_sample
+
+
 def take_sample_test(config: Dict, dataset_dictionary: Dict[str, torch.Tensor], 
                      i_s: int, i_e: int) -> Dict[str, torch.Tensor]:
     """

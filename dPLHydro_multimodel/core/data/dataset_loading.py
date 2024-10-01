@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import torch
+import pickle
+import zarr
 import json
 
 from core.utils.Dates import Dates
@@ -237,8 +239,7 @@ def load_data(config, t_range=None):
     if config['observations']['name'] in ['camels_671_yalan', 'camels_531_yalan']:
         ## NOTE: This is a temporary addition to validate HBV models against
         ## Yalan's implementations. Using the same data extraction for CAMELS.
-        with open('/data/yxs275/CAMELS/training_file', 'rb') as f:
-            import pickle
+        with open(config['observations']['train_path'], 'rb') as f:
             forcing_train, target_train, attr_train = pickle.load(f)
         
         startYear = str(config['train_t_range'][0])[:4]
@@ -270,6 +271,7 @@ def load_data(config, t_range=None):
         out_dict['c_hydro_model'] = out_dict['c_nn']  # just a placeholder.
 
     else:
+        # Original data handling for Farshid's extractions.
         forcing_dataset_class = choose_class_to_read_dataset(config, t_range, config['observations']['forcing_path'])
         # getting inputs for neural network:
         out_dict['x_nn'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_nn'])
@@ -278,21 +280,6 @@ def load_data(config, t_range=None):
 
         out_dict['x_hydro_model'] = forcing_dataset_class.read_data.getDataTs(config, varLst=config['observations']['var_t_hydro_model'])
         out_dict['c_hydro_model'] = forcing_dataset_class.read_data.getDataConst(config, varLst=config['observations']['var_c_hydro_model'])
-        
-        # if config['observations']['name'] == 'camels_531_dp_2024':
-        #     gage_info = np.load(config['observations']['gage_info'])
-
-        #     with open(config['observations']['subset_path'], 'r') as f:
-        #         selected_camels = json.load(f)
-
-        #     [C, Ind, subset_idx] = np.intersect1d(selected_camels, gage_info, return_indices=True)
-
-        #     out_dict['x_nn'] = out_dict['x_nn'][:, subset_idx, :]
-        #     out_dict['c_nn'] = out_dict['c_nn'][subset_idx, :]
-        #     out_dict['obs'] = out_dict['obs'][:, subset_idx, :]
-
-        #     out_dict['x_hydro_model'] = out_dict['x_hydro_model'][:, subset_idx, :]
-        #     out_dict['c_hydro_model'] = out_dict['c_hydro_model'][subset_idx, :]
     
     return out_dict
 
@@ -302,12 +289,10 @@ def converting_flow_from_ft3_per_sec_to_mm_per_day(config, c_NN_sample, obs_samp
     if '00060_Mean' in varTar_NN:
         obs_flow_v = obs_sample[:, :, varTar_NN.index('00060_Mean')]
         varC_NN = config['observations']['var_c_nn']
-        if 'DRAIN_SQKM' in varC_NN:
-            area_name = 'DRAIN_SQKM'
-        elif 'area_gages2' in varC_NN:
-            area_name = 'area_gages2'
-        # area = (c_NN_sample[:, varC_NN.index(area_name)]).unsqueeze(0).repeat(obs_flow_v.shape[0], 1)  # torch version
-        area = np.expand_dims(c_NN_sample[:, varC_NN.index(area_name)], axis=0).repeat(obs_flow_v.shape[0], 0)  # np ver
+        area_name = config['observations']['area_name']
+        
+        c_area = c_NN_sample[:, varC_NN.index(area_name)]
+        area = np.expand_dims(c_area, axis=0).repeat(obs_flow_v.shape[0], 0)  # np ver
         obs_sample[:, :, varTar_NN.index('00060_Mean')] = (10 ** 3) * obs_flow_v * 0.0283168 * 3600 * 24 / (area * (10 ** 6)) # convert ft3/s to mm/day
     return obs_sample
 
