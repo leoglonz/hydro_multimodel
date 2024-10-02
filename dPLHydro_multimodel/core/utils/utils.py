@@ -512,3 +512,7 @@ def denormalize_streamflow(
         output[idx] = normalized_data[idx] * statistics[3] + statistics[2]
 
     return output
+
+def change_param_range(param, bounds):
+    out = param * (bounds[1] - bounds[0]) + bounds[0]
+    return out

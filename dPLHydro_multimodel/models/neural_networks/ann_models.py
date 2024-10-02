@@ -1,6 +1,6 @@
 import torch
-import torch.nn as nn
-import torch.functional as F
+from torch.nn import Linear, Dropout
+import torch.nn.functional as F
 
 
 
@@ -8,15 +8,15 @@ class AnnModel(torch.nn.Module):
     def __init__(self, *, nx, ny, hiddenSize, dropout_rate=0.5):
         super(AnnModel, self).__init__()
         self.hiddenSize = hiddenSize
-        self.i2h = nn.Linear(nx, hiddenSize)
-        self.h2h1 = nn.Linear(hiddenSize, hiddenSize, bias=True)
-        self.h2h2 = nn.Linear(hiddenSize, hiddenSize, bias=True)
-        self.h2h3 = nn.Linear(hiddenSize, hiddenSize, bias=True)
-        self.h2h4 = nn.Linear(hiddenSize, hiddenSize, bias=True)
-        self.h2h5 = nn.Linear(hiddenSize, hiddenSize, bias=True)  # New layer 5
-        self.h2h6 = nn.Linear(hiddenSize, hiddenSize, bias=True)  # New layer 6
-        self.h2o = nn.Linear(hiddenSize, ny)
-        self.dropout = nn.Dropout(dropout_rate)
+        self.i2h = Linear(nx, hiddenSize)
+        self.h2h1 = Linear(hiddenSize, hiddenSize, bias=True)
+        self.h2h2 = Linear(hiddenSize, hiddenSize, bias=True)
+        self.h2h3 = Linear(hiddenSize, hiddenSize, bias=True)
+        self.h2h4 = Linear(hiddenSize, hiddenSize, bias=True)
+        self.h2h5 = Linear(hiddenSize, hiddenSize, bias=True)  # New layer 5
+        self.h2h6 = Linear(hiddenSize, hiddenSize, bias=True)  # New layer 6
+        self.h2o = Linear(hiddenSize, ny)
+        self.dropout = Dropout(dropout_rate)
 
     def forward(self, x, y=None):
         # Assuming x is already in appropriate batch form
@@ -49,9 +49,9 @@ class AnnCloseModel(torch.nn.Module):
     def __init__(self, *, nx, ny, hiddenSize, fillObs=True):
         super(AnnCloseModel, self).__init__()
         self.hiddenSize = hiddenSize
-        self.i2h = nn.Linear(nx + 1, hiddenSize)
-        self.h2h = nn.Linear(hiddenSize, hiddenSize)
-        self.h2o = nn.Linear(hiddenSize, ny)
+        self.i2h = Linear(nx + 1, hiddenSize)
+        self.h2h = Linear(hiddenSize, hiddenSize)
+        self.h2o = Linear(hiddenSize, ny)
         self.fillObs = fillObs
         self.ny = ny
 

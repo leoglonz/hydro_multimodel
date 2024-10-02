@@ -13,9 +13,8 @@ import pickle
 from core.utils.Dates import Dates
 from core.data.dataset_loading import (
     init_norm_stats,
-    trans_norm,
-    converting_flow_from_ft3_per_sec_to_mm_per_day
-)
+    trans_norm
+    )
 from core.calc.normalize import basin_norm
 
 
@@ -64,9 +63,11 @@ def load_gages_merit(config, t_range=None):
     streamflow = streamflow[sub_ind,:,:]
     if(not (id_list_new==np.array(id_list_old)[sub_ind]).all()):
         raise Exception("Ids of subset gage do not match with ids in the attribute file.")
+    
+    key_info = [str(x) for x in id_list_new]
 
-    # with open(config['observations']['area_info_path']) as f:
-    #     area_info = json.load(f)
+    with open(config['observations']['area_info_path']) as f:
+        area_info = json.load(f)
     
     merit_save_path = config['observations']['merit_path']
 
@@ -99,6 +100,9 @@ def load_gages_merit(config, t_range=None):
     out_dict['ac_all'] = root_zone['attr']["uparea"][:] 
     out_dict['ai_all'] = root_zone['attr']["catchsize"][:]
     out_dict['merit_idx'] = merit_idx
+
+    out_dict['gage_key'] = key_info
+    out_dict['area_info'] = area_info
 
     out_dict['x_hydro_model'] = out_dict['x_nn']
     out_dict['c_hydro_model'] = out_dict['c_nn']  # just a placeholder.
@@ -134,18 +138,18 @@ def get_data_dict(config, train=False):
     c_nn_scaled = trans_norm(config, dataset_dict['c_nn'],
                              var_lst=config['observations']['var_c_nn'], to_norm=True) ## NOTE: swap axes to match Yalan's HBV. This affects calculations...
     c_nn_scaled[c_nn_scaled != c_nn_scaled] = 0  # Remove nans
-    c_nn_scaled = np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)
 
     all_attrs = dataset_dict['c_nn_all']
     basin_area = np.expand_dims(all_attrs["area"].values,axis = 1)
     obs_scaled = basin_norm(np.transpose(dataset_dict['obs'], (1,0,2)),
                             basin_area, to_norm=True)
 
-    dataset_dict['inputs_nn_scaled'] = np.concatenate((x_nn_scaled, c_nn_scaled), axis=2)
+    dataset_dict['inputs_nn_scaled'] = np.concatenate((
+        x_nn_scaled, 
+        np.repeat(np.expand_dims(c_nn_scaled, 0), x_nn_scaled.shape[0], axis=0)), axis=2)
     dataset_dict['x_nn_scaled'] = x_nn_scaled
     dataset_dict['c_nn_scaled'] = c_nn_scaled
-    dataset_dict['obs'] = obs_scaled
-
+    dataset_dict['obs'] = np.transpose(obs_scaled, (1,0,2))
     del x_nn_scaled, c_nn_scaled, dataset_dict['x_nn']
 
     return dataset_dict, config

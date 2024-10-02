@@ -40,9 +40,11 @@ class TrainModel:
         High-level management of ensemble/non-ensemble model training.
         """
         log.info(f"Training model: {self.config['name']} | Collecting training data")
-
+        
+        # Load forcings + attributes.
         self.dataset_dict, self.config = get_data_dict(self.config, train=True)
 
+        # Setup training grid.
         ngrid_train, minibatch_iter, nt, batch_size = n_iter_nt_ngrid(
             self.config['train_t_range'], self.config, self.dataset_dict['inputs_nn_scaled']
             )
@@ -83,7 +85,6 @@ class TrainModel:
         ep_loss_dict = {key: 0 for key in self.config['hydro_models']}
         if self.config['ensemble_type'] != 'none':
             ep_loss_dict['wNN'] = 0
-
         prog_str = f"Epoch {epoch}/{self.config['epochs']}"
 
         # Iterate through minibatches.

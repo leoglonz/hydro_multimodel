@@ -106,13 +106,15 @@ class ModelHandler(torch.nn.Module):
         self.flow_out_dict = dict()
         self.dataset_dict_sample = dataset_dict_sample
 
-        # Forward each model.
+        # Forward
         for mod in self.model_dict:
+            ## Test/Validation
             if eval:
-                self.model_dict[mod].eval()  # For testing.
+                self.model_dict[mod].eval()
                 # torch.set_grad_enabled(False)
                 self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
                 # torch.set_grad_enabled(True)
+            ## Train
             else:
                 self.flow_out_dict[mod] = self.model_dict[mod](dataset_dict_sample)
         return self.flow_out_dict
