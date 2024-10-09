@@ -6,13 +6,13 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: train_conus   # train, test, train_test, train_wnn, train_conus
+mode: test_conus   # train, test, train_test, train_wnn, train_conus
 ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
-random_seed: 111111  # 0, 111111
+random_seed: 111111
 device: cuda
-gpu_id: 7  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 5  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1980/10/01
@@ -20,8 +20,6 @@ train:
 test:
     start_time: 1995/10/01
     end_time: 2010/10/01
-
-batch_basins: 25
 
 name: hmm1.3-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
@@ -63,6 +61,8 @@ learning_rate: 1.0
 nearzero: 1e-5
 
 save_epoch: 10
+test_batch: 500
+
 
 # HBV 2.0 configurations
 ann_opt:
@@ -70,6 +70,7 @@ ann_opt:
     dropout: 0.5
     hidden_size: 4096
     n_features: 13
+
 
 merit_batch_max: 10590
     

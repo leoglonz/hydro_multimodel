@@ -75,9 +75,10 @@ def load_gages_merit(config, t_range=None):
         merit_idx = json.load(f)
 
     root_zone = zarr.open_group(merit_save_path, mode = 'r')
-    Merit_all = root_zone['COMID'][:]
-    xTrain2 = np.full((len(Merit_all),len(newTime),len(config['observations']['var_t_nn'])),np.nan)
-    attr2 = np.full((len(Merit_all),len(config['observations']['var_c_nn'])),np.nan)
+    merit_all = root_zone['COMID'][:]
+
+    xTrain2 = np.full((len(merit_all),len(newTime),len(config['observations']['var_t_nn'])),np.nan)
+    attr2 = np.full((len(merit_all),len(config['observations']['var_c_nn'])),np.nan)
 
     merit_time = pd.date_range('1980-10-01',f'2010-09-30', freq='d')
     merit_start_idx = merit_time.get_loc(newTime[0])
@@ -99,7 +100,9 @@ def load_gages_merit(config, t_range=None):
 
     out_dict['ac_all'] = root_zone['attr']["uparea"][:] 
     out_dict['ai_all'] = root_zone['attr']["catchsize"][:]
+    out_dict['merit_all'] = merit_all
     out_dict['merit_idx'] = merit_idx
+
 
     out_dict['gage_key'] = key_info
     out_dict['area_info'] = area_info
@@ -127,8 +130,9 @@ def get_data_dict(config, train=False):
         dataset_dict = load_gages_merit(config, config['train_t_range'])
         init_norm_stats(config, dataset_dict['x_nn'], dataset_dict['c_nn'],
                               dataset_dict['obs'], dataset_dict['c_nn_all'])
+        del dataset_dict['merit_all']
     else:
-        raise NotImplementedError
+        dataset_dict = load_gages_merit(config, config['test_t_range'])    
     
     # Normalization
     x_nn_scaled = trans_norm(config, np.swapaxes(dataset_dict['x_nn'], 1, 0).copy(),

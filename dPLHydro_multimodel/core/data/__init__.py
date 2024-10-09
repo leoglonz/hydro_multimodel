@@ -146,8 +146,8 @@ def take_sample_test(config: Dict, dataset_dict: Dict[str, torch.Tensor],
     for key, value in dataset_dict.items():
         if value.ndim == 3:
             # TODO: I don't think we actually need this.
-            # Remove the warmup period for all except airtemp_memory and hydro inputs.
-            if key in ['airT_mem_temp_model', 'x_hydro_model', 'inputs_nn_scaled']:
+            # Remove the warmup period for all except hydro inputs.
+            if key in ['x_hydro_model', 'inputs_nn_scaled']:
                 warm_up = 0
             else:
                 warm_up = config['warm_up']
@@ -227,7 +227,7 @@ def take_sample_train_merit(config: Dict,
         ]
         c_nn_sub[st_gage, :] = dataset_dict['c_nn_scaled'][st_merit, :]
     
-    # Combine pNN inputs
+    # Combine scaled (see above) pNN inputs.
     inputs_nn_scaled = np.concatenate((
         x_nn_sub, 
         np.repeat(np.expand_dims(c_nn_sub, 0), x_nn_sub.shape[0], axis=0)), axis=2
@@ -244,5 +244,71 @@ def take_sample_train_merit(config: Dict,
         'ac_batch': ac_batch,
         'idx_matrix': idx_matrix
     }
+
+    return dataset_sample
+
+
+def take_sample_test_merit(config: Dict,
+                           dataset_dict: Dict[str, np.ndarray],
+                           i_s: int,
+                           i_e: int) -> Dict[str, torch.Tensor]:
+    """
+    Select random sample of data for training batch.
+
+    From hydroDL for handling GAGESII + MERIT basin data.
+    """
+    COMID_batch = []
+    gage_area_batch = []
+    gage_key_batch = np.array(dataset_dict['gage_key'])[i_s:i_e]
+    area_info = dataset_dict['area_info']
+
+
+    for gage in gage_key_batch:
+        gage_area_batch.append(np.array(area_info[gage]['unitarea']).sum())
+        COMIDs = area_info[gage]['COMID']
+        COMID_batch.extend(COMIDs)
+
+    COMID_batch_unique = list(set(COMID_batch))
+    COMID_batch_unique.sort()
+
+    
+    [_, idx_batch, subidx_batch] = np.intersect1d(COMID_batch_unique,
+                                                  dataset_dict['merit_all'],
+                                                  return_indices=True)  
+
+    x_hydro_batch = dataset_dict['x_hydro_model'][:, subidx_batch,:]
+    x_nn_scaled_batch = dataset_dict['x_nn_scaled'][:, subidx_batch,:]
+    c_nn_scaled_batch = dataset_dict['c_nn_scaled'][subidx_batch,:]
+    
+    obs_batch = dataset_dict['obs'][config['warm_up']:, i_s:i_e]
+
+    ai_batch = dataset_dict['ai_all'][subidx_batch]
+    ac_batch = dataset_dict['ac_all'][subidx_batch]
+
+    idx_matrix = np.zeros((len(ai_batch),len(gage_key_batch)))
+    for i, gage in enumerate(gage_key_batch):
+        COMIDs = area_info[gage]['COMID']                        
+        [_, _,  subidx] = np.intersect1d(COMIDs,
+                                         np.array(COMID_batch_unique)[idx_batch],
+                                         return_indices=True)
+        idx_matrix[subidx, i] = 1/gage_area_batch[i]
+
+    # Combine pNN inputs
+    inputs_nn_scaled = np.concatenate((
+        x_nn_scaled_batch, 
+        np.repeat(np.expand_dims(c_nn_scaled_batch, 0), x_nn_scaled_batch.shape[0], axis=0)), axis=2
+        )
+     
+    dataset_sample = {
+        'inputs_nn_scaled': torch.from_numpy(inputs_nn_scaled).to(config['device']),
+        'c_nn': torch.from_numpy(c_nn_scaled_batch).to(config['device']),
+        'x_hydro_model': torch.from_numpy(x_hydro_batch).to(config['device']),
+        'obs': torch.from_numpy(obs_batch).to(config['device']),
+        'ai_batch': ai_batch,
+        'ac_batch': ac_batch,
+        'idx_matrix': idx_matrix
+    }
+
+    del x_nn_scaled_batch, c_nn_scaled_batch
 
     return dataset_sample

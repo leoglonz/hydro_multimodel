@@ -40,6 +40,8 @@ class ModeEnum(str, Enum):
     train_test = "train_test"
     train_wnn_only = "train_wnn"
     train_conus = "train_conus"
+    test_conus = "test_conus"
+
     # test_bmi = "test_bmi"
 
 
@@ -298,7 +300,7 @@ class Config(BaseModel):
 
     weighting_nn: WeightingNNConfig
 
-    batch_basins: int
+    test_batch: int
     save_epoch: int = 10
 
     name: str

@@ -63,7 +63,7 @@ class ModelHandler(torch.nn.Module):
                 self.model_dict[mod].train()
             self.init_optimizer()
 
-        elif self.config['mode'] in ['test']:
+        elif self.config['mode'] in ['test', 'test_conus']:
             for mod in self.config['hydro_models']:
                 self.load_model(mod)
 

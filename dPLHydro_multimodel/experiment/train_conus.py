@@ -13,7 +13,6 @@ from core.data import n_iter_nt_ngrid, take_sample_train_merit
 from core.data.conus_merit_processor import get_data_dict
 from core.utils import save_model
 from models.model_handler import ModelHandler
-from models.multimodels.ensemble_network import EnsembleWeights
 
 log = logging.getLogger(__name__)
 
@@ -22,17 +21,14 @@ log = logging.getLogger(__name__)
 class TrainModel:
     """
     High-level handler for training models on CONUS MERIT data; retrieves and 
-    formats training data, initializes all individual models, sets optimizer,
+    formats training data, initializes model, sets optimizer,
     and runs training.
-
-    NOTE: Currently not supporting multimodel ensemble methods.
     """
     def __init__(self, config: Config):
         self.config = config
         
         if config['ensemble_type'] != 'none':
             raise NotImplementedError("Multimodel ensembling with for CONUS MERIT not supported.")
-
 
         # Initialize differentiable model w/ optimizer.
         self.dplh_model_handler = ModelHandler(self.config).to(self.config['device'])
