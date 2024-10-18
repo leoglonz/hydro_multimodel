@@ -97,12 +97,10 @@ class TestModel:
         obs_list = []
         name_list = []
         
-        # Format streamflow predictions and observations.
+        # Format streamflow predictions and observations, and remove warm up days.
+        target_id = self.config['target'].index('00060_Mean')
         flow_preds = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
-        flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
-
-        # Remove warmup days
-        flow_preds = flow_preds[self.config['warm_up']:, :, :]
+        flow_obs = y_obs[self.config['warm_up']:, :, target_id]
 
         preds_list.append(flow_preds.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
