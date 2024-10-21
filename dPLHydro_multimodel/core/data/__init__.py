@@ -145,8 +145,6 @@ def take_sample_test(config: Dict, dataset_dict: Dict[str, torch.Tensor],
     dataset_sample = {}
     for key, value in dataset_dict.items():
         if value.ndim == 3:
-            # TODO: I don't think we actually need this.
-            # Remove the warmup period for all except hydro inputs.
             if key in ['x_hydro_model', 'inputs_nn_scaled']:
                 warm_up = 0
             else:

@@ -237,22 +237,32 @@ def load_data(config, t_range=None):
     out_dict = dict()
 
     if config['observations']['name'] in ['camels_671_yalan', 'camels_531_yalan']:
-        ## NOTE: This is a temporary addition to validate HBV models against
-        ## Yalan's implementations. Using the same data extraction for CAMELS.
-        with open(config['observations']['train_path'], 'rb') as f:
-            forcing_train, target_train, attr_train = pickle.load(f)
+        if config['mode'] in ['train, train_wnn']:
+            with open(config['observations']['train_path'], 'rb') as f:
+                forcing, target, attr = pickle.load(f)
+            
+            startYear = str(config['train_t_range'][0])[:4]
+            endYear = str(config['train_t_range'][1])[:4]
+            
+        elif config['mode'] == 'test':
+            with open(config['observations']['test_path'], 'rb') as f:
+                forcing, target, attr = pickle.load(f)
+            
+            startYear = str(config['test_t_range'][0])[:4]
+            endYear = str(config['test_t_range'][1])[:4]
+
+        else:
+            raise ValueError(f"Mode {config['mode']} not supported for this CAMELS extraction.")
         
-        startYear = str(config['train_t_range'][0])[:4]
-        endYear = str(config['train_t_range'][1])[:4]
         AllTime = pd.date_range('1980-10-01', f'2014-09-30', freq='d')
         newTime = pd.date_range(f'{startYear}-10-01', f'{endYear}-09-30', freq='d')
         
         index_start = AllTime.get_loc(newTime[0])
         index_end = AllTime.get_loc(newTime[-1]) + 1
 
-        out_dict['x_nn'] = np.transpose(forcing_train[:,index_start:index_end], (1,0,2))  # Forcings
-        out_dict['c_nn'] = attr_train # Attributes
-        out_dict['obs'] = np.transpose(target_train[:,index_start:index_end], (1,0,2))  # Observation target
+        out_dict['x_nn'] = np.transpose(forcing[:,index_start:index_end], (1,0,2))  # Forcings
+        out_dict['c_nn'] = attr # Attributes
+        out_dict['obs'] = np.transpose(target[:,index_start:index_end], (1,0,2))  # Observation target
         
         ## For running a subset (531 basins) of CAMELS.
         if config['observations']['name'] == 'camels_531_yalan':

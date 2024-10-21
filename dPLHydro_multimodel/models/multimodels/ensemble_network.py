@@ -117,9 +117,9 @@ class EnsembleWeights(torch.nn.Module):
                                  igrid=self.dataset_dict_sample['iGrid']
                                  )
     
-
-        print("rb loss:", loss_rb)
-        print("stream loss:", 0.1*loss_sf)
+        # Debugging
+        # print("rb loss:", loss_rb)
+        # print("stream loss:", 0.1*loss_sf)
 
 
         # Return total_loss for optimizer.

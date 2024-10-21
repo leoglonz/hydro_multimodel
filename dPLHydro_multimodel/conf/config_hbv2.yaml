@@ -12,7 +12,7 @@ use_checkpoint: False    # See bottom
 
 random_seed: 111111
 device: cuda
-gpu_id: 5  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 1  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1980/10/01

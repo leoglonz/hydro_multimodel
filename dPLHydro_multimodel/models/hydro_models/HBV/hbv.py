@@ -2,6 +2,9 @@ from sympy import Q
 import torch
 from models.pet_models.potet import get_potet
 import torch.nn.functional as F
+from core.calc.hydrograph import UH_gamma, UH_conv
+from core.utils.utils import change_param_range, param_bounds_2D
+
 
 
 
@@ -40,54 +43,6 @@ class HBVMulTDET(torch.nn.Module):
             [0, 6.5]   # routing parameter b
         ]
 
-    def UH_gamma(self, a, b, lenF=10):
-        # UH. a [time (same all time steps), batch, var]
-        m = a.shape
-        lenF = min(a.shape[0], lenF)
-        w = torch.zeros([lenF, m[1], m[2]])
-        aa = F.relu(a[0:lenF, :, :]).view([lenF, m[1], m[2]]) + 0.1  # minimum 0.1. First dimension of a is repeat
-        theta = F.relu(b[0:lenF, :, :]).view([lenF, m[1], m[2]]) + 0.5  # minimum 0.5
-        t = torch.arange(0.5, lenF * 1.0).view([lenF, 1, 1]).repeat([1, m[1], m[2]])
-        t = t.cuda(aa.device)
-        denom = (aa.lgamma().exp()) * (theta ** aa)
-        mid = t ** (aa - 1)
-        right = torch.exp(-t / theta)
-        w = 1 / denom * mid * right
-        w = w / w.sum(0)  # scale to 1 for each UH
-
-        return w
-
-    def UH_conv(self, x, UH, viewmode=1):
-        """
-        UH is a vector indicating the unit hydrograph
-        the convolved dimension will be the last dimension
-        UH convolution is
-        Q(t)=\integral(x(\tao)*UH(t-\tao))d\tao
-        conv1d does \integral(w(\tao)*x(t+\tao))d\tao
-        hence we flip the UH
-        https://programmer.group/pytorch-learning-conv1d-conv2d-and-conv3d.html
-        view
-
-        x: [batch, var, time]
-        UH:[batch, var, uhLen]
-        batch needs to be accommodated by channels and we make use of groups
-        https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
-        https://pytorch.org/docs/stable/nn.functional.html
-        """
-        mm = x.shape;
-        nb = mm[0]
-        m = UH.shape[-1]
-        padd = m - 1
-        if viewmode == 1:
-            xx = x.view([1, nb, mm[-1]])
-            w = UH.view([nb, 1, m])
-            groups = nb
-
-        y = F.conv1d(xx, torch.flip(w, [2]), groups=groups, padding=padd, stride=1, bias=None)
-        if padd != 0:
-            y = y[:, :, 0:-padd]
-        return y.view(mm)
-
     def source_flow_calculation(self, config, flow_out, c_NN, after_routing=True):
         varC_NN = config['var_c_nn']
         if 'DRAIN_SQKM' in varC_NN:
@@ -112,21 +67,6 @@ class HBVMulTDET(torch.nn.Module):
         # ssflow = torch.clamp(ssflow, min=0.0)
         # gwflow = torch.clamp(gwflow, min=0.0)
         return srflow, ssflow, gwflow
-
-    def param_bounds_2D(self, params, num, bounds, ndays, nmul):
-        out_temp = (
-                params[:, num * nmul: (num + 1) * nmul]
-                * (bounds[1] - bounds[0])
-                + bounds[0]
-        )
-        out = out_temp.unsqueeze(0).repeat(ndays, 1, 1).reshape(
-            ndays, params.shape[0], nmul
-        )
-        return out
-
-    def change_param_range(self, param, bounds):
-        out = param * (bounds[1] - bounds[0]) + bounds[0]
-        return out
 
     def forward(self, x_hydro_model, c_hydro_model, params_raw, config, static_idx=-1,
                 muwts=None, warm_up=0, init=False, routing=False, comprout=False,
@@ -164,7 +104,7 @@ class HBVMulTDET(torch.nn.Module):
         # Parameters
         params_dict_raw = dict()
         for num, param in enumerate(self.parameters_bound.keys()):
-            params_dict_raw[param] = self.change_param_range(
+            params_dict_raw[param] = change_param_range(
                 param=params_raw[:, :, num, :],
                 bounds=self.parameters_bound[param]
             )
@@ -343,29 +283,29 @@ class HBVMulTDET(torch.nn.Module):
                 Qsim = Qsimavg
 
             # Scale routing params.
-            temp_a = self.change_param_range(
+            temp_a = change_param_range(
                 param=conv_params_hydro[:, 0],
                 bounds=self.conv_routing_hydro_model_bound[0]
             )
-            temp_b = self.change_param_range(
+            temp_b = change_param_range(
                 param=conv_params_hydro[:, 1],
                 bounds=self.conv_routing_hydro_model_bound[1]
             )
             rout_a = temp_a.repeat(Nstep, 1).unsqueeze(-1)
             rout_b = temp_b.repeat(Nstep, 1).unsqueeze(-1)
 
-            UH = self.UH_gamma(rout_a, rout_b, lenF=15)  # lenF: folter
+            UH = UH_gamma(rout_a, rout_b, lenF=15)  # lenF: folter
             rf = torch.unsqueeze(Qsim, -1).permute([1, 2, 0])  # [gages,vars,time]
             UH = UH.permute([1, 2, 0])  # [gages,vars,time]
-            Qsrout = self.UH_conv(rf, UH).permute([2, 0, 1])
+            Qsrout = UH_conv(rf, UH).permute([2, 0, 1])
 
             # Routing individually for Q0, Q1, and Q2, all w/ dims [gages,vars,time].
             rf_Q0 = Q0_sim.mean(-1, keepdim=True).permute([1, 2, 0])
-            Q0_rout = self.UH_conv(rf_Q0, UH).permute([2, 0, 1])
+            Q0_rout = UH_conv(rf_Q0, UH).permute([2, 0, 1])
             rf_Q1 = Q1_sim.mean(-1, keepdim=True).permute([1, 2, 0])
-            Q1_rout = self.UH_conv(rf_Q1, UH).permute([2, 0, 1])
+            Q1_rout = UH_conv(rf_Q1, UH).permute([2, 0, 1])
             rf_Q2 = Q2_sim.mean(-1, keepdim=True).permute([1, 2, 0])
-            Q2_rout = self.UH_conv(rf_Q2, UH).permute([2, 0, 1])
+            Q2_rout = UH_conv(rf_Q2, UH).permute([2, 0, 1])
 
             if comprout: 
                 # Qs is now shape [time, [gages*num models], vars]

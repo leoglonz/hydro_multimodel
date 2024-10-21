@@ -45,8 +45,8 @@ class TrainModel:
         self.dataset_dict, self.config = get_data_dict(self.config, train=True)
 
         # Setup training grid.
-        ngrid_train, minibatch_iter, nt, batch_size = n_iter_nt_ngrid(
-            self.config['train_t_range'], self.config, self.dataset_dict['inputs_nn_scaled']
+        ngrid_train, minibatch_iter, nt = n_iter_nt_ngrid(
+            self.dataset_dict['inputs_nn_scaled'], self.config['train_t_range'], self.config
             )
 
         # Initialize loss function(s) and optimizer.
@@ -65,7 +65,7 @@ class TrainModel:
         for epoch in range(start_ep, self.config['epochs'] + 1):
             start_time = time.perf_counter()
 
-            self._train_epoch(epoch, minibatch_iter, ngrid_train, nt, batch_size, optim)
+            self._train_epoch(epoch, minibatch_iter, ngrid_train, nt, optim)
             self._log_epoch_stats(epoch, self.ep_loss_dict, minibatch_iter, start_time)
 
             if epoch % self.config['save_epoch'] == 0:
@@ -73,10 +73,10 @@ class TrainModel:
 
         if self.config['ensemble_type'] == 'frozen_pnn':
             # For ensemble: Train wNN.
-            self.run_ensemble_frozen(ngrid_train, minibatch_iter, nt, batch_size, start_ep)
+            self.run_ensemble_frozen(ngrid_train, minibatch_iter, nt, start_ep)
 
-    def _train_epoch(self, epoch: int, minibatch_iter: int, ngrid_train: Any, nt: int,
-                     batch_size: int, optim: torch.optim.Optimizer) -> None:
+    def _train_epoch(self, epoch: int, minibatch_iter: int, ngrid_train: Any,
+                     nt: int, optim: torch.optim.Optimizer) -> None:
         """
         Forward over a mini-batched epoch and get the loss.
         """
@@ -91,7 +91,7 @@ class TrainModel:
         for i in tqdm.tqdm(range(1, minibatch_iter + 1), desc=prog_str,
                            leave=False, dynamic_ncols=True):
             dataset_dict_sample = take_sample_train(self.config, self.dataset_dict,
-                                                    ngrid_train, nt, batch_size)
+                                                    ngrid_train, nt)
 
             # Forward pass for hydrology models.
             model_preds = self.dplh_model_handler(dataset_dict_sample)
@@ -123,7 +123,7 @@ class TrainModel:
         log.info(f"Model loss after epoch {epoch}: {loss_formated} \n~ Runtime {elapsed:.2f} sec,{mem_aloc} Mb reserved GPU memory")
 
     def run_ensemble_frozen(self, ngrid_train: Any, minibatch_iter: int, nt: int,
-                            batch_size: int, start_ep: int) -> None:
+                            start_ep: int) -> None:
         """
         For ensemble models:
         Train the weighting network (wNN) after dPL hydrology models have been trained
@@ -144,7 +144,7 @@ class TrainModel:
             for i in tqdm.tqdm(range(1, minibatch_iter + 1), desc=prog_str,
                                leave=False, dynamic_ncols=True):
                 dataset_dict_sample = take_sample_train(self.config, self.dataset_dict,
-                                                        ngrid_train, nt, batch_size)
+                                                        ngrid_train, nt)
 
                 # Forward pass
                 model_preds = self.dplh_model_handler(dataset_dict_sample)

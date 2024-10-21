@@ -1,6 +1,7 @@
 name: camels_671_yalan
-gage_info: None # /data/yxs275/CAMELS/CAMELS_to_ICDS/gageid.npy
-training_filepath: /data/yxs275/CAMELS/training_file
+gage_info: /data/yxs275/CAMELS/CAMELS_to_ICDS/gageid.npy
+train_path: /data/yxs275/CAMELS/training_file
+test_path: /data/yxs275/CAMELS/validation_file
 
 area_name: area_gages2
 

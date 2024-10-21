@@ -74,15 +74,3 @@ def source_flow_calculation(config, flow_out, c_NN, after_routing=True):
     # ssflow = torch.clamp(ssflow, min=0.0)
     # gwflow = torch.clamp(gwflow, min=0.0)
     return srflow, ssflow, gwflow
-
-
-def param_bounds_2D(params, num, bounds, ndays, nmul):
-    out_temp = (
-            params[:, num * nmul: (num + 1) * nmul]
-            * (bounds[1] - bounds[0])
-            + bounds[0]
-    )
-    out = out_temp.unsqueeze(0).repeat(ndays, 1, 1).reshape(
-        ndays, params.shape[0], nmul
-    )
-    return out

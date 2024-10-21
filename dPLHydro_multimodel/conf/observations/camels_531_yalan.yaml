@@ -1,6 +1,7 @@
 name: camels_531_yalan
 gage_info: /data/yxs275/CAMELS/CAMELS_to_ICDS/gageid.npy
 train_path: /data/yxs275/CAMELS/training_file
+test_path: /data/yxs275/CAMELS/validation_file
 subset_path: /data/lgl5139/data/camels/Sub531ID.txt
 
 area_name: area_gages2

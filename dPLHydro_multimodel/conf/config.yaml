@@ -6,13 +6,13 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: train   # train, test, train_test, train_wnn, train_conus
-ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
+mode: test   # train, test, train_test, train_wnn, train_conus
+ensemble_type: free_pnn    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
 random_seed: 111111
 device: cuda
-gpu_id: 5  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 1  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1999/10/01
@@ -24,17 +24,20 @@ test:
 name: hmm1.3-${observations.name}
 # data_dir: /Users/leoglonz/Desktop/water/data
 # data_dir: F:\code_repos\water\data
-# data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs 
-data_dir: /home/lglonzarich/projects/hydro_multimodel/dPLHydro_multimodel/runs
-output_dir: ${data_dir}/${observations.name}/debugging
+data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs 
+# data_dir: /home/lglonzarich/projects/hydro_multimodel/dPLHydro_multimodel/runs
+output_dir: ${data_dir}/${observations.name}/saved_models/
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV]    # HBV, HBV_capillary, HBV_waterLoss, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV_capillary,SACSMA_with_snow]    # HBV, HBV_capillary, HBV_waterLoss, marrmot_PRMS, SACSMA_with_snow
 
 dy_params:
     # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs
     HBV: [parBETA, parBETAET]
+    HBV_capillary: [parBETA, parBETAET, parK0]
+    marrmot_PRMS: [alpha, scx, cgw, resmax, k1, k2]
+    SACSMA_with_snow: [pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs]
 
 dy_drop: 0.0  # 0.0 always dynamic; 1.0 always static
 static_index: -1  # Which timestep to use for static params.
@@ -42,9 +45,9 @@ routing_hydro_model: True
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
 pet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']    # 00060_Mean, 00010_Mean, BFI_AVE, PET
-use_log_norm: ['prcp(mm/day)']  # For log normalization ('prcp(mm/day)' for HBV, [] otherwise)
+use_log_norm: []  # For log normalization ('prcp(mm/day)' for HBV, [] otherwise)
 
-loss_function: RmseLossFlowComb  # RmseLossFlowComb, NsesqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
+loss_function: NseLossBatchFlow  # RmseLossFlowComb, NsesqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
 loss_function_weights:
     w1: 11.0
     w2: 1.0

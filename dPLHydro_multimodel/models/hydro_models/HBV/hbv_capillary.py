@@ -1,7 +1,7 @@
 import torch
 from models.pet_models.potet import get_potet
 from core.calc.hydrograph import UH_gamma, UH_conv
-from core.utils.utils import change_param_range
+from core.utils.utils import change_param_range, param_bounds_2D
 
 import torch.nn.functional as F
 
@@ -50,7 +50,7 @@ class HBVMulTDET(torch.nn.Module):
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
-                initmodel = HBVMulTDET(config).to(config['device'])
+                initmodel = HBVMulTDET().to(config['device'])
                 Qsinit, SNOWPACK, MELTWATER, SM, SUZ, SLZ = initmodel(
                     xinit,
                     c_hydro_model,

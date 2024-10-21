@@ -126,7 +126,8 @@ class TestModel:
         flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
 
         # Remove warmup days
-        flow_preds = flow_preds[self.config['warm_up']:, :, :]
+        flow_obs = flow_obs[self.config['warm_up']:, :]
+        # flow_preds = flow_preds[self.config['warm_up']:, :, :]
 
         preds_list.append(flow_preds.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
