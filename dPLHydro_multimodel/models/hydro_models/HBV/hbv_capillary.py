@@ -46,7 +46,9 @@ class HBVMulTDET(torch.nn.Module):
         nmul = config['nmul']
 
         # Initialization
-        warm_up = 0  # No warmup for HBV1.1p.
+        if config['hbvcap_no_warm']:
+            warm_up = 0  # No warmup for HBV1.1p.
+        
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]

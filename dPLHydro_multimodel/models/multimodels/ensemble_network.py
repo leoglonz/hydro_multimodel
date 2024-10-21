@@ -124,7 +124,6 @@ class EnsembleWeights(torch.nn.Module):
 
         # Return total_loss for optimizer.
         ###### NOTE: Added e2 factor to streamflow loss to account for ~1 OoM difference.
-        # TODO:
         total_loss = loss_rb + loss_sf
         if loss_dict:
             loss_dict['wNN'] += total_loss.item()
@@ -151,31 +150,16 @@ class EnsembleWeights(torch.nn.Module):
         mod_dicts = [model_preds_dict[mod] for mod in self.config['hydro_models']]
         shared_keys = find_shared_keys(*mod_dicts)
 
-        # TODO: identify why 'flow_sim_no_rout' calculation returns shape [365,1]
-        # vs [365, 100] which breaks the ensemble loop at point of matrix mul below. (weights_dict[mod]
-        # takes shape [365, 100].) Look at `QSIM` comprout vs no comprout in HBVmul.py. For now, remove it.
-        # NOTE: may have fixed this ^^^ need to confirm.
         shared_keys.remove('flow_sim_no_rout')
 
         for key in shared_keys:
             self.ensemble_pred[key] = 0
             for mod in self.config['hydro_models']:
-                if self.weights_dict[mod].size(0) != model_preds_dict[mod]['flow_sim'].squeeze().size(0):
+                wts_size = self.weights_dict[mod].size(0)
+                pred_size = model_preds_dict[mod][key].squeeze().size()
+                if (wts_size != pred_size[0]) and len(pred_size) > 1:
                     # Cut out warmup data present when testing model from loaded mod file.
                     model_preds_dict[mod][key] = model_preds_dict[mod][key][self.config['warm_up']:,:]
                 self.ensemble_pred[key] += self.weights_dict[mod] * model_preds_dict[mod][key].squeeze()
-
-        # # Old ensembling calculation
-        # ntstep = self.weights.shape[0]
-        # ngage = self.weights.shape[1]
-        # self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
-
-        # for i, mod in enumerate(self.config['hydro_models']):  
-        #     h_pred = hydro_preds_dict[mod]['flow_sim'][:, :].squeeze()
-        #     if self.weights_scaled.size(0) != h_pred.size(0):
-        #         # Cut out warmup data present when testing model from loaded mod file.
-        #         h_pred = h_pred[self.config['warm_up']:,:]
-        #     self.ensemble_pred += self.weights_scaled[:, :, i] * h_pred 
-        # # torch.sum(hydro_preds_dict * weights_scaled, dim=2)
 
         return self.ensemble_pred
