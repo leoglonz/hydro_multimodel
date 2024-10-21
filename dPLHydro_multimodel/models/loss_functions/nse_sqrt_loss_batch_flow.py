@@ -2,12 +2,13 @@ import numpy as np
 import torch
 
 
-class NSEsqrtLoss_flow(torch.nn.Module):
+
+class NseSqrtLossBatchFlow(torch.nn.Module):
     # Similar as Fredrick 2019, batch NSE loss, use RMSE and STD instead
     # stdarray: the standard deviation of the runoff for all basins
-    def __init__(self, stdarray_flow, eps=0.1):
-        super(NSEsqrtLoss_flow, self).__init__()
-        self.std_flow = stdarray_flow
+    def __init__(self, stdarray, eps=0.1):
+        super(NseSqrtLossBatchFlow, self).__init__()
+        self.std = stdarray
         self.eps = eps
 
     def forward(self, args, y_sim, y_obs, igrid):
@@ -18,7 +19,7 @@ class NSEsqrtLoss_flow(torch.nn.Module):
         ## for flow
         if len(obs_flow[obs_flow == obs_flow]) > 0:
             nt = obs_flow.shape[0]
-            stdse = np.tile(self.std_flow[igrid], (nt, 1))
+            stdse = np.tile(self.std[igrid], (nt, 1))
             stdbatch = torch.tensor(stdse, requires_grad=False).float().to(args["device"])
             mask_flow1 = obs_flow == obs_flow
             p = sim_flow[mask_flow1]
@@ -33,3 +34,4 @@ class NSEsqrtLoss_flow(torch.nn.Module):
         else:
             loss = 0.0
         return loss
+    

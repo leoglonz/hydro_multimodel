@@ -81,7 +81,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
         :param In: incoming flux [mm/d]
         :param S: current storage [mm]
         :param Smax: maximum storage [mm]
-        :param args: smoothing variables (optional)
+        :param config: smoothing variables (optional)
         :return: saturation excess
         """
         mask = S >= Smax
@@ -222,8 +222,8 @@ class SACSMA_snow_Mul(torch.nn.Module):
         out = param * (bounds[1] - bounds[0]) + bounds[0]
         return out
 
-    def source_flow_calculation(self, args, flow_out, c_NN, after_routing=True):
-        varC_NN = args["var_c_nn"]
+    def source_flow_calculation(self, config, flow_out, c_NN, after_routing=True):
+        varC_NN = config["var_c_nn"]
         if "DRAIN_SQKM" in varC_NN:
             area_name = "DRAIN_SQKM"
         elif "area_gages2" in varC_NN:
@@ -235,113 +235,146 @@ class SACSMA_snow_Mul(torch.nn.Module):
                 0], 1, 1)
         # flow calculation. converting mm/day to m3/sec
         if after_routing == True:
-            srflow = (1000 / 86400) * area * (flow_out["srflow"]).repeat(1, 1, args["nmul"])  # Q_t - gw - ss
-            ssflow = (1000 / 86400) * area * (flow_out["ssflow"]).repeat(1, 1, args["nmul"])  # ras
-            gwflow = (1000 / 86400) * area * (flow_out["gwflow"]).repeat(1, 1, args["nmul"])
+            srflow = (1000 / 86400) * area * (flow_out["srflow"]).repeat(1, 1, config["nmul"])  # Q_t - gw - ss
+            ssflow = (1000 / 86400) * area * (flow_out["ssflow"]).repeat(1, 1, config["nmul"])  # ras
+            gwflow = (1000 / 86400) * area * (flow_out["gwflow"]).repeat(1, 1, config["nmul"])
         else:
-            srflow = (1000 / 86400) * area * (flow_out["srflow_no_rout"]).repeat(1, 1, args["nmul"])  # Q_t - gw - ss
-            ssflow = (1000 / 86400) * area * (flow_out["ssflow_no_rout"]).repeat(1, 1, args["nmul"])  # ras
-            gwflow = (1000 / 86400) * area * (flow_out["gwflow_no_rout"]).repeat(1, 1, args["nmul"])
+            srflow = (1000 / 86400) * area * (flow_out["srflow_no_rout"]).repeat(1, 1, config["nmul"])  # Q_t - gw - ss
+            ssflow = (1000 / 86400) * area * (flow_out["ssflow_no_rout"]).repeat(1, 1, config["nmul"])  # ras
+            gwflow = (1000 / 86400) * area * (flow_out["gwflow_no_rout"]).repeat(1, 1, config["nmul"])
         # srflow = torch.clamp(srflow, min=0.0)  # to remove the small negative values
         # ssflow = torch.clamp(ssflow, min=0.0)
         # gwflow = torch.clamp(gwflow, min=0.0)
         return srflow, ssflow, gwflow
 
-    def forward(self, x_hydro_model, c_hydro_model, params_raw, args, muwts=None, warm_up=0, init=False, routing=False, comprout=False, conv_params_hydro=None):
-        nearzero = args['nearzero']
-        nmul = args['nmul']
-        # HBV(P, ETpot, T, parameters)
-        #
-        # Runs the HBV-light hydrological model (Seibert, 2005). NaN values have to be
-        # removed from the inputs.
+    def forward(self, x_hydro_model, c_hydro_model, params_raw, config, static_idx=-1,
+                muwts=None, warm_up=0, init=False, routing=False, comprout=False,
+                conv_params_hydro=None):
+        nearzero = config['nearzero']
+        nmul = config['nmul']
 
         # Initialization
         if warm_up > 0:
             with torch.no_grad():
                 xinit = x_hydro_model[0:warm_up, :, :]
-                warm_up_model = SACSMA_snow_Mul().to(args["device"])
+                initmodel = SACSMA_snow_Mul().to(config['device'])
                 Qsrout, SNOWPACK_storage, MELTWATER_storage, UZTW_storage, UZFW_storage, LZTW_storage, \
-                LZFWP_storage, LZFWS_storage = warm_up_model(xinit, c_hydro_model, params_raw, args,
-                                                                      muwts=None, warm_up=0, init=True, routing=False,
-                                                                      comprout=False, conv_params_hydro=None)
+                LZFWP_storage, LZFWS_storage = initmodel(
+                    xinit,
+                    c_hydro_model,
+                    params_raw,
+                    config,
+                    static_idx=warm_up-1,
+                    muwts=None,
+                    warm_up=0,
+                    init=True,
+                    routing=False,
+                    comprout=False,
+                    conv_params_hydro=None)
         else:
-            # Without buff time, initialize state variables with zeros
+            # Without warm-up, initialize state variables with zeros.
             Ngrid = x_hydro_model.shape[1]
-            SNOWPACK_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(args["device"])
-            MELTWATER_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(args["device"])
-            UZTW_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(args["device"])
-            UZFW_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(args["device"])
-            LZTW_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(args["device"])
-            LZFWP_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(args["device"])
-            LZFWS_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(args["device"])
+            SNOWPACK_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(config["device"])
+            MELTWATER_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(config["device"])
+            UZTW_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(config["device"])
+            UZFW_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(config["device"])
+            LZTW_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(config["device"])
+            LZFWP_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(config["device"])
+            LZFWS_storage = (torch.zeros([Ngrid, nmul], dtype=torch.float32) + 0.0001).to(config["device"])
             # ETact = (torch.zeros([Ngrid,mu], dtype=torch.float32) + 0.001).cuda()
 
-        ## parameters for prms_marrmot. there are 18 parameters in it. we take all params and make the changes
-        # inside the for loop
+        # Parameters
         params_dict_raw = dict()
         for num, param in enumerate(self.parameters_bound.keys()):
-            params_dict_raw[param] = self.change_param_range(param=params_raw[:, :, num, :],
-                                                             bounds=self.parameters_bound[param])
+            params_dict_raw[param] = self.change_param_range(
+                param=params_raw[:, :, num, :],
+                bounds=self.parameters_bound[param]
+            )
 
-        vars = args['observations']["var_t_hydro_model"]
-        vars_c = args['observations']["var_c_hydro_model"]
-        P = x_hydro_model[warm_up:, :, vars.index("prcp(mm/day)")]
+        # List of params to be made dynamic.
+        if init:
+            # Run all static for warmup.
+            dy_params = []
+        else:
+            dy_params = config['dy_params']['SACSMA_with_snow']
+
+        vars = config['observations']['var_t_hydro_model']  # Forcing var names
+        vars_c = config['observations']['var_c_hydro_model']  # Attribute var names
+        P = x_hydro_model[warm_up:, :, vars.index('prcp(mm/day)')]  # Precipitation
+        T = x_hydro_model[warm_up:, :, vars.index('tmean(C)')]  # Mean air temp
+
+        # Expand dims to accomodate for nmul models.
         Pm = P.unsqueeze(2).repeat(1, 1, nmul)
-        mean_air_temp = x_hydro_model[warm_up:, :, vars.index('tmean(C)')].unsqueeze(2).repeat(1, 1, nmul)
+        Tm = T.unsqueeze(2).repeat(1, 1, nmul)
 
-        if args["pet_module"] == "potet_hamon":
-            # # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=args["nmul"])
+        # Get PET data.
+        if config['pet_module'] == 'potet_hamon':
+            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.004, 0.008], ndays=No_days, nmul=config['nmul'])
             # PET = get_potet(
-            #     args=args, mean_air_temp=mean_air_temp, dayl=dayl, hamon_coef=PET_coef
+            #     config=config, mean_air_temp=Tm, dayl=dayl, hamon_coef=PET_coef
             # )  # mm/day
             raise NotImplementedError
-        elif args["pet_module"] == "potet_hargreaves":
-            day_of_year = x_hydro_model[warm_up:, :, vars.index("dayofyear")].unsqueeze(-1).repeat(1, 1, nmul)
-            lat = c_hydro_model[:, vars_c.index("lat")].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
-            Tmaxf = x_hydro_model[warm_up:, :, vars.index("tmax(C)")].unsqueeze(2).repeat(1, 1, nmul)
-            Tminf = x_hydro_model[warm_up:, :, vars.index("tmin(C)")].unsqueeze(2).repeat(1, 1, nmul)
-            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
-            #                                   nmul=args["nmul"])
 
-            PET = get_potet(
-                args=args, tmin=Tminf, tmax=Tmaxf,
-                tmean=mean_air_temp, lat=lat,
-                day_of_year=day_of_year
-            )
-            # AET = PET_coef * PET     # here PET_coef converts PET to Actual ET here
-        elif args["pet_module"] == "dataset":
-            # PET_coef = self.param_bounds_2D(PET_coef, 0, bounds=[0.01, 1.0], ndays=No_days,
-            #                                 nmul=args["nmul"])
-            # here PET_coef converts PET to Actual ET
-            PET = x_hydro_model[warm_up:, :, vars.index(args["pet_dataset_name"])].unsqueeze(-1).repeat(1, 1, nmul)
+        elif config['pet_module'] == 'potet_hargreaves':
+            day_of_year = x_hydro_model[warm_up:, :, vars.index('dayofyear')].unsqueeze(-1).repeat(1, 1, nmul)
+            lat = c_hydro_model[:, vars_c.index('lat')].unsqueeze(0).unsqueeze(-1).repeat(day_of_year.shape[0], 1, nmul)
+            Tmaxf = x_hydro_model[warm_up:, :, vars.index('tmax(C)')].unsqueeze(2).repeat(1, 1, nmul)
+            Tminf = x_hydro_model[warm_up:, :, vars.index('tmin(C)')].unsqueeze(2).repeat(1, 1, nmul)
+
+            # AET = PET_coef * PET 
+            # PET_coef converts PET to Actual ET.
+            PET = get_potet(config=config, tmin=Tminf, tmax=Tmaxf, tmean=Tm, lat=lat,
+                            day_of_year=day_of_year)
+
+        elif config['pet_module'] == 'dataset':
             # AET = PET_coef * PET
-        Q_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        srflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        ssflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        gwflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        AET = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        tosoil_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        PC_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        pcfw_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        pctw_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        pcfws_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        twexls_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        twexlp_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        Rls_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        Rlp_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=args["device"])
-        # do static parameters
-        params_dict = dict()
-        for key in params_dict_raw.keys():
-            if key not in args['dy_params']['SACSMA_with_snow']:  ## it is a static parameter
-                params_dict[key] = params_dict_raw[key][-1, :, :]
+            # PET_coef converts PET to Actual ET
+            PET = x_hydro_model[warm_up:, :, vars.index(config['pet_dataset_name'])]
 
+        PETm = PET.unsqueeze(-1).repeat(1, 1, nmul)
         Nstep, Ngrid = P.size()
 
+        # Apply correction factor to precipitation
+        # P = parPCORR.repeat(Nstep, 1) * P
+
+        # Initialize time series of model variables in shape [time, basins, nmul].
+        Q_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        srflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        ssflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        gwflow_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        AET = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        tosoil_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        PC_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        pcfw_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        pctw_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        pcfws_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        twexls_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        twexlp_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        Rls_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        Rlp_sim = torch.zeros(Pm.shape, dtype=torch.float32, device=config["device"])
+        # Init static parameters
+        params_dict = dict()
+        for key in params_dict_raw.keys():
+            if key not in dy_params: # and len(params_raw.shape) > 2:
+                # Use the last day of data as static parameter's value.
+                params_dict[key] = params_dict_raw[key][static_idx, :, :]
+
+        # Init dynamic parameters
+        # (Use a dydrop ratio: fix a probability mask for setting dynamic params
+        # as static in some basins.)
+        if len(dy_params) > 0:
+            params_dict_raw_dy = dict()
+            pmat = torch.ones([Ngrid, 1]) * config['dy_drop']
+            for i, key in enumerate(dy_params):
+                drmask = torch.bernoulli(pmat).detach_().to(config['device'])
+                dynPar = params_dict_raw[key]
+                staPar = params_dict_raw[key][static_idx, :, :].unsqueeze(0).repeat([dynPar.shape[0], 1, 1])
+                params_dict_raw_dy[key] = dynPar * (1 - drmask) + staPar * drmask
+
         for t in range(Nstep):
-            # do dynamic parameters
-            for key in params_dict_raw.keys():
-                if key in args['dy_params']['SACSMA_with_snow']:  ## it is a dynamic parameter
-                    params_dict[key] = params_dict_raw[key][warm_up + t, :, :]
+            # Get dynamic parameter values per timestep.
+            for key in dy_params:
+                params_dict[key] = params_dict_raw_dy[key][warm_up + t, :, :]
 
             uztwm = params_dict["f1"] * params_dict["smax"]
             uzfwm = torch.clamp(params_dict["f2"] * (params_dict["smax"] - uztwm), min=0.005 / 4)
@@ -354,29 +387,30 @@ class SACSMA_snow_Mul(torch.nn.Module):
                                 (lzfwpm * (1 - params_dict["klzp"])) / (lzfwsm * params_dict["klzs"] +
                                                                         lzfwpm * params_dict["klzp"]), max=100000.0)
 
-            # Separate precipitation into liquid and solid components
-            PRECIP = Pm[t, :, :]  # need to check later, seems repeating with line 52
-            RAIN = torch.mul(PRECIP, (mean_air_temp[t, :, :] >= params_dict["parTT"]).type(torch.float32))
-            SNOW = torch.mul(PRECIP, (mean_air_temp[t, :, :] < params_dict["parTT"]).type(torch.float32))
+            # Separate precipitation into liquid and solid components.
+            PRECIP = Pm[t, :, :]
+            RAIN = torch.mul(PRECIP, (Tm[t, :, :] >= params_dict['parTT']).type(torch.float32))
+            SNOW = torch.mul(PRECIP, (Tm[t, :, :] < params_dict['parTT']).type(torch.float32))
 
-            # Snow
+            # Snow -------------------------------
             SNOWPACK_storage = SNOWPACK_storage + SNOW
-            melt = params_dict["parCFMAX"] * (mean_air_temp[t, :, :] - params_dict["parTT"])
+            melt = params_dict['parCFMAX'] * (Tm[t, :, :] - params_dict['parTT'])
             melt = torch.clamp(melt, min=0.0)
             melt = torch.min(melt, SNOWPACK_storage)
             MELTWATER_storage = MELTWATER_storage + melt
             SNOWPACK_storage = torch.clamp(SNOWPACK_storage - melt, min=nearzero)
-            refreezing = params_dict["parCFR"] * params_dict["parCFMAX"] * (
-                        params_dict["parTT"] - mean_air_temp[t, :, :])
+            refreezing = params_dict['parCFR'] * params_dict['parCFMAX'] * (
+                params_dict['parTT'] - Tm[t, :, :])
             refreezing = torch.clamp(refreezing, min=0.0)
             refreezing = torch.min(refreezing, MELTWATER_storage)
             SNOWPACK_storage = SNOWPACK_storage + refreezing
             MELTWATER_storage = torch.clamp(MELTWATER_storage - refreezing - nearzero, min=nearzero)
-            tosoil = MELTWATER_storage - (params_dict["parCWH"] * SNOWPACK_storage)
+            tosoil = MELTWATER_storage - (params_dict['parCWH'] * SNOWPACK_storage)
             tosoil = torch.clamp(tosoil, min=0.0)
             MELTWATER_storage = torch.clamp(MELTWATER_storage - tosoil - nearzero, min=nearzero)
-            ####
-            Ep = PET[t, :, :]
+
+            # Soil and evaporation -------------------------------
+            Ep = PETm[t, :, :]
             flux_qdir = self.split_1(params_dict["pctim"], RAIN)
             flux_peff = self.split_1(1 - params_dict["pctim"], RAIN)
             UZTW_storage = UZTW_storage + flux_peff + tosoil
@@ -390,7 +424,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
 
             flux_Ru = torch.where((UZTW_storage / uztwm) < (UZFW_storage / uzfwm),
                                   (uztwm * UZFW_storage - uzfwm * UZTW_storage) / (uztwm + uzfwm),
-                                  torch.zeros(flux_qdir.shape, dtype=torch.float32, device=args["device"]))
+                                  torch.zeros(flux_qdir.shape, dtype=torch.float32, device=config["device"]))
             flux_Ru = torch.min(flux_Ru, UZFW_storage)
             UZFW_storage = torch.clamp(UZFW_storage - flux_Ru - nearzero, min=nearzero)
             UZTW_storage = UZTW_storage + flux_Ru
@@ -439,7 +473,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
             Rl_denominator = (lzfwpm + lzfwsm) * (lztwm + lzfwpm + lzfwsm)
             flux_Rlp = torch.where((LZTW_storage / lztwm) < ((LZFWP_storage + LZFWS_storage) / (lzfwpm + lzfwsm)),
                                    lzfwpm * (Rl_nominator / Rl_denominator),
-                                   torch.zeros(flux_qdir.shape, dtype=torch.float32, device=args["device"]))
+                                   torch.zeros(flux_qdir.shape, dtype=torch.float32, device=config["device"]))
             flux_Rlp = torch.min(flux_Rlp, LZFWP_storage)
             LZFWP_storage = torch.clamp(LZFWP_storage - flux_Rlp, min=nearzero)
             LZTW_storage = LZTW_storage + flux_Rlp
@@ -450,7 +484,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
 
             flux_Rls = torch.where((LZTW_storage / lztwm) < ((LZFWP_storage + LZFWS_storage) / (lzfwpm + lzfwsm)),
                                    lzfwsm * (Rl_nominator / Rl_denominator),
-                                   torch.zeros(flux_qdir.shape, dtype=torch.float32, device=args["device"]))
+                                   torch.zeros(flux_qdir.shape, dtype=torch.float32, device=config["device"]))
             flux_Rls = torch.min(flux_Rls, LZFWS_storage)
             LZFWS_storage = torch.clamp(LZFWS_storage - flux_Rls, min=nearzero)
             LZTW_storage = LZTW_storage + flux_Rls
@@ -466,7 +500,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
      
             flux_Elztw = torch.where((LZTW_storage > 0.0) & (Ep > flux_Euztw + flux_Euzfw),
                                      (Ep - flux_Euztw - flux_Euzfw) * (LZTW_storage / (uztwm + lztwm)),
-                                     torch.zeros(flux_qdir.shape, dtype=torch.float32, device=args["device"]))
+                                     torch.zeros(flux_qdir.shape, dtype=torch.float32, device=config["device"]))
             flux_Elztw = torch.min(flux_Elztw, LZTW_storage)
             LZTW_storage = torch.clamp(LZTW_storage - flux_Elztw, min=nearzero)
 
@@ -526,16 +560,21 @@ class SACSMA_snow_Mul(torch.nn.Module):
             Rls_sim[t, :, :] = flux_Rls
 
         if routing == True:
-            tempa = self.change_param_range(param=conv_params_hydro[:, 0],
-                                            bounds=self.conv_routing_hydro_model_bound[0])
-            tempb = self.change_param_range(param=conv_params_hydro[:, 1],
-                                            bounds=self.conv_routing_hydro_model_bound[1])
-            routa = tempa.repeat(Nstep, 1).unsqueeze(-1)
-            routb = tempb.repeat(Nstep, 1).unsqueeze(-1)
-            # Q_sim_new = Q_sim.mean(-1, keepdim=True).permute(1,0,2)
-            UH = self.UH_gamma(routa, routb, lenF=15)  # lenF: folter
-            rf = Q_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # dim:gage*var*time
-            UH = UH.permute([1, 2, 0])  # dim: gage*var*time
+            
+            temp_a = self.change_param_range(
+                param=conv_params_hydro[:, 0],
+                bounds=self.conv_routing_hydro_model_bound[0]
+            )
+            temp_b = self.change_param_range(
+                param=conv_params_hydro[:, 1],
+                bounds=self.conv_routing_hydro_model_bound[1]
+            )
+            rout_a = temp_a.repeat(Nstep, 1).unsqueeze(-1)
+            rout_b = temp_b.repeat(Nstep, 1).unsqueeze(-1)
+
+            UH = self.UH_gamma(rout_a, rout_b, lenF=15)  # lenF: folter
+            rf = Q_sim.mean(-1, keepdim=True).permute([1, 2, 0])  # [gages,vars,time]
+            UH = UH.permute([1, 2, 0])  # [gages,vars,time]
             Qsrout = self.UH_conv(rf, UH).permute([2, 0, 1])
 
             rf_srflow = srflow_sim.mean(-1, keepdim=True).permute([1, 2, 0])
@@ -561,7 +600,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
                         srflow=srflow_rout,
                         ssflow=ssflow_rout,
                         gwflow=gwflow_rout,
-                        PET_hydro=PET.mean(-1, keepdim=True),
+                        PET_hydro=PETm.mean(-1, keepdim=True),
                         AET_hydro=AET.mean(-1, keepdim=True),
                         flow_sim_no_rout=Q_sim.mean(-1, keepdim=True),
                         srflow_no_rout=srflow_sim.mean(-1, keepdim=True),

@@ -2,9 +2,12 @@ import logging
 
 from conf.config import Config, ModeEnum
 from experiment.test import TestModel
-from experiment.test_bmi import TestBMIModel
+# from archive.experiment.test_bmi import TestBMIModel
 from experiment.train import TrainModel
-from experiment.train_wnn_only import TrainWNNModel
+from experiment.train_conus import TrainModel as TrainModelConus
+from experiment.test_conus import TestModel as TestModelConus
+
+from experiment.train_wnn import TrainWNNModel
 
 # from experiment.factory import Factory
 # from experiment.test_handler import TestHandler
@@ -29,8 +32,12 @@ def build_handler(cfg: Config, config_dict: dict): #-> Union[TrainHandler, TestH
         return TestModel(config_dict)
     elif cfg.mode == ModeEnum.train_wnn_only:
         return TrainWNNModel(config_dict)
-    elif cfg.mode == ModeEnum.test_bmi:
-        return TestBMIModel(config_dict)
+    elif cfg.mode == ModeEnum.train_conus:
+        return TrainModelConus(config_dict)
+    elif cfg.mode == ModeEnum.test_conus:
+        return TestModelConus(config_dict)
+    # elif cfg.mode == ModeEnum.test_bmi:
+    #     return TestBMIModel(config_dict)
     else:
         raise ValueError(f"Unsupported mode: {cfg.mode}")
 

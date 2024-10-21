@@ -38,8 +38,11 @@ class ModeEnum(str, Enum):
     train = "train"
     test = "test"
     train_test = "train_test"
-    train_wnn_only = "train_wnn_only"
-    test_bmi = "test_bmi"
+    train_wnn_only = "train_wnn"
+    train_conus = "train_conus"
+    test_conus = "test_conus"
+
+    # test_bmi = "test_bmi"
 
 
 class EnsembleEnum(str, Enum):
@@ -191,10 +194,10 @@ class ExperimentConfig(BaseModel):
     end_time: str = "1995/09/30"
 
 
-class DynamicConfig(BaseModel):
-    HBV: list
-    marrmot_PRMS: list
-    SACSMA_with_snow: list
+# class DynamicConfig(BaseModel):
+#     HBV: list
+#     marrmot_PRMS: list
+#     SACSMA_with_snow: list
     
 
 class LossFunc(BaseModel):
@@ -214,12 +217,12 @@ class WeightingNNConfig(BaseModel):
     loss_function_weights: LossFunc
 
 
-class Checkpoint(BaseModel):
-    start_epoch: int
-    HBV: str
-    marrmot_PRMS: str
-    SACSMA_with_snow: str
-    weighting_nn: str
+# class Checkpoint(BaseModel):
+#     start_epoch: int
+#     HBV: str
+#     marrmot_PRMS: str
+#     SACSMA_with_snow: str
+#     weighting_nn: str
 
 
 @dataclass
@@ -267,7 +270,7 @@ class Config(BaseModel):
     pnn_model: str
     hydro_models: Union[List[str], str] = Field(default_factory=lambda: ['HBV'])
     ensemble_type: EnsembleEnum = Field(default=EnsembleEnum.none)
-    dy_params: DynamicConfig = Field(default_factory=ExperimentConfig)
+    # dy_params: DynamicConfig = Field(default_factory=ExperimentConfig)
 
     random_seed: int = 0
     device: str = 'cpu'
@@ -297,14 +300,14 @@ class Config(BaseModel):
 
     weighting_nn: WeightingNNConfig
 
-    batch_basins: int
+    test_batch: int
     save_epoch: int = 10
 
     name: str
     data_dir: str
     output_dir: str
     use_checkpoint: bool
-    checkpoint: Checkpoint
+    # checkpoint: Checkpoint
 
     # gage_info: str = "not_defined"
     # attr_path: str = "not_defined"

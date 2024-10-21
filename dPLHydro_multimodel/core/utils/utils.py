@@ -512,3 +512,18 @@ def denormalize_streamflow(
         output[idx] = normalized_data[idx] * statistics[3] + statistics[2]
 
     return output
+
+def change_param_range(param, bounds):
+    out = param * (bounds[1] - bounds[0]) + bounds[0]
+    return out
+
+def param_bounds_2D(params, num, bounds, ndays, nmul):
+    out_temp = (
+            params[:, num * nmul: (num + 1) * nmul]
+            * (bounds[1] - bounds[0])
+            + bounds[0]
+    )
+    out = out_temp.unsqueeze(0).repeat(ndays, 1, 1).reshape(
+        ndays, params.shape[0], nmul
+    )
+    return out

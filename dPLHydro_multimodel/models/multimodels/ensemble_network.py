@@ -6,7 +6,7 @@ from typing import Dict, List
 from conf.config import Config
 from core.calc.RangeBoundLoss import RangeBoundLoss
 from core.utils.utils import find_shared_keys
-from models.loss_functions.get_loss_function import get_loss_func
+from models.loss_functions import get_loss_function
 from models.neural_networks.lstm_models import CudnnLstmModel
 
 
@@ -57,7 +57,7 @@ class EnsembleWeights(torch.nn.Module):
             raise FileNotFoundError(f"Model file {model_path} was not found.")
         
     def init_loss_func(self, obs: np.float32) -> None:
-        self.loss_func = get_loss_func(self.config['weighting_nn'],
+        self.loss_func = get_loss_function(self.config['weighting_nn'],
                                        obs).to(self.config['device'])
 
     def init_optimizer(self) -> None:
@@ -117,14 +117,13 @@ class EnsembleWeights(torch.nn.Module):
                                  igrid=self.dataset_dict_sample['iGrid']
                                  )
     
-
-        print("rb loss:", loss_rb)
-        print("stream loss:", 0.1*loss_sf)
+        # Debugging
+        # print("rb loss:", loss_rb)
+        # print("stream loss:", 0.1*loss_sf)
 
 
         # Return total_loss for optimizer.
         ###### NOTE: Added e2 factor to streamflow loss to account for ~1 OoM difference.
-        # TODO:
         total_loss = loss_rb + loss_sf
         if loss_dict:
             loss_dict['wNN'] += total_loss.item()
@@ -151,31 +150,16 @@ class EnsembleWeights(torch.nn.Module):
         mod_dicts = [model_preds_dict[mod] for mod in self.config['hydro_models']]
         shared_keys = find_shared_keys(*mod_dicts)
 
-        # TODO: identify why 'flow_sim_no_rout' calculation returns shape [365,1]
-        # vs [365, 100] which breaks the ensemble loop at point of matrix mul below. (weights_dict[mod]
-        # takes shape [365, 100].) Look at `QSIM` comprout vs no comprout in HBVmul.py. For now, remove it.
-        # NOTE: may have fixed this ^^^ need to confirm.
         shared_keys.remove('flow_sim_no_rout')
 
         for key in shared_keys:
             self.ensemble_pred[key] = 0
             for mod in self.config['hydro_models']:
-                if self.weights_dict[mod].size(0) != model_preds_dict[mod]['flow_sim'].squeeze().size(0):
+                wts_size = self.weights_dict[mod].size(0)
+                pred_size = model_preds_dict[mod][key].squeeze().size()
+                if (wts_size != pred_size[0]) and len(pred_size) > 1:
                     # Cut out warmup data present when testing model from loaded mod file.
                     model_preds_dict[mod][key] = model_preds_dict[mod][key][self.config['warm_up']:,:]
                 self.ensemble_pred[key] += self.weights_dict[mod] * model_preds_dict[mod][key].squeeze()
-
-        # # Old ensembling calculation
-        # ntstep = self.weights.shape[0]
-        # ngage = self.weights.shape[1]
-        # self.ensemble_pred = torch.zeros((ntstep, ngage), dtype=torch.float32, device=self.config['device'])
-
-        # for i, mod in enumerate(self.config['hydro_models']):  
-        #     h_pred = hydro_preds_dict[mod]['flow_sim'][:, :].squeeze()
-        #     if self.weights_scaled.size(0) != h_pred.size(0):
-        #         # Cut out warmup data present when testing model from loaded mod file.
-        #         h_pred = h_pred[self.config['warm_up']:,:]
-        #     self.ensemble_pred += self.weights_scaled[:, :, i] * h_pred 
-        # # torch.sum(hydro_preds_dict * weights_scaled, dim=2)
 
         return self.ensemble_pred

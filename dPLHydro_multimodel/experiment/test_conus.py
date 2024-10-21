@@ -1,5 +1,5 @@
 """
-Vanilla testing/validation for differentiable models & multimodel ensembles.
+Test a differentiable model with CONUS MERIT data.
 """
 import logging
 import os
@@ -12,12 +12,14 @@ import tqdm
 
 from conf.config import Config
 from core.calc.stat import stat_error
-from core.data import take_sample_test
-from core.data.dataset_loading import get_data_dict
+from core.data import take_sample_test_merit
+from core.data.conus_merit_processor import get_data_dict
 from core.utils import save_outputs
 from models.model_handler import ModelHandler
-from models.multimodels.ensemble_network import EnsembleWeights
 from models.multimodels.model_average import model_average
+
+from models.differentiable_model import dPLHydroModel
+
 
 log = logging.getLogger(__name__)
 
@@ -25,24 +27,21 @@ log = logging.getLogger(__name__)
 
 class TestModel:
     """
-    High-level multimodel testing handler; retrieves and formats testing data,
-    initializes all individual models, and tests a trained model.
+    High-level handler for testing models on CONUS MERIT data; retrieves and 
+    formats test data, initializes model, and tests a trained model
+    and runs training.
     """
     def __init__(self, config: Config):
         # self.start = time.time()
         self.config = config
 
-        # Initializing collection of dPL hydrology models.
+        # Initializing dPLHydro model
         self.dplh_model_handler = ModelHandler(self.config).to(self.config['device'])
-        
-        # Initialize weighting LSTM (wNN) if ensemble type is specified.
-        if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
-            self.ensemble_lstm = EnsembleWeights(self.config).to(self.config['device'])
 
     def run(self, experiment_tracker) -> None:
         log.info(f"Testing model: {self.config['name']} | Collecting testing data")
 
-        # Get dataset dictionary.
+        # Get dataset dictionary
         self._get_data_dict()
         
         # Get model predictions and observation data.
@@ -62,52 +61,29 @@ class TestModel:
 
         iS, iE: arrays of start and end pairs of basin indicies for batching.
         """
-        dataset_dict, self.config = get_data_dict(self.config)
+        # Load forcings + attributes.
+        self.dataset_dict, self.config = get_data_dict(self.config, train=False)
 
-        # NOTE: why is this only necessary for testing? Because conversion happens in dataset_dict_sample.
-        # Convert numpy arrays to torch tensors.
-        for key in dataset_dict.keys():
-            if type(dataset_dict[key]) == np.ndarray:
-                dataset_dict[key] = torch.from_numpy(dataset_dict[key]).float()
-        self.dataset_dict = dataset_dict
-
-        ngrid = dataset_dict['inputs_nn_scaled'].shape[1]
-        self.iS = np.arange(0, ngrid, self.config['test_batch'])
-        self.iE = np.append(self.iS[1:], ngrid)
+        # Get basin batch start and end indicies.
+        self._get_batch_bounds()
 
     def _get_model_predictions(self) -> List[Dict[str, torch.Tensor]]:
         """
         Get predictions from a trained model.
         """
         batched_preds_list = []
+        model_name = self.config['hydro_models'][0]
         for i in tqdm.tqdm(range(len(self.iS)), leave=False, dynamic_ncols=True):
-            dataset_dict_sample = take_sample_test(self.config,
-                                                   self.dataset_dict,
-                                                   self.iS[i],
-                                                   self.iE[i])
+            dataset_dict_sample = take_sample_test_merit(self.config,
+                                                          self.dataset_dict,
+                                                          self.iS[i],
+                                                          self.iE[i],
+                                                          )
             # Forward pass for hydrology models.
             hydro_preds = self.dplh_model_handler(dataset_dict_sample, eval=True)
 
-            # Compile predictions from each batch.
-            if self.config['ensemble_type'] in ['frozen_pnn', 'free_pnn']:
-                # For ensembles w/ wNN: Forward pass for wNN to get ensemble weights.
-                self.ensemble_lstm(dataset_dict_sample, eval=True)
-
-                # Ensemble hydrology models using learned weights.
-                ensemble_pred = self.ensemble_lstm.ensemble_models(hydro_preds)
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in ensemble_pred.items()})
-            elif self.config['ensemble_type'] == 'avg':
-                # For 'average' type ensemble: Average model predictions at each
-                # basin for each day.
-                ensemble_pred = model_average(hydro_preds, self.config)
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in ensemble_pred.items()})
-            else:
-                # For single hydrology model.
-                model_name = self.config['hydro_models'][0]
-                batched_preds_list.append({key: tensor.cpu().detach() for key,
-                                           tensor in hydro_preds[model_name].items()})
+            batched_preds_list.append({key: tensor.cpu().detach() for key,
+                                        tensor in hydro_preds[model_name].items()})
         return batched_preds_list
 
     def calc_metrics(self, batched_preds_list: List[Dict[str, torch.Tensor]],
@@ -121,16 +97,10 @@ class TestModel:
         obs_list = []
         name_list = []
         
-        # Format streamflow predictions and observations.
+        # Format streamflow predictions and observations, and remove warm up days.
+        target_id = self.config['target'].index('00060_Mean')
         flow_preds = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
-        flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
-
-        # Remove warmup days
-        if self.config['hbvcap_no_warm'] and (self.config['ensemble_type'] == 'none'):
-            pass
-        else:
-            flow_obs = flow_obs[self.config['warm_up']:, :]
-        # flow_preds = flow_preds[self.config['warm_up']:, :, :]
+        flow_obs = y_obs[self.config['warm_up']:, :, target_id]
 
         preds_list.append(flow_preds.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
@@ -165,3 +135,32 @@ class TestModel:
             )
             # Save statistics to CSV
             mdstd.to_csv((os.path.join(self.config['testing_dir'], 'mdstd_' + name + '.csv')))
+
+    def _get_batch_bounds(self) -> None: 
+        """
+        Get basin batch bounds for testing.
+
+        :return iS, iE: arrays of start and end pairs of basin indicies for
+            batching.
+        """
+        nmerit_list = []
+        merit_id = 0
+        area_info = self.dataset_dict['area_info']
+        gage_key = self.dataset_dict['gage_key']
+
+        for gage in gage_key:
+            merit_id = merit_id + len(area_info[gage]['COMID'])
+            nmerit_list.append(merit_id)
+
+        iS = []
+        prev_n_merit = 0
+        merit_interval = self.config['test_batch']
+
+        for gage_idx, n_merit in enumerate(nmerit_list):
+            if (n_merit - prev_n_merit) >= merit_interval:
+                iS.append(gage_idx)
+                prev_n_merit= nmerit_list[gage_idx]
+
+        self.ngrid = len(gage_key)
+        self.iS = np.array(iS)
+        self.iE = np.append(self.iS[1:], self.ngrid)
