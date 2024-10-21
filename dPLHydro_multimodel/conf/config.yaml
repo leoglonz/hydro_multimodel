@@ -7,7 +7,7 @@ defaults:
 
 ## General Config -------------------------------#
 mode: test   # train, test, train_test, train_wnn, train_conus
-ensemble_type: free_pnn    # none, frozen_pnn, free_pnn, avg, reg_max
+ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
 random_seed: 111111
@@ -30,7 +30,7 @@ output_dir: ${data_dir}/${observations.name}/saved_models/
 
 ## Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV_capillary,SACSMA_with_snow]    # HBV, HBV_capillary, HBV_waterLoss, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV_capillary]    # HBV, HBV_capillary, HBV_waterLoss, marrmot_PRMS, SACSMA_with_snow
 
 dy_params:
     # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs

@@ -227,7 +227,7 @@ class choose_class_to_read_dataset():
             self.read_data = numpy_dataset(args=self.args, tRange=self.trange, data_path=self.data_path)
 
 
-def load_data(config, t_range=None):
+def load_data(config, t_range=None, train=True):
     """
     Load data into dictionaries for pNN and hydro model.
     """
@@ -237,22 +237,19 @@ def load_data(config, t_range=None):
     out_dict = dict()
 
     if config['observations']['name'] in ['camels_671_yalan', 'camels_531_yalan']:
-        if config['mode'] in ['train, train_wnn']:
+        if train:
             with open(config['observations']['train_path'], 'rb') as f:
                 forcing, target, attr = pickle.load(f)
             
             startYear = str(config['train_t_range'][0])[:4]
             endYear = str(config['train_t_range'][1])[:4]
             
-        elif config['mode'] == 'test':
-            with open(config['observations']['test_path'], 'rb') as f:
+        else:
+            with open(config['observations']['train_path'], 'rb') as f:
                 forcing, target, attr = pickle.load(f)
             
             startYear = str(config['test_t_range'][0])[:4]
             endYear = str(config['test_t_range'][1])[:4]
-
-        else:
-            raise ValueError(f"Mode {config['mode']} not supported for this CAMELS extraction.")
         
         AllTime = pd.date_range('1980-10-01', f'2014-09-30', freq='d')
         newTime = pd.date_range(f'{startYear}-10-01', f'{endYear}-09-30', freq='d')
@@ -325,7 +322,7 @@ def get_data_dict(config, train=False):
         init_norm_stats(config, dataset_dict['x_nn'], dataset_dict['c_nn'],
                               dataset_dict['obs'])
     else:
-        dataset_dict = load_data(config, config['test_t_range'])
+        dataset_dict = load_data(config, config['test_t_range'], train=False)
 
     # Normalization
     x_nn_scaled = trans_norm(config, np.swapaxes(dataset_dict['x_nn'], 1, 0).copy(),
