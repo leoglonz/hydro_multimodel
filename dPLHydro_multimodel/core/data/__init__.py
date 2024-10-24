@@ -167,12 +167,12 @@ def take_sample_test(config: Dict, dataset_dict: Dict[str, torch.Tensor],
         else:
             raise ValueError(f"Incorrect input dimensions. {key} array must have 2 or 3 dimensions.")
 
-        # Keep 'warmup' days for dHBV1.1p.
-        if ('hbv_capillary' in config['hydro_models']) and \
-        (config['hbvcap_no_warm']) and (config['ensemble_type'] == 'none'):
-            pass
-        else:
-            dataset_sample['obs'] = dataset_sample['obs'][config['warm_up']:, :]
+    # Keep 'warmup' days for dHBV1.1p.
+    if ('hbv_capillary' in config['hydro_models']) and \
+    (config['hbvcap_no_warm']) and (config['ensemble_type'] == 'none'):
+        pass
+    else:
+        dataset_sample['obs'] = dataset_sample['obs'][config['warm_up']:, :]
 
     return dataset_sample
 

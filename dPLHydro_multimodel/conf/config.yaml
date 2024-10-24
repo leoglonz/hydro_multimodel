@@ -6,7 +6,7 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: train_test   # train, test, train_test, train_wnn, train_conus
+mode: train   # train, test, train_test, train_wnn, train_conus
 ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 

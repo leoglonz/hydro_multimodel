@@ -135,14 +135,14 @@ class ExperimentTracker(Tracker):
         self.cfg: Config = kwargs["cfg"]
         self.tensorboard_save_path: Path = Path(self.cfg.params.save_path)
 
-        self.plot_path = self.tensorboard_save_path / "plots"
-        self.plot_path.mkdir(parents=True, exist_ok=True)
+        # self.plot_path = self.tensorboard_save_path / "plots"
+        # self.plot_path.mkdir(parents=True, exist_ok=True)
 
-        self.saved_model_path = self.tensorboard_save_path / "saved_models"
-        self.saved_model_path.mkdir(parents=True, exist_ok=True)
+        # self.saved_model_path = self.tensorboard_save_path / "saved_models"
+        # self.saved_model_path.mkdir(parents=True, exist_ok=True)
 
-        self.zarr_data_path = self.tensorboard_save_path / "zarr_data"
-        self.zarr_data_path.mkdir(parents=True, exist_ok=True)
+        # self.zarr_data_path = self.tensorboard_save_path / "zarr_data"
+        # self.zarr_data_path.mkdir(parents=True, exist_ok=True)
 
         self.metrics = None
         self.writer = SummaryWriter(log_dir=str(self.tensorboard_save_path))
