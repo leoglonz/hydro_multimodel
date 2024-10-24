@@ -322,7 +322,7 @@ class HBVMulTDET(torch.nn.Module):
             Qs = torch.unsqueeze(Qsimavg, -1)
             Q0_rout = Q1_rout = Q2_rout = None
 
-        if init:
+        if init:  # Means we are in warm up. here we just return the storages to be used as initial values,
             # Only return model states for warmup.
             return Qs, SNOWPACK, MELTWATER, SM, SUZ, SLZ
         else:

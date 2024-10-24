@@ -35,7 +35,7 @@ def get_loss_function(args, obs):
     loss_function = args['loss_function']
     file_name = camel_to_snake(loss_function)
     
-    ## NOTE: for debugging `./dPLHydro_model/models` must be specified. Can't figure out why.
+    ## NOTE: for debugging `./dPLHydro_multimodel/models` must be specified. Can't figure out why.
     file_path = os.path.join('./models', 'loss_functions', f"{file_name}.py")
 
     # Load the module dynamically.

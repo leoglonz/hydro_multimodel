@@ -591,7 +591,7 @@ class SACSMA_snow_Mul(torch.nn.Module):
             ssflow_rout = ssflow_sim.mean(-1, keepdim=True)
             gwflow_rout = gwflow_sim.mean(-1, keepdim=True)
 
-        if init:  # means we are in warm up. here we just return the storages to be used as initial values
+        if init:  # Means we are in warm up. here we just return the storages to be used as initial values.
             return Qsrout, SNOWPACK_storage, MELTWATER_storage, UZTW_storage, UZFW_storage, LZTW_storage, \
                 LZFWP_storage, LZFWS_storage
 

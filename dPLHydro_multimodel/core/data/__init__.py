@@ -117,7 +117,20 @@ def take_sample_train(config: Dict,
     Select random sample of data for training batch.
     """
     subset_dims = (config['batch_size'], config['rho'])
+
     i_grid, i_t = random_index(ngrid_train, nt, subset_dims, warm_up=config['warm_up'])
+
+    # Remove warmup days for dHBV1.1p...
+    flow_obs = select_subset(config, dataset_dict['obs'], i_grid, i_t,
+                             config['rho'], warm_up=config['warm_up'])
+    
+    if ('HBV_capillary' in config['hydro_models']) and \
+    (config['hbvcap_no_warm']) and (config['ensemble_type'] == 'none'):
+        pass
+    else:
+        flow_obs = flow_obs[config['warm_up']:, :]
+    
+    # Create dataset sample dict.
     dataset_sample = {
         'iGrid': i_grid,
         'inputs_nn_scaled': select_subset(
@@ -126,8 +139,7 @@ def take_sample_train(config: Dict,
         ),
         'c_nn': torch.tensor(dataset_dict['c_nn'][i_grid],
                              device=config['device'], dtype=torch.float32),
-        'obs': select_subset(config, dataset_dict['obs'], i_grid, i_t,
-                             config['rho'], warm_up=config['warm_up'])[config['warm_up']:],
+        'obs': flow_obs,
         'x_hydro_model': select_subset(config, dataset_dict['x_hydro_model'],
                                        i_grid, i_t, config['rho'], warm_up=config['warm_up']),
         'c_hydro_model': torch.tensor(dataset_dict['c_hydro_model'][i_grid],
@@ -154,6 +166,14 @@ def take_sample_test(config: Dict, dataset_dict: Dict[str, torch.Tensor],
             dataset_sample[key] = value[i_s:i_e, :].to(config['device'])
         else:
             raise ValueError(f"Incorrect input dimensions. {key} array must have 2 or 3 dimensions.")
+
+        # Keep 'warmup' days for dHBV1.1p.
+        if ('hbv_capillary' in config['hydro_models']) and \
+        (config['hbvcap_no_warm']) and (config['ensemble_type'] == 'none'):
+            pass
+        else:
+            dataset_sample['obs'] = dataset_sample['obs'][config['warm_up']:, :]
+
     return dataset_sample
 
 

@@ -38,7 +38,7 @@ def main(cfg: DictConfig) -> None:
         # Injest config yaml
         # NOTE: Temporarily using config_dict for better readability, may rm config.
         config, config_dict = initialize_config(cfg)
-        # experiment_tracker = ExperimentTracker(cfg=config)
+        experiment_tracker = ExperimentTracker(cfg=config)
 
         # Set device, dtype, output directories, and random seed.
         randomseed_config(config.random_seed)

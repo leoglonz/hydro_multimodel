@@ -115,7 +115,7 @@ class TestModel:
         """
         Calculate test metrics and save to csv.
 
-        TODO: You could streamline this up a little more.
+        TODO: clean up.
         """
         preds_list = []
         obs_list = []
@@ -125,8 +125,9 @@ class TestModel:
         flow_preds = torch.cat([d['flow_sim'] for d in batched_preds_list], dim=1)
         flow_obs = y_obs[:, :, self.config['target'].index('00060_Mean')]
 
-        # Remove warmup days
-        if self.config['hbvcap_no_warm'] and (self.config['ensemble_type'] == 'none'):
+        # Remove warmup days for dHBV1.1p.
+        if ('hbv_capillary' in self.config['hydro_models']) and \
+        (self.config['hbvcap_no_warm']) and (self.config['ensemble_type'] == 'none'):
             pass
         else:
             flow_obs = flow_obs[self.config['warm_up']:, :]
@@ -135,13 +136,6 @@ class TestModel:
         preds_list.append(flow_preds.numpy())
         obs_list.append(np.expand_dims(flow_obs, 2))
         name_list.append('flow')
-
-        #######################
-        # if SAVE_DATA:
-        #     ## Added to save prediction and observation data:
-        #     np.save(OUT_DATA_SAVE_PATH + 'sacsma_dyn_sf_pred.npy',preds_list)
-        #     np.save(OUT_DATA_SAVE_PATH + 'sacsma_sf_obs.npy',obs_list)
-        #######################
 
         # Swap axes for shape [basins, days]
         statDictLst = [
