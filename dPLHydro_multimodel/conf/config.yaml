@@ -6,13 +6,13 @@ defaults:
 
 
 ## General Config -------------------------------#
-mode: test   # train, test, train_test, train_wnn, train_conus
+mode: train   # train, test, train_test, train_wnn, train_conus
 ensemble_type: none    # none, frozen_pnn, free_pnn, avg, reg_max
 use_checkpoint: False    # See bottom
 
 random_seed: 111111
 device: cuda
-gpu_id: 1  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
+gpu_id: 0  # This is a list, each ind corresponds to gpu for a model. If only one ind, that gpu will be used for all models.
 
 train:
     start_time: 1999/10/01
@@ -22,19 +22,18 @@ test:
     end_time: 1999/10/01
 
 name: hmm1.3-${observations.name}
-# data_dir: /Users/leoglonz/Desktop/water/data
-# data_dir: F:\code_repos\water\data
 data_dir: /data/lgl5139/hydro_multimodel/dPLHydro_multimodel/runs 
-# data_dir: /home/lglonzarich/projects/hydro_multimodel/dPLHydro_multimodel/runs
 output_dir: ${data_dir}/${observations.name}/saved_models/
 
-## Model Config -------------------------------#
+
+
+## dPL Model Config -------------------------------#
 pnn_model: LSTM    # LSTM, MLP
-hydro_models: [HBV_capillary]    # HBV, HBV_capillary, HBV_waterLoss, marrmot_PRMS, SACSMA_with_snow
+hydro_models: [HBV]    # HBV, HBV_capillary, HBV_waterLoss, marrmot_PRMS, SACSMA_with_snow
 
 dy_params:
     # HBV: parBETA, parBETAET, parK0 | PRMS: alpha, scx, cgw, resmax, k1, k2 | SACSMA: pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs
-    HBV: [parBETA, parBETAET]
+    HBV: [parBETA, parBETAET, parK0]
     HBV_capillary: [parBETA, parBETAET, parK0]
     marrmot_PRMS: [alpha, scx, cgw, resmax, k1, k2]
     SACSMA_with_snow: [pctim, smax, f1, f2, kuz, rexp, f3, f4, pfree, klzp, klzs]
@@ -45,14 +44,13 @@ routing_hydro_model: True
 pet_module: dataset    # dataset, potet_hamon, potet_hargreaves
 pet_dataset_name: PET_hargreaves(mm/day)
 target: ['00060_Mean']    # 00060_Mean, 00010_Mean, BFI_AVE, PET
-use_log_norm: []  # For log normalization ('prcp(mm/day)' for HBV, [] otherwise)
+use_log_norm: ['prcp(mm/day)']  # For log normalization ('prcp(mm/day)' for HBV, [] otherwise)
 
-loss_function: NseLossBatchFlow  # RmseLossFlowComb, NsesqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
+loss_function: RmseLossFlowComb  # RmseLossFlowComb, NseSqrtLossFlow, NseLossBatchFlow (for HBV1.1p)
 loss_function_weights:
     w1: 11.0
     w2: 1.0
 
-# pNN opt
 nmul: 16  # HBV1.0: 16 | HBV2.0: 4
 warm_up: 365
 rho: 365
@@ -67,15 +65,19 @@ save_epoch: 10
 test_batch: 25
 
 
-# HBV 2.0 configurations
+
+# dHBV2.0 Config -------------------------------#
 ann_opt:
     nmul: 4
     dropout: 0.5
     hidden_size: 4096
     n_features: 13
 merit_batch_max: 10590
-hbvcap_no_warm: False
-    
+hbvcap_no_warm: True
+
+
+
+# Ensemble Weighting NN Config -------------------------------#
 weighting_nn:
     dropout: 0.5
     hidden_size: 256
@@ -88,6 +90,7 @@ weighting_nn:
     loss_factor: 15
     loss_lower_bound: 0.9
     loss_upper_bound: 1.1
+
 
 
 ## Model Checkpoints -------------------------------#

@@ -1,0 +1,24 @@
+Steps to run HBV 1.0 with PMI;
+
+*It is easiest to work on Suntzu, as the config is already set to source
+the CAMELS data from there.
+
+
+To begin training (or testing, if you have a trained model) note the following:
+
+1. Edit your configuration file: `dPLHydro_multimodel/conf/config.yaml`
+    - Specify the `gpu_id` of the GPU to use (default 0)
+    - Set `data_dir` as the path to the folder where trained models and other
+      support files should be saved.
+
+    This will give configurations to run HBV 1.0 with 2 dynamic parameters.
+
+2. Create a conda env with `mulhydrodl_env.yaml` and activate. (The hydrodl env
+   should also work since dependancies are similar.)
+
+3. While in the `hydro_multimodel/dPLHydro_multimodel` directory start the training
+   with `python __main__.py
+
+
+To perform model training, `mode` in the configuration file should be set to `test`.
+Alternatively, training and testing can be done in the same instance with `train_test`.
